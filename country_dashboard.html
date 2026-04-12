@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Sovereign Intelligence - Country Dashboard</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 24px;
+      background: #f7f9fc;
+      color: #111827;
+    }
+
+    h1 {
+      margin-bottom: 8px;
+    }
+
+    .topbar {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+    }
+
+    select, textarea, button {
+      padding: 10px;
+      font-size: 14px;
+    }
+
+    textarea {
+      width: 100%;
+      max-width: 1000px;
+      border-radius: 8px;
+      border: 1px solid #cbd5e1;
+      background: white;
+    }
+
+    button {
+      background: #111827;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      opacity: 0.92;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 16px;
+      margin-top: 20px;
+      max-width: 1200px;
+    }
+
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 16px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+      border: 1px solid #e5e7eb;
+      white-space: pre-wrap;
+    }
+
+    .card h2 {
+      margin-top: 0;
+      font-size: 18px;
+    }
+
+    .score-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      max-width: 1000px;
+      margin-top: 20px;
+    }
+
+    .score-box {
+      background: white;
+      border-radius: 12px;
+      padding: 16px;
+      text-align: center;
+      border: 1px solid #e5e7eb;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+
+    .score-label {
+      font-size: 13px;
+      color: #6b7280;
+      margin-bottom: 6px;
+    }
+
+    .score-value {
+      font-size: 28px;
+      font-weight: bold;
+    }
+
+    .risk-level {
+      margin-top: 8px;
+      font-size: 14px;
+      font-weight: bold;
+    }
+
+    .full-width {
+      max-width: 1200px;
+      margin-top: 16px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Sovereign Intelligence Country Dashboard</h1>
+  <p>Country-specific geopolitical, security, and energy risk dashboard.</p>
+
+  <div class="topbar">
+    <label for="country"><strong>Select Country:</strong></label>
+    <select id="country" onchange="setCountryQuery()">
+      <option>Pakistan</option>
+      <option>India</option>
+      <option>Iran</option>
+      <option>Afghanistan</option>
+      <option>China</option>
+      <option>Saudi Arabia</option>
+      <option>Russia</option>
+      <option>Ukraine</option>
+    </select>
+
+    <button onclick="setCountryQuery()">Load Default Query</button>
+    <button onclick="runAnalysis()">Run Analysis</button>
+  </div>
+
+  <textarea id="query" rows="4"></textarea>
+
+  <div class="score-row">
+    <div class="score-box">
+      <div class="score-label">Political Risk</div>
+      <div class="score-value" id="political_score">-</div>
+    </div>
+    <div class="score-box">
+      <div class="score-label">Security Risk</div>
+      <div class="score-value" id="security_score">-</div>
+    </div>
+    <div class="score-box">
+      <div class="score-label">Energy Risk</div>
+      <div class="score-value" id="energy_score">-</div>
+    </div>
+    <div class="score-box">
+      <div class="score-label">Overall Risk</div>
+      <div class="score-value" id="overall_score">-</div>
+      <div class="risk-level" id="risk_level"></div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <h2>Geopolitical</h2>
+      <div id="geo">No data yet.</div>
+    </div>
+
+    <div class="card">
+      <h2>Security</h2>
+      <div id="security">No data yet.</div>
+    </div>
+
+    <div class="card">
+      <h2>Energy</h2>
+      <div id="energy">No data yet.</div>
+    </div>
+  </div>
+
+  <div class="card full-width">
+    <h2>Score Summary</h2>
+    <div id="score_summary">No data yet.</div>
+  </div>
+
+  <div class="card full-width">
+    <h2>Final Briefing</h2>
+    <div id="final">No data yet.</div>
+  </div>
+
+  <script>
+    function setCountryQuery() {
+      const country = document.getElementById("country").value;
+      document.getElementById("query").value =
+        `Assess ${country} political, security and energy risks`;
+    }
+
+    async function runAnalysis() {
+      const query = document.getElementById("query").value;
+
+      document.getElementById("geo").textContent = "Loading...";
+      document.getElementById("security").textContent = "Loading...";
+      document.getElementById("energy").textContent = "Loading...";
+      document.getElementById("score_summary").textContent = "Loading...";
+      document.getElementById("final").textContent = "Loading...";
+      document.getElementById("political_score").textContent = "-";
+      document.getElementById("security_score").textContent = "-";
+      document.getElementById("energy_score").textContent = "-";
+      document.getElementById("overall_score").textContent = "-";
+      document.getElementById("risk_level").textContent = "";
+
+      try {
+        const response = await fetch("http://127.0.0.1:8006/analyze", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ query })
+        });
+
+        const data = await response.json();
+
+        if (data.error) {
+          document.getElementById("final").textContent = "Error: " + data.error;
+          return;
+        }
+
+        document.getElementById("geo").textContent = data.geopolitical || "";
+        document.getElementById("security").textContent = data.security || "";
+        document.getElementById("energy").textContent = data.energy || "";
+        document.getElementById("final").textContent = data.final || "";
+
+        if (data.score) {
+          document.getElementById("political_score").textContent = data.score.political_score ?? "-";
+          document.getElementById("security_score").textContent = data.score.security_score ?? "-";
+          document.getElementById("energy_score").textContent = data.score.energy_score ?? "-";
+          document.getElementById("overall_score").textContent = data.score.overall_score ?? "-";
+          document.getElementById("risk_level").textContent = data.score.risk_level || "";
+          document.getElementById("score_summary").textContent = data.score.summary || "";
+        }
+      } catch (error) {
+        document.getElementById("final").textContent = "Error: " + error.message;
+      }
+    }
+
+    setCountryQuery();
+  </script>
+</body>
+</html>
