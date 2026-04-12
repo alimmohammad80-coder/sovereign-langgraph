@@ -7,13 +7,10 @@ import os
 import json
 from supabase import create_client
 
-app = FastAPI()
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+app = FastAPI(
+    title="Sovereign Intelligence API",
+    docs_url="/docs",
+    openapi_url="/openapi.json"
 )
 
 client = OpenAI()
@@ -205,6 +202,10 @@ builder.add_edge("score", "final")
 builder.add_edge("final", END)
 
 graph = builder.compile()
+
+@app.get("/")
+def home():
+    return {"message": "Sovereign Intelligence API is running"}
 
 @app.post("/analyze")
 def analyze(data: dict):
