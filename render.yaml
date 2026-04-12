@@ -1,13 +1,6 @@
 services:
   - type: web
-    name: sovereign-langgraph
+    name: sovereign-intelligence
     env: python
     buildCommand: pip install -r requirements.txt
     startCommand: python -m uvicorn api:app --host 0.0.0.0 --port 10000
-    envVars:
-      - key: OPENAI_API_KEY
-        sync: false
-      - key: SUPABASE_URL
-        sync: false
-      - key: SUPABASE_KEY
-        sync: false
