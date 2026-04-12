@@ -13,6 +13,14 @@ app = FastAPI(
     openapi_url="/openapi.json"
 )
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # allow all (we tighten later)
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 client = OpenAI()
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
