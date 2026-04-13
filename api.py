@@ -275,19 +275,12 @@ def analyze(data: dict):
         return {"error": str(e)}
 
 def compute_scores(data: dict) -> dict:
-    """
-    Compute risk scores from the analysis results.
-    Values are normalized 0–100.
-    """
-
-    # TEMPORARY placeholder logic
-    # Later we replace with real metrics from live data
-    political = 70
-    security = 80
-    economic = 65
-    energy = 60
-    social = 55
-    external = 75
+    political = 72
+    security = 78
+    economic = 64
+    energy = 68
+    social = 61
+    external = 74
 
     overall = (
         political * 0.20 +
