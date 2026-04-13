@@ -219,28 +219,7 @@ def home():
 def analyze(data: dict):
     try:
         result = graph.invoke({"query": data["query"]})
-
-        score_raw = result.get("score", "{}")
-        try:
-            score_json = json.loads(score_raw)
-        except Exception:
-            score_json = {
-                "political_score": None,
-                "security_score": None,
-                "energy_score": None,
-                "overall_score": None,
-                "summary": score_raw
-            }
-
-        overall = score_json.get("overall_score")
-
-        if overall is not None:
-            if overall >= 80:
-                score_json["risk_level"] = "HIGH"
-            elif overall >= 60:
-                score_json["risk_level"] = "MEDIUM"
-            else:
-                score_json["risk_level"] = "LOW"
+        scores = compute_scores(result)
 
         supabase.table("analysis_results").insert({
             "query": data["query"],
