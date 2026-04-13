@@ -244,21 +244,75 @@ def analyze(data: dict):
 
         supabase.table("analysis_results").insert({
             "query": data["query"],
+            "country": data.get("country", "Unknown"),
             "result": result.get("final"),
             "geo": result.get("geo"),
             "energy": result.get("energy"),
             "security": result.get("security"),
-            "score": json.dumps(score_json)
+            "score": json.dumps(scores),
+            "political_score": scores["political_score"],
+            "security_score": scores["security_score"],
+            "economic_score": scores["economic_score"],
+            "energy_score": scores["energy_score"],
+            "social_score": scores["social_score"],
+            "external_score": scores["external_score"],
+            "overall_score": scores["overall_score"],
+            "risk_level": scores["risk_level"],
+            "score_summary": scores["score_summary"]
         }).execute()
 
         return {
             "query": data["query"],
+            "country": data.get("country", "Unknown"),
             "geopolitical": result.get("geo"),
             "energy": result.get("energy"),
             "security": result.get("security"),
-            "score": score_json,
+            "score": scores,
             "final": result.get("final")
         }
 
     except Exception as e:
         return {"error": str(e)}
+
+def compute_scores(data: dict) -> dict:
+    """
+    Compute risk scores from the analysis results.
+    Values are normalized 0–100.
+    """
+
+    # TEMPORARY placeholder logic
+    # Later we replace with real metrics from live data
+    political = 70
+    security = 80
+    economic = 65
+    energy = 60
+    social = 55
+    external = 75
+
+    overall = (
+        political * 0.20 +
+        security * 0.25 +
+        economic * 0.15 +
+        energy * 0.10 +
+        social * 0.15 +
+        external * 0.15
+    )
+
+    if overall >= 75:
+        level = "High"
+    elif overall >= 50:
+        level = "Moderate"
+    else:
+        level = "Low"
+
+    return {
+        "political_score": political,
+        "security_score": security,
+        "economic_score": economic,
+        "energy_score": energy,
+        "social_score": social,
+        "external_score": external,
+        "overall_score": round(overall, 1),
+        "risk_level": level,
+        "score_summary": f"Overall geopolitical risk level is {level}."
+    }
