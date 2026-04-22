@@ -1,3 +1,4 @@
+cat > app/api/ingest.py <<'PY'
 from fastapi import APIRouter
 from app.services.news_service import fetch_news
 from app.services.news_storage_service import save_raw_news
@@ -119,3 +120,4 @@ def ingest_and_normalize_gdelt(query: str = "geopolitics"):
         "fetched": len(articles),
         "normalized": result.get("inserted", 0)
     }
+PY
