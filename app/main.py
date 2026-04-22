@@ -6,6 +6,7 @@ from app.api.dashboard import router as dashboard_router
 
 app = FastAPI(title="Sovereign Intelligence API")
 
+# ✅ CORS FIX (THIS IS THE IMPORTANT PART)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
