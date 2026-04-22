@@ -1,8 +1,8 @@
 from collections import Counter
 from app.services.curated_signals_service import generate_curated_signals
 
-def build_dashboard_overview(limit=10):
-    curated = generate_curated_signals(limit=limit)
+def build_dashboard_overview(limit=10, query=None):
+    curated = generate_curated_signals(limit=limit, query=query)
     signals = curated.get("signals", [])
 
     category_counts = Counter()
@@ -26,6 +26,7 @@ def build_dashboard_overview(limit=10):
             "top_countries": [
                 {"name": k, "count": v} for k, v in country_counts.most_common(5)
             ],
+            "query": query
         },
         "signals": signals
     }

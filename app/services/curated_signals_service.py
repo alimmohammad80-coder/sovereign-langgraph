@@ -12,14 +12,20 @@ def get_openai_client():
         raise ValueError("OPENAI_API_KEY is missing")
     return OpenAI(api_key=api_key)
 
-def get_recent_normalized_signals(limit=30):
-    result = (
+def get_recent_normalized_signals(limit=30, query=None):
+    builder = (
         supabase.table("normalized_signals")
         .select("*")
         .order("created_at", desc=True)
         .limit(limit)
-        .execute()
     )
+
+    if query and query.strip():
+        builder = builder.or_(
+            f"title.ilike.%{query}%,summary.ilike.%{query}%,country.ilike.%{query}%,topic.ilike.%{query}%"
+        )
+
+    result = builder.execute()
     return result.data if result.data else []
 
 def build_signal_input(rows):
@@ -37,10 +43,10 @@ def build_signal_input(rows):
         })
     return cleaned
 
-def generate_curated_signals(limit=10):
+def generate_curated_signals(limit=10, query=None):
     client = get_openai_client()
 
-    rows = get_recent_normalized_signals(limit=30)
+    rows = get_recent_normalized_signals(limit=30, query=query)
     payload = build_signal_input(rows)
 
     prompt = f"""
@@ -58,6 +64,7 @@ Rules:
 - If the original text is vague, infer the likely strategic meaning conservatively.
 - Return ONLY valid JSON.
 - Return at most {limit} signals.
+- Prioritize relevance to this query: {query if query else "general recent developments"}.
 
 Required JSON format:
 {{

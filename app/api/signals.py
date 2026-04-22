@@ -8,6 +8,5 @@ def test_signals():
     return {"status": "signals route working"}
 
 @router.get("/curated")
-def curated_signals(limit: int = 10):
-    data = generate_curated_signals(limit=limit)
-    return data
+def curated_signals(limit: int = 10, query: str | None = None):
+    return generate_curated_signals(limit=limit, query=query)

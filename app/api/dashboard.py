@@ -8,5 +8,5 @@ def test_dashboard():
     return {"status": "dashboard route working"}
 
 @router.get("/overview")
-def dashboard_overview(limit: int = 10):
-    return build_dashboard_overview(limit=limit)
+def dashboard_overview(limit: int = 10, query: str | None = None):
+    return build_dashboard_overview(limit=limit, query=query)
