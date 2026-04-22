@@ -2,23 +2,45 @@ import os
 import requests
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(".env")
 
-NEWS_API_KEY = os.getenv("NEWS_API_KEY")
+NEWS_API_URL = "https://newsapi.org/v2/everything"
 
-def fetch_news(query="geopolitics", language="en", page_size=10):
-    if not NEWS_API_KEY:
-        raise ValueError("NEWS_API_KEY is missing in .env")
+def fetch_news(query="geopolitics", page_size=10):
+    api_key = os.getenv("NEWS_API_KEY")
 
-    url = "https://newsapi.org/v2/everything"
-    params = {
-        "q": query,
-        "language": language,
-        "pageSize": page_size,
-        "sortBy": "publishedAt",
-        "apiKey": NEWS_API_KEY,
-    }
+    if not api_key:
+        return {
+            "status": "error",
+            "message": "NEWS_API_KEY is missing",
+            "articles": []
+        }
 
-    response = requests.get(url, params=params, timeout=30)
-    response.raise_for_status()
-    return response.json()
+    try:
+        response = requests.get(
+            NEWS_API_URL,
+            params={
+                "q": query,
+                "language": "en",
+                "pageSize": page_size,
+                "sortBy": "publishedAt",
+                "apiKey": api_key,
+            },
+            timeout=30,
+        )
+
+        response.raise_for_status()
+        data = response.json()
+
+        return data if "articles" in data else {
+            "status": "error",
+            "message": "Invalid response format",
+            "articles": []
+        }
+
+    except requests.RequestException as e:
+        return {
+            "status": "error",
+            "message": str(e),
+            "articles": []
+        }
