@@ -1,12 +1,16 @@
 import json
-from app.services.supabase_service import supabase
-from openai import OpenAI
-from dotenv import load_dotenv
 import os
+from dotenv import load_dotenv
+from openai import OpenAI
+from app.services.supabase_service import supabase
 
 load_dotenv(".env")
 
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+def get_openai_client():
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        raise ValueError("OPENAI_API_KEY is missing")
+    return OpenAI(api_key=api_key)
 
 def get_recent_normalized_signals(limit=30):
     result = (
@@ -34,6 +38,8 @@ def build_signal_input(rows):
     return cleaned
 
 def generate_curated_signals(limit=10):
+    client = get_openai_client()
+
     rows = get_recent_normalized_signals(limit=30)
     payload = build_signal_input(rows)
 
@@ -77,7 +83,10 @@ Input signals:
         model="gpt-4.1-mini",
         temperature=0.2,
         messages=[
-            {"role": "system", "content": "You convert raw multilingual signals into concise English intelligence summaries."},
+            {
+                "role": "system",
+                "content": "You convert raw multilingual signals into concise English intelligence summaries."
+            },
             {"role": "user", "content": prompt},
         ],
     )
