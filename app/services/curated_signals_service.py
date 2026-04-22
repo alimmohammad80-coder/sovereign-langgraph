@@ -221,115 +221,84 @@ def build_signal_input(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     return cleaned
 
 
-def build_prompt(payload: List[Dict[str, Any]], limit: int, query: Optional[str]) -> str:
-    active_query = query if query else "general recent developments"
-    strict_mode = is_country_query(query)
-
-    return f"""
-You are a senior intelligence analyst producing a premium strategic signals feed.
-
-Objective:
-Transform the input records into concise, high-relevance English intelligence signals.
-
-Active query:
-{active_query}
-
-Rules:
-- Translate any non-English content into natural English.
-- Do not mention publishers, source names, domains, or URLs.
-- Remove duplicates, event echo, and low-value noise.
-- Focus on developments with geopolitical, security, energy, or economic significance.
-- Be conservative and disciplined. Do not overstate uncertain claims.
-- Return ONLY valid JSON.
-- Return at most {limit} signals.
-
-Relevance rules:
-- Prioritize strict relevance to the active query.
-- If a signal is only indirectly related, exclude it.
-- {"This is a country query. Prefer signals where that country is the primary subject, not merely mentioned in passing." if strict_mode else "This is a topic query. Prefer signals where the topic is central, not incidental."}
-
-Writing rules:
-- title: short, sharp, English, intelligence-style
-- summary: 2-3 sentences, direct and analytic
-- why_it_matters: 1-2 sentences explaining strategic significance
-- category: choose exactly one of:
-  Geopolitics, Security, Energy, Economics
-- confidence: integer from 0 to 100
-
-Required JSON format:
-{{
-  "signals": [
-    {{
-      "title": "short English title",
-      "summary": "2-3 sentence English summary",
-      "why_it_matters": "1-2 sentence strategic relevance",
-      "country": "country name or null",
-      "region": "region name or null",
-      "category": "Geopolitics or Security or Energy or Economics",
-      "confidence": 0,
-      "updated_at": "timestamp from input if available"
-    }}
-  ]
-}}
-
-Input records:
-{json.dumps(payload, ensure_ascii=False)}
-""".strip()
 
 
 # -----------------------------
 # Public entrypoint
 # -----------------------------
-def generate_curated_signals(limit: int = DEFAULT_OUTPUT_LIMIT, query: Optional[str] = None) -> Dict[str, Any]:
+def generate_curated_signals(limit=10, query=None):
     client = get_openai_client()
 
+    normalized_query = (query or "").strip().lower()
+    strict_country_mode = is_country_query(query)
+
     rows = get_recent_normalized_signals(limit=40, query=query)
+
+    # HARD FILTER BEFORE LLM
+    if strict_country_mode:
+        filtered = []
+        for row in rows:
+            title = (row.get("title") or "").lower()
+            summary = (row.get("summary") or "").lower()
+            country = (row.get("country") or "").lower()
+
+            if country == normalized_query:
+                filtered.append(row)
+                continue
+
+            score = 0
+            if normalized_query in title:
+                score += 2
+            if normalized_query in summary:
+                score += 1
+
+            if score >= 2:
+                filtered.append(row)
+
+        rows = filtered
+
     payload = build_signal_input(rows)
 
-    # Graceful empty result
     if not payload:
         return {"signals": []}
 
-    prompt = build_prompt(payload=payload, limit=limit, query=query)
+    prompt = build_prompt(payload, limit, query)
 
     response = client.chat.completions.create(
         model="gpt-4.1-mini",
         temperature=0.1,
         messages=[
-            {
-                "role": "system",
-                "content": "You convert noisy multilingual signal inputs into highly relevant English strategic intelligence summaries."
-            },
-            {
-                "role": "user",
-                "content": prompt
-            },
+            {"role": "system", "content": "Strict geopolitical intelligence filtering."},
+            {"role": "user", "content": prompt}
         ],
     )
 
     content = response.choices[0].message.content or ""
     data = safe_json_load(content)
 
-    # Safety normalization
     signals = data.get("signals", [])
-    if not isinstance(signals, list):
-        return {"signals": []}
 
-    normalized_signals: List[Dict[str, Any]] = []
-    for item in signals[:limit]:
-        if not isinstance(item, dict):
+    final = []
+    for s in signals[:limit]:
+        if not isinstance(s, dict):
             continue
 
-        normalized_signals.append({
-            "title": item.get("title"),
-            "summary": item.get("summary"),
-            "why_it_matters": item.get("why_it_matters"),
-            "country": item.get("country"),
-            "region": item.get("region"),
-            "category": item.get("category"),
-            "confidence": item.get("confidence"),
-            "updated_at": item.get("updated_at"),
-        })
+        if strict_country_mode:
+            sc = (s.get("country") or "").lower()
+            title = (s.get("title") or "").lower()
+            summary = (s.get("summary") or "").lower()
 
-    return {"signals": normalized_signals}
+            score = 0
+            if sc == normalized_query:
+                score += 2
+            if normalized_query in title:
+                score += 2
+            if normalized_query in summary:
+                score += 1
 
+            if score < 2:
+                continue
+
+        final.append(s)
+
+    return {"signals": final}
