@@ -9,14 +9,9 @@ from app.services.supabase_service import supabase
 
 load_dotenv(".env")
 
-
-# -----------------------------
-# Config
-# -----------------------------
 DEFAULT_FETCH_LIMIT = 120
 DEFAULT_OUTPUT_LIMIT = 10
 
-# Expand this over time as you add more country pages.
 KNOWN_COUNTRIES = {
     "afghanistan", "algeria", "argentina", "armenia", "australia", "austria",
     "azerbaijan", "bangladesh", "belarus", "belgium", "bolivia", "brazil",
@@ -47,9 +42,6 @@ COUNTRY_ALIASES = {
 }
 
 
-# -----------------------------
-# Utilities
-# -----------------------------
 def get_openai_client() -> OpenAI:
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
@@ -78,15 +70,13 @@ def is_country_query(query: Optional[str]) -> bool:
 
 
 def safe_json_load(text: str) -> Dict[str, Any]:
-    text = text.strip()
+    text = (text or "").strip()
 
-    # Direct parse
     try:
         return json.loads(text)
     except json.JSONDecodeError:
         pass
 
-    # Strip markdown fences if model adds them
     text = re.sub(r"^```json\s*", "", text, flags=re.IGNORECASE)
     text = re.sub(r"^```\s*", "", text)
     text = re.sub(r"\s*```$", "", text)
@@ -112,9 +102,6 @@ def dedupe_rows(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     return cleaned
 
 
-# -----------------------------
-# Data fetch + ranking
-# -----------------------------
 def fetch_candidate_rows(limit: int = DEFAULT_FETCH_LIMIT) -> List[Dict[str, Any]]:
     result = (
         supabase.table("normalized_signals")
@@ -140,7 +127,6 @@ def score_row_for_query(row: Dict[str, Any], query: Optional[str]) -> int:
     combined = f"{title} {summary} {country} {region} {topic}"
     score = 0
 
-    # Country-query mode: much stricter
     if is_country_query(q):
         if country == q:
             score += 20
@@ -151,11 +137,8 @@ def score_row_for_query(row: Dict[str, Any], query: Optional[str]) -> int:
         elif q in region:
             score += 2
 
-        # Penalize if query only weakly appears but another country seems primary
         if country and country != q and q not in title and q not in summary:
             score -= 5
-
-    # General topic mode
     else:
         if q in title:
             score += 10
@@ -168,7 +151,6 @@ def score_row_for_query(row: Dict[str, Any], query: Optional[str]) -> int:
         if q in country:
             score += 8
 
-        # Token overlap bonus
         query_tokens = set(tokenize(q))
         row_tokens = set(tokenize(combined))
         overlap = len(query_tokens.intersection(row_tokens))
@@ -200,9 +182,6 @@ def get_recent_normalized_signals(limit: int = DEFAULT_FETCH_LIMIT, query: Optio
     return [row for _, row in ranked[:limit]]
 
 
-# -----------------------------
-# LLM input shaping
-# -----------------------------
 def build_signal_input(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     cleaned: List[Dict[str, Any]] = []
 
@@ -221,84 +200,164 @@ def build_signal_input(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     return cleaned
 
 
+def build_prompt(payload: List[Dict[str, Any]], limit: int, query: Optional[str]) -> str:
+    active_query = query if query else "general recent developments"
+    strict_mode = is_country_query(query)
+
+    return f"""
+You are a senior intelligence analyst producing a premium strategic signals feed.
+
+Objective:
+Transform the input records into concise, high-relevance English intelligence signals.
+
+Active query:
+{active_query}
+
+Rules:
+- Translate any non-English content into natural English.
+- Do not mention publishers, source names, domains, or URLs.
+- Remove duplicates, event echoes, and low-value noise.
+- Focus only on developments with geopolitical, security, energy, or economic significance.
+- Be disciplined and conservative. Do not stretch relevance.
+- Return ONLY valid JSON.
+- Return at most {limit} signals.
+
+Relevance rules:
+- Prioritize strict relevance to the active query.
+- If a signal is only indirectly related, exclude it.
+- {"This is a strict country query. Include only signals where that country is the primary subject. Exclude indirectly related regional items, neighboring-country developments, and passing mentions." if strict_mode else "This is a topic query. Prefer signals where the topic is central, not incidental."}
+
+Writing rules:
+- title: short, sharp, English, intelligence-style
+- summary: 2-3 sentences, direct and analytic
+- why_it_matters: 1-2 sentences explaining strategic significance
+- category: choose exactly one of:
+  Geopolitics, Security, Energy, Economics
+- confidence: integer from 0 to 100
+
+Required JSON format:
+{{
+  "signals": [
+    {{
+      "title": "short English title",
+      "summary": "2-3 sentence English summary",
+      "why_it_matters": "1-2 sentence strategic relevance",
+      "country": "country name or null",
+      "region": "region name or null",
+      "category": "Geopolitics or Security or Energy or Economics",
+      "confidence": 0,
+      "updated_at": "timestamp from input if available"
+    }}
+  ]
+}}
+
+Input records:
+{json.dumps(payload, ensure_ascii=False)}
+""".strip()
 
 
-# -----------------------------
-# Public entrypoint
-# -----------------------------
-def generate_curated_signals(limit=10, query=None):
-    client = get_openai_client()
+def generate_curated_signals(limit: int = DEFAULT_OUTPUT_LIMIT, query: Optional[str] = None) -> Dict[str, Any]:
+    try:
+        client = get_openai_client()
 
-    normalized_query = (query or "").strip().lower()
-    strict_country_mode = is_country_query(query)
+        normalized_query = normalize_query(query)
+        strict_country_mode = is_country_query(query)
 
-    rows = get_recent_normalized_signals(limit=40, query=query)
-
-    # HARD FILTER BEFORE LLM
-    if strict_country_mode:
-        filtered = []
-        for row in rows:
-            title = (row.get("title") or "").lower()
-            summary = (row.get("summary") or "").lower()
-            country = (row.get("country") or "").lower()
-
-            if country == normalized_query:
-                filtered.append(row)
-                continue
-
-            score = 0
-            if normalized_query in title:
-                score += 2
-            if normalized_query in summary:
-                score += 1
-
-            if score >= 2:
-                filtered.append(row)
-
-        rows = filtered
-
-    payload = build_signal_input(rows)
-
-    if not payload:
-        return {"signals": []}
-
-    prompt = build_prompt(payload, limit, query)
-
-    response = client.chat.completions.create(
-        model="gpt-4.1-mini",
-        temperature=0.1,
-        messages=[
-            {"role": "system", "content": "Strict geopolitical intelligence filtering."},
-            {"role": "user", "content": prompt}
-        ],
-    )
-
-    content = response.choices[0].message.content or ""
-    data = safe_json_load(content)
-
-    signals = data.get("signals", [])
-
-    final = []
-    for s in signals[:limit]:
-        if not isinstance(s, dict):
-            continue
+        rows = get_recent_normalized_signals(limit=40, query=query)
 
         if strict_country_mode:
-            sc = (s.get("country") or "").lower()
-            title = (s.get("title") or "").lower()
-            summary = (s.get("summary") or "").lower()
+            locked_rows = []
+            for row in rows:
+                title = normalize_text(row.get("title"))
+                summary = normalize_text(row.get("summary"))
+                country = normalize_text(row.get("country"))
 
-            score = 0
-            if sc == normalized_query:
-                score += 2
-            if normalized_query in title:
-                score += 2
-            if normalized_query in summary:
-                score += 1
+                if country == normalized_query:
+                    locked_rows.append(row)
+                    continue
 
-            if score < 2:
+                mentions = 0
+                if normalized_query in title:
+                    mentions += 2
+                if normalized_query in summary:
+                    mentions += 1
+
+                if mentions >= 2:
+                    locked_rows.append(row)
+
+            rows = locked_rows
+
+        payload = build_signal_input(rows)
+
+        if not payload:
+            return {"signals": []}
+
+        prompt = build_prompt(payload=payload, limit=limit, query=query)
+
+        response = client.chat.completions.create(
+            model="gpt-4.1-mini",
+            temperature=0.1,
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "You convert noisy multilingual signal inputs into highly relevant English strategic intelligence summaries. "
+                        "For country queries, include only signals where that country is the main subject. "
+                        "Do not include indirectly related regional items."
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": prompt
+                },
+            ],
+        )
+
+        content = response.choices[0].message.content or ""
+
+        try:
+            data = safe_json_load(content)
+        except Exception:
+            return {"signals": []}
+
+        signals = data.get("signals", [])
+        if not isinstance(signals, list):
+            return {"signals": []}
+
+        normalized_signals: List[Dict[str, Any]] = []
+        for item in signals[:limit]:
+            if not isinstance(item, dict):
                 continue
 
-        final.append(s)
+            signal_country = normalize_text(item.get("country"))
+            title = normalize_text(item.get("title"))
+            summary = normalize_text(item.get("summary"))
 
-    return {"signals": final}
+            if strict_country_mode:
+                if signal_country != normalized_query:
+                    direct_mentions = 0
+                    if normalized_query in title:
+                        direct_mentions += 2
+                    if normalized_query in summary:
+                        direct_mentions += 1
+                    if direct_mentions < 2:
+                        continue
+
+            normalized_signals.append({
+                "title": item.get("title"),
+                "summary": item.get("summary"),
+                "why_it_matters": item.get("why_it_matters"),
+                "country": item.get("country"),
+                "region": item.get("region"),
+                "category": item.get("category"),
+                "confidence": item.get("confidence"),
+                "updated_at": item.get("updated_at"),
+            })
+
+        return {"signals": normalized_signals}
+
+    except Exception as e:
+        return {
+            "signals": [],
+            "error": str(e),
+        }
