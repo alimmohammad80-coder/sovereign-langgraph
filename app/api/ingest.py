@@ -1,4 +1,3 @@
-cat > app/api/ingest.py <<'PY'
 from fastapi import APIRouter
 from app.services.news_service import fetch_news
 from app.services.news_storage_service import save_raw_news
@@ -41,12 +40,20 @@ def ingest_and_save_news(query: str = "geopolitics"):
             "error": data.get("message", "No articles returned")
         }
 
-    result = save_raw_news(articles)
-    return {
-        "source": "news",
-        "fetched": len(articles),
-        "saved": result.get("inserted", 0)
-    }
+    try:
+        result = save_raw_news(articles)
+        return {
+            "source": "news",
+            "fetched": len(articles),
+            "saved": result.get("inserted", 0)
+        }
+    except Exception as e:
+        return {
+            "source": "news",
+            "fetched": len(articles),
+            "saved": 0,
+            "error": str(e)
+        }
 
 
 @router.get("/news/normalize")
@@ -62,12 +69,20 @@ def ingest_and_normalize_news(query: str = "geopolitics"):
             "error": data.get("message", "No articles returned")
         }
 
-    result = normalize_news_articles(articles)
-    return {
-        "source": "news",
-        "fetched": len(articles),
-        "normalized": result.get("inserted", 0)
-    }
+    try:
+        result = normalize_news_articles(articles)
+        return {
+            "source": "news",
+            "fetched": len(articles),
+            "normalized": result.get("inserted", 0)
+        }
+    except Exception as e:
+        return {
+            "source": "news",
+            "fetched": len(articles),
+            "normalized": 0,
+            "error": str(e)
+        }
 
 
 @router.get("/gdelt")
@@ -94,12 +109,20 @@ def ingest_and_save_gdelt(query: str = "geopolitics"):
             "saved": 0
         }
 
-    result = save_raw_gdelt(articles)
-    return {
-        "source": "gdelt",
-        "fetched": len(articles),
-        "saved": result.get("inserted", 0)
-    }
+    try:
+        result = save_raw_gdelt(articles)
+        return {
+            "source": "gdelt",
+            "fetched": len(articles),
+            "saved": result.get("inserted", 0)
+        }
+    except Exception as e:
+        return {
+            "source": "gdelt",
+            "fetched": len(articles),
+            "saved": 0,
+            "error": str(e)
+        }
 
 
 @router.get("/gdelt/normalize")
@@ -114,10 +137,17 @@ def ingest_and_normalize_gdelt(query: str = "geopolitics"):
             "normalized": 0
         }
 
-    result = normalize_gdelt_articles(articles)
-    return {
-        "source": "gdelt",
-        "fetched": len(articles),
-        "normalized": result.get("inserted", 0)
-    }
-PY
+    try:
+        result = normalize_gdelt_articles(articles)
+        return {
+            "source": "gdelt",
+            "fetched": len(articles),
+            "normalized": result.get("inserted", 0)
+        }
+    except Exception as e:
+        return {
+            "source": "gdelt",
+            "fetched": len(articles),
+            "normalized": 0,
+            "error": str(e)
+        }
