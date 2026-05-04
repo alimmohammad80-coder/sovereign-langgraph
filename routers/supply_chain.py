@@ -1,25 +1,221 @@
 from fastapi import APIRouter
 from datetime import datetime
+from typing import Dict, Any, Optional
 
 router = APIRouter(prefix="/api/supply-chain", tags=["Supply Chain Risk"])
 
 
+CHOKEPOINTS = [
+    {
+        "id": "hormuz",
+        "name": "Strait of Hormuz",
+        "region": "Persian Gulf",
+        "countries": ["Iran", "Oman", "United Arab Emirates"],
+        "risk_score": 84,
+        "risk_level": "Critical",
+        "affected_commodities": ["Oil", "LNG", "Refined Petroleum"],
+        "affected_routes": ["Gulf energy exports to Asia", "Gulf energy exports to Europe"],
+        "affected_sectors": ["Energy", "Shipping", "Manufacturing", "Defense"],
+        "primary_drivers": [
+            "Naval activity",
+            "Iran-U.S. tensions",
+            "Tanker insurance premiums",
+            "Energy price volatility",
+            "Limited rerouting capacity"
+        ],
+        "recent_signals": [
+            "Elevated maritime security concerns",
+            "Energy-market sensitivity",
+            "Strategic chokepoint concentration"
+        ],
+        "forecast_7d": "Elevated",
+        "forecast_30d": "High",
+        "forecast_90d": "Persistent elevated risk",
+        "confidence": "Medium-High"
+    },
+    {
+        "id": "taiwan-strait",
+        "name": "Taiwan Strait",
+        "region": "Indo-Pacific",
+        "countries": ["Taiwan", "China", "Japan", "United States"],
+        "risk_score": 79,
+        "risk_level": "High",
+        "affected_commodities": ["Semiconductors", "Electronics", "Advanced Manufacturing Inputs"],
+        "affected_routes": ["Western Pacific shipping routes", "East Asia technology supply chain"],
+        "affected_sectors": ["Semiconductors", "Electronics", "Manufacturing", "Defense"],
+        "primary_drivers": [
+            "Military exercises",
+            "Export controls",
+            "U.S.-China rivalry",
+            "Semiconductor production concentration"
+        ],
+        "recent_signals": [
+            "Military signaling",
+            "Technology export control pressure",
+            "Alliance coordination"
+        ],
+        "forecast_7d": "Moderate",
+        "forecast_30d": "High",
+        "forecast_90d": "Structurally elevated",
+        "confidence": "Medium"
+    },
+    {
+        "id": "bab-el-mandeb",
+        "name": "Bab el-Mandeb",
+        "region": "Red Sea / Gulf of Aden",
+        "countries": ["Yemen", "Djibouti", "Eritrea"],
+        "risk_score": 82,
+        "risk_level": "Critical",
+        "affected_commodities": ["Oil", "LNG", "Containers", "Food"],
+        "affected_routes": ["Red Sea shipping corridor", "Asia-Europe maritime route"],
+        "affected_sectors": ["Shipping", "Energy", "Food", "Manufacturing"],
+        "primary_drivers": [
+            "Armed group activity",
+            "Vessel attack risk",
+            "Insurance premium pressure",
+            "Shipping rerouting"
+        ],
+        "recent_signals": [
+            "Alternative routing around Cape of Good Hope",
+            "Heightened maritime advisories",
+            "Regional conflict spillover"
+        ],
+        "forecast_7d": "High",
+        "forecast_30d": "High",
+        "forecast_90d": "Persistent conflict-linked risk",
+        "confidence": "Medium-High"
+    },
+    {
+        "id": "suez",
+        "name": "Suez Canal",
+        "region": "Egypt / Eastern Mediterranean",
+        "countries": ["Egypt"],
+        "risk_score": 68,
+        "risk_level": "Moderate-High",
+        "affected_commodities": ["Containers", "Oil", "LNG", "Manufactured Goods"],
+        "affected_routes": ["Asia-Europe trade route", "Mediterranean-Red Sea corridor"],
+        "affected_sectors": ["Shipping", "Energy", "Retail", "Manufacturing"],
+        "primary_drivers": [
+            "Red Sea instability",
+            "Shipping rerouting",
+            "Transit reliability concerns",
+            "Insurance cost sensitivity"
+        ],
+        "recent_signals": [
+            "Route diversion pressure",
+            "Regional security uncertainty",
+            "Transit dependency exposure"
+        ],
+        "forecast_7d": "Moderate",
+        "forecast_30d": "Elevated",
+        "forecast_90d": "Dependent on Red Sea security environment",
+        "confidence": "Medium"
+    }
+]
+
+
+INDICATORS = [
+    {
+        "category": "Chokepoint Risk",
+        "indicator_name": "Shipping Rerouting Frequency",
+        "indicator_code": "shipping_rerouting_frequency",
+        "current_value": 67,
+        "direction": "Rising",
+        "severity": "High",
+        "confidence": "Medium",
+        "source_type": "AIS / shipping data",
+        "methodology_note": "Rising rerouting may indicate disruption, insurance concerns, or conflict avoidance behavior."
+    },
+    {
+        "category": "Energy Supply",
+        "indicator_name": "Oil Transit Exposure",
+        "indicator_code": "oil_transit_exposure",
+        "current_value": 82,
+        "direction": "Rising",
+        "severity": "Critical",
+        "confidence": "High",
+        "source_type": "Energy market / trade data",
+        "methodology_note": "High oil transit exposure increases vulnerability to chokepoint disruption and price shocks."
+    },
+    {
+        "category": "Commodity Dependency",
+        "indicator_name": "Semiconductor Concentration Exposure",
+        "indicator_code": "semiconductor_concentration_exposure",
+        "current_value": 79,
+        "direction": "Stable",
+        "severity": "High",
+        "confidence": "Medium-High",
+        "source_type": "Trade / industrial concentration data",
+        "methodology_note": "Measures exposure to concentrated semiconductor production and transit corridors."
+    },
+    {
+        "category": "Logistics and Ports",
+        "indicator_name": "Port and Vessel Delay Index",
+        "indicator_code": "vessel_delay_index",
+        "current_value": 61,
+        "direction": "Rising",
+        "severity": "Moderate",
+        "confidence": "Medium",
+        "source_type": "Port / shipping data",
+        "methodology_note": "Delay increases can signal congestion, rerouting pressure, or operational disruption."
+    },
+    {
+        "category": "Sanctions and Trade",
+        "indicator_name": "Export Control Exposure",
+        "indicator_code": "export_control_exposure",
+        "current_value": 74,
+        "direction": "Rising",
+        "severity": "High",
+        "confidence": "Medium",
+        "source_type": "Sanctions / trade policy data",
+        "methodology_note": "Tracks exposure to restrictions affecting dual-use, technology, energy, and strategic commodities."
+    }
+]
+
+
+def find_chokepoint(name: Optional[str]) -> Optional[Dict[str, Any]]:
+    if not name:
+        return None
+
+    name_lower = name.lower()
+
+    for chokepoint in CHOKEPOINTS:
+        if name_lower in chokepoint["name"].lower() or chokepoint["name"].lower() in name_lower:
+            return chokepoint
+
+    return None
+
+
+def classify_global_risk(score: int) -> str:
+    if score >= 85:
+        return "Critical"
+    if score >= 70:
+        return "High"
+    if score >= 50:
+        return "Moderate"
+    if score >= 25:
+        return "Low"
+    return "Minimal"
+
+
 @router.get("/overview")
 def get_supply_chain_overview():
+    global_score = round(sum(item["risk_score"] for item in CHOKEPOINTS) / len(CHOKEPOINTS))
+    top_dependencies = sorted(
+        list({commodity for item in CHOKEPOINTS for commodity in item["affected_commodities"]})
+    )[:6]
+
     return {
         "engine": "sovereign_supply_chain_risk",
         "status": "success",
         "last_updated": datetime.utcnow().isoformat(),
         "data": {
-            "global_score": 72,
-            "risk_level": "High",
-            "active_chokepoint_alerts": 6,
-            "critical_dependency_exposure": [
-                "Semiconductors",
-                "Rare Earths",
-                "LNG"
-            ],
-            "disruption_probability_30d": 38
+            "global_score": global_score,
+            "risk_level": classify_global_risk(global_score),
+            "active_chokepoint_alerts": len([item for item in CHOKEPOINTS if item["risk_score"] >= 70]),
+            "critical_dependency_exposure": top_dependencies,
+            "disruption_probability_30d": min(round(global_score * 0.55), 95),
+            "top_risks": sorted(CHOKEPOINTS, key=lambda x: x["risk_score"], reverse=True)[:3]
         }
     }
 
@@ -28,39 +224,8 @@ def get_supply_chain_overview():
 def get_chokepoints():
     return {
         "status": "success",
-        "data": [
-            {
-                "id": "hormuz",
-                "name": "Strait of Hormuz",
-                "region": "Persian Gulf",
-                "risk_score": 84,
-                "risk_level": "Critical",
-                "affected_commodities": ["Oil", "LNG"],
-                "primary_drivers": [
-                    "Naval activity",
-                    "Iran-U.S. tensions",
-                    "Insurance premiums"
-                ],
-                "confidence": "Medium-High"
-            },
-            {
-                "id": "taiwan-strait",
-                "name": "Taiwan Strait",
-                "region": "Indo-Pacific",
-                "risk_score": 79,
-                "risk_level": "High",
-                "affected_commodities": [
-                    "Semiconductors",
-                    "Electronics"
-                ],
-                "primary_drivers": [
-                    "Military exercises",
-                    "Export controls",
-                    "U.S.-China rivalry"
-                ],
-                "confidence": "Medium"
-            }
-        ]
+        "count": len(CHOKEPOINTS),
+        "data": CHOKEPOINTS
     }
 
 
@@ -68,72 +233,135 @@ def get_chokepoints():
 def get_indicators():
     return {
         "status": "success",
-        "data": [
-            {
-                "category": "Chokepoint Risk",
-                "indicator_name": "Shipping Rerouting Frequency",
-                "current_value": 67,
-                "direction": "Rising",
-                "severity": "High",
-                "confidence": "Medium",
-                "source_type": "AIS / shipping data"
-            },
-            {
-                "category": "Energy Supply",
-                "indicator_name": "Oil Transit Exposure",
-                "current_value": 82,
-                "direction": "Rising",
-                "severity": "Critical",
-                "confidence": "High",
-                "source_type": "Energy market / trade data"
-            }
-        ]
+        "count": len(INDICATORS),
+        "data": INDICATORS
     }
 
 
 @router.post("/run-agent")
 def run_supply_chain_agent(payload: dict):
+    agent_type = payload.get("agent_type", "full_supply_chain_briefing_agent")
+    selected_chokepoint = payload.get("selected_chokepoint")
+    selected_country = payload.get("selected_country")
+    selected_commodity = payload.get("selected_commodity")
+    selected_sector = payload.get("selected_sector")
+    selected_route = payload.get("selected_route")
+    time_horizon = payload.get("time_horizon", "30 days")
+
     selected_target = (
-        payload.get("selected_chokepoint")
-        or payload.get("selected_country")
-        or payload.get("selected_commodity")
-        or "Global Supply Chain"
+        selected_chokepoint
+        or selected_country
+        or selected_commodity
+        or selected_sector
+        or selected_route
     )
+
+    if not selected_target:
+        return {
+            "status": "error",
+            "message": "No target selected. Select a chokepoint, country, commodity, sector, or route before running the agent.",
+            "required_fields": [
+                "selected_chokepoint",
+                "selected_country",
+                "selected_commodity",
+                "selected_sector",
+                "selected_route"
+            ]
+        }
+
+    matched_chokepoint = find_chokepoint(selected_chokepoint)
+
+    if matched_chokepoint:
+        target_name = matched_chokepoint["name"]
+        risk_score = matched_chokepoint["risk_score"]
+        risk_level = matched_chokepoint["risk_level"]
+        drivers = matched_chokepoint["primary_drivers"]
+        affected_sectors = matched_chokepoint["affected_sectors"]
+        commodities = matched_chokepoint["affected_commodities"]
+        routes = matched_chokepoint["affected_routes"]
+        confidence = matched_chokepoint["confidence"]
+        forecast_7d = matched_chokepoint["forecast_7d"]
+        forecast_30d = matched_chokepoint["forecast_30d"]
+        forecast_90d = matched_chokepoint["forecast_90d"]
+        recent_signals = matched_chokepoint["recent_signals"]
+    else:
+        target_name = selected_target
+        risk_score = 72
+        risk_level = "High"
+        drivers = [
+            "Supply chain concentration",
+            "Geopolitical exposure",
+            "Limited substitution capacity",
+            "Market sensitivity"
+        ]
+        affected_sectors = [
+            selected_sector or "Energy",
+            "Shipping",
+            "Manufacturing",
+            "Consumer goods"
+        ]
+        commodities = [selected_commodity] if selected_commodity else ["To be determined"]
+        routes = [selected_route] if selected_route else ["Route exposure requires additional data"]
+        confidence = "Medium"
+        forecast_7d = "Moderate"
+        forecast_30d = "Elevated"
+        forecast_90d = "Uncertain without additional data"
+        recent_signals = [
+            "Selected target requires further corroboration",
+            "Exposure assessment available at preliminary confidence level",
+            "Additional live data sources should be connected for higher precision"
+        ]
 
     return {
         "status": "success",
-        "agent_type": payload.get("agent_type", "full_supply_chain_briefing_agent"),
-        "selected_target": selected_target,
+        "agent_type": agent_type,
+        "selected_target": target_name,
+        "input_context": {
+            "selected_chokepoint": selected_chokepoint,
+            "selected_country": selected_country,
+            "selected_commodity": selected_commodity,
+            "selected_sector": selected_sector,
+            "selected_route": selected_route,
+            "time_horizon": time_horizon
+        },
         "output": {
-            "executive_judgment": f"{selected_target} shows elevated supply chain risk due to converging geopolitical, logistics, market, and exposure signals.",
+            "executive_judgment": (
+                f"{target_name} shows {risk_level.lower()} supply chain risk over the "
+                f"{time_horizon} horizon. The risk is driven by {', '.join(drivers[:3])}, "
+                f"with likely exposure across {', '.join(affected_sectors[:3])}."
+            ),
             "key_signals": [
-                "Rising disruption indicators",
-                "Elevated geopolitical pressure",
-                "Potential route or supplier exposure",
-                "Market sensitivity to chokepoint disruption"
+                f"Current assessed risk level: {risk_level}",
+                f"Risk score: {risk_score}/100",
+                f"Affected commodities: {', '.join(commodities)}",
+                f"Affected routes: {', '.join(routes)}",
+                *recent_signals
             ],
-            "risk_score": 78,
-            "risk_level": "High",
-            "main_drivers": [
-                "Chokepoint concentration",
-                "Geopolitical instability",
-                "Limited substitution capacity",
-                "Logistics pressure"
+            "risk_score": risk_score,
+            "risk_level": risk_level,
+            "main_drivers": drivers,
+            "affected_sectors": affected_sectors,
+            "affected_commodities": commodities,
+            "affected_routes": routes,
+            "forecast_horizon": time_horizon,
+            "forecast": {
+                "7_day": forecast_7d,
+                "30_day": forecast_30d,
+                "90_day": forecast_90d
+            },
+            "confidence": confidence,
+            "intelligence_gaps": [
+                "Live AIS vessel movement data",
+                "Real-time insurance premium data",
+                "Supplier-level exposure data",
+                "Confirmed port congestion and delay feeds"
             ],
-            "affected_sectors": [
-                "Energy",
-                "Shipping",
-                "Manufacturing",
-                "Defense",
-                "Consumer goods"
-            ],
-            "forecast_horizon": payload.get("time_horizon", "30 days"),
-            "confidence": "Medium-High",
             "recommended_actions": [
-                "Monitor alternative routes",
-                "Stress-test procurement timelines",
-                "Review supplier concentration",
-                "Run scenario simulation"
+                "Review exposure to affected routes and commodities",
+                "Stress-test procurement and logistics timelines",
+                "Compare alternative routes or suppliers",
+                "Run a scenario simulation for second-order effects",
+                "Monitor early warning indicators for escalation"
             ]
         }
     }
