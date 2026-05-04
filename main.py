@@ -25,3 +25,13 @@ def root():
         "status": "ok",
         "message": "Sovereign Intelligence API running"
     }
+
+@app.get("/routes")
+def list_routes():
+    return [
+        {
+            "path": route.path,
+            "methods": list(route.methods or [])
+        }
+        for route in app.routes
+    ]
