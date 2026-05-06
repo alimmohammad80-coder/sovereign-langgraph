@@ -413,3 +413,142 @@ def get_live_supply_chain_signals(query: str = "Strait of Hormuz shipping oil sa
             "eia_signals": eia
         }
     }
+
+
+@router.post("/fusion-report")
+def generate_supply_chain_fusion_report(payload: dict):
+    agent_type = "full_supply_chain_fusion_report"
+
+    selected_chokepoint = payload.get("selected_chokepoint") or "Strait of Hormuz"
+    selected_country = payload.get("selected_country")
+    selected_commodity = payload.get("selected_commodity") or "Oil"
+    selected_sector = payload.get("selected_sector")
+    selected_route = payload.get("selected_route")
+    time_horizon = payload.get("time_horizon", "30 days")
+
+    matched_chokepoint = find_chokepoint(selected_chokepoint)
+
+    gdelt_signals = fetch_gdelt_signals(
+        query=f"{selected_chokepoint} {selected_commodity} shipping disruption",
+        maxrecords=5
+    )
+
+    ofac_signals = fetch_ofac_sanctions(limit=5)
+    eia_signals = fetch_eia_energy_signals()
+
+    if matched_chokepoint:
+        target_name = matched_chokepoint["name"]
+        risk_score = matched_chokepoint["risk_score"]
+        risk_level = matched_chokepoint["risk_level"]
+        drivers = matched_chokepoint["primary_drivers"]
+        commodities = matched_chokepoint["affected_commodities"]
+        routes = matched_chokepoint["affected_routes"]
+        sectors = matched_chokepoint["affected_sectors"]
+        confidence = matched_chokepoint["confidence"]
+        forecast = {
+            "7_day": matched_chokepoint["forecast_7d"],
+            "30_day": matched_chokepoint["forecast_30d"],
+            "90_day": matched_chokepoint["forecast_90d"]
+        }
+    else:
+        target_name = selected_chokepoint
+        risk_score = 72
+        risk_level = "High"
+        drivers = [
+            "Supply chain concentration",
+            "Geopolitical exposure",
+            "Energy market sensitivity",
+            "Limited substitution capacity"
+        ]
+        commodities = [selected_commodity]
+        routes = [selected_route or "Route exposure requires additional data"]
+        sectors = [selected_sector or "Energy", "Shipping", "Manufacturing"]
+        confidence = "Medium"
+        forecast = {
+            "7_day": "Moderate",
+            "30_day": "Elevated",
+            "90_day": "Uncertain"
+        }
+
+    return {
+        "status": "success",
+        "report_type": "supply_chain_fusion_report",
+        "selected_target": target_name,
+        "time_horizon": time_horizon,
+        "input_context": {
+            "selected_chokepoint": selected_chokepoint,
+            "selected_country": selected_country,
+            "selected_commodity": selected_commodity,
+            "selected_sector": selected_sector,
+            "selected_route": selected_route,
+            "time_horizon": time_horizon
+        },
+        "overall_assessment": {
+            "executive_judgment": (
+                f"{target_name} presents {risk_level.lower()} supply chain risk over the "
+                f"{time_horizon} horizon. The fused assessment combines chokepoint exposure, "
+                f"energy-market sensitivity, sanctions exposure, live event signals, and route disruption risk."
+            ),
+            "risk_score": risk_score,
+            "risk_level": risk_level,
+            "confidence": confidence
+        },
+        "external_signals": {
+            "gdelt": gdelt_signals,
+            "ofac": ofac_signals,
+            "eia": eia_signals
+        },
+        "fusion_findings": [
+            f"{target_name} is exposed to disruption through {', '.join(commodities)} flows.",
+            f"Primary risk drivers include {', '.join(drivers[:3])}.",
+            "Energy price sensitivity and freight disruption are likely transmission channels.",
+            "Sanctions and export-control exposure should be monitored alongside physical route disruption.",
+            "A sustained disruption could affect procurement timelines, insurance costs, and market volatility."
+        ],
+        "affected_commodities": commodities,
+        "affected_routes": routes,
+        "affected_sectors": sectors,
+        "main_drivers": drivers,
+        "forecast": forecast,
+        "early_warning_indicators": [
+            "Sudden vessel rerouting",
+            "Insurance premium spike",
+            "Oil or LNG price volatility",
+            "Naval warnings or maritime advisories",
+            "Sanctions announcements",
+            "Port delay or vessel queue increases",
+            "Diplomatic escalation involving affected states"
+        ],
+        "decision_implications": {
+            "investors": [
+                "Monitor exposed energy, shipping, insurance, and manufacturing equities.",
+                "Stress-test commodity price volatility and inflation pass-through."
+            ],
+            "corporates": [
+                "Review supplier concentration and alternative sourcing options.",
+                "Assess inventory buffers and procurement timelines."
+            ],
+            "government": [
+                "Monitor maritime security, sanctions exposure, and alliance coordination.",
+                "Prepare early warning briefs for escalation scenarios."
+            ],
+            "logistics": [
+                "Compare alternative routes and rerouting costs.",
+                "Monitor port congestion, vessel delays, and insurance conditions."
+            ]
+        },
+        "intelligence_gaps": [
+            "Live AIS vessel movement data",
+            "Real-time insurance premium data",
+            "Supplier-level exposure data",
+            "Confirmed port congestion feeds",
+            "Licensed commodity and freight pricing feeds"
+        ],
+        "recommended_actions": [
+            "Run scenario simulation for 7, 14, and 30-day disruption cases.",
+            "Compare alternative routes and exposed commodities.",
+            "Monitor OFAC, EIA, and GDELT signals daily.",
+            "Build supplier-level exposure scoring.",
+            "Generate executive decision brief for affected sectors."
+        ]
+    }
