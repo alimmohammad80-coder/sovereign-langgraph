@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from routes.financial_risk import router as financial_risk_router
+from routes.corporate_exposure import router as corporate_exposure_router
 
 app = FastAPI(
     title="Sovereign Intelligence API",
@@ -16,7 +17,7 @@ app.add_middleware(
 )
 
 app.include_router(financial_risk_router)
-
+app.include_router(corporate_exposure_router)
 
 @app.get("/")
 def root():
