@@ -1,7 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-
-from routers.supply_chain import router as supply_chain_router
+from routes.financial_risk import router as financial_risk_router
 
 app = FastAPI(
     title="Sovereign Intelligence API",
@@ -16,15 +15,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(supply_chain_router)
+app.include_router(financial_risk_router)
 
 
 @app.get("/")
 def root():
-    return {
-        "status": "ok",
-        "message": "Sovereign Intelligence API running"
-    }
+    return {"status": "ok", "service": "Sovereign Intelligence API"}
 
 @app.get("/routes")
 def list_routes():
