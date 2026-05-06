@@ -2,6 +2,10 @@ from fastapi import APIRouter
 from datetime import datetime
 from typing import Dict, Any, Optional
 
+from services.apis.gdelt_api import fetch_gdelt_signals
+from services.apis.ofac_api import fetch_ofac_sanctions
+from services.apis.eia_api import fetch_eia_energy_signals
+
 router = APIRouter(prefix="/api/supply-chain", tags=["Supply Chain Risk"])
 
 
@@ -363,5 +367,49 @@ def run_supply_chain_agent(payload: dict):
                 "Run a scenario simulation for second-order effects",
                 "Monitor early warning indicators for escalation"
             ]
+        }
+    }
+
+@router.get("/external/gdelt")
+def get_external_gdelt(query: str = "supply chain disruption", maxrecords: int = 20):
+    return {
+        "status": "success",
+        "source": "gdelt",
+        "data": fetch_gdelt_signals(query=query, maxrecords=maxrecords)
+    }
+
+
+@router.get("/external/ofac")
+def get_external_ofac(limit: int = 25):
+    return {
+        "status": "success",
+        "source": "ofac",
+        "data": fetch_ofac_sanctions(limit=limit)
+    }
+
+
+@router.get("/external/eia")
+def get_external_eia():
+    return {
+        "status": "success",
+        "source": "eia",
+        "data": fetch_eia_energy_signals()
+    }
+
+
+@router.get("/live-signals")
+def get_live_supply_chain_signals(query: str = "Strait of Hormuz shipping oil sanctions"):
+    gdelt = fetch_gdelt_signals(query=query, maxrecords=10)
+    ofac = fetch_ofac_sanctions(limit=10)
+    eia = fetch_eia_energy_signals()
+
+    return {
+        "status": "success",
+        "query": query,
+        "sources_used": ["gdelt", "ofac", "eia"],
+        "data": {
+            "gdelt_signals": gdelt,
+            "ofac_signals": ofac,
+            "eia_signals": eia
         }
     }
