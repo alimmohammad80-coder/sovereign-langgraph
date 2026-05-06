@@ -6,6 +6,9 @@ import os
 import requests
 import math
 
+from supabase import create_client
+
+
 router = APIRouter(prefix="/api/early-warning", tags=["Strategic Early Warning System"])
 
 
@@ -173,61 +176,56 @@ def early_warning_health():
 
 
 @router.post("/run")
-def run_early_warning_agent(request: WarningRequest):
-    country = request.country or "Global"
-    topic = request.topic or "geopolitical risk"
+warning_layers = build_warning_layers(score)
 
-    query = f"{country} {topic} crisis warning security escalation"
-    signals = fetch_gdelt_signals(query=query, maxrecords=10)
+result = {
+    "engine": "sovereign_strategic_early_warning_system",
+    "status": "success",
+    "country": country,
+    "region": request.region,
+    "topic": topic,
+    "timeframe": request.timeframe,
+    "timestamp": datetime.utcnow().isoformat(),
+    "warning_score": score,
+    "warning_level": warning_level,
+    "executive_judgment": (
+        f"{country} currently registers a {warning_level.lower()} strategic warning posture "
+        f"for {topic}. The assessment is based on open-source signal density, escalation language, "
+        f"cross-domain indicators, and the velocity of reported developments. This should be treated "
+        f"as an early-warning product, not a final intelligence assessment."
+    ),
+    "warning_layers": warning_layers,
+    "key_signals": signals,
+    "early_warning_indicators": indicators,
+    "drivers": [
+        "Escalatory political or military language",
+        "Open-source reporting density",
+        "Potential cross-domain spillover",
+        "Regional or market sensitivity",
+        "Uncertainty around adversary intent and capability"
+    ],
+    "intelligence_gaps": [
+        "Need corroboration from structured conflict datasets",
+        "Need baseline comparison against historical incident frequency",
+        "Need source reliability weighting",
+        "Need geospatial event clustering",
+        "Need human analyst validation for high-impact warnings"
+    ],
+    "scenarios": scenarios,
+    "recommended_monitoring": [
+        "Track changes in warning score over the next 24–72 hours",
+        "Compare media signals with ACLED/GDELT event data",
+        "Monitor sanctions, cyber, military, and energy indicators",
+        "Escalate to analyst review if score rises above 70",
+        "Generate country-specific exposure report for affected assets or portfolios"
+    ]
+}
 
-    score = calculate_warning_score(signals)
-    warning_level = classify_warning_level(score)
+run_id = save_early_warning_run(result)
+result["supabase_run_id"] = run_id
+result["saved_to_supabase"] = True if run_id else False
 
-    indicators = generate_indicators(country, topic, signals)
-    scenarios = generate_scenarios(country, warning_level, topic) if request.include_scenarios else []
-
-    return {
-        "engine": "sovereign_strategic_early_warning_system",
-        "status": "success",
-        "country": country,
-        "region": request.region,
-        "topic": topic,
-        "timeframe": request.timeframe,
-        "timestamp": datetime.utcnow().isoformat(),
-        "warning_score": score,
-        "warning_level": warning_level,
-        "executive_judgment": (
-            f"{country} currently registers a {warning_level.lower()} strategic warning posture "
-            f"for {topic}. The assessment is based on open-source signal density, escalation language, "
-            f"cross-domain indicators, and the velocity of reported developments. This should be treated "
-            f"as an early-warning product, not a final intelligence assessment."
-        ),
-        "key_signals": signals,
-        "early_warning_indicators": indicators,
-        "drivers": [
-            "Escalatory political or military language",
-            "Open-source reporting density",
-            "Potential cross-domain spillover",
-            "Regional or market sensitivity",
-            "Uncertainty around adversary intent and capability"
-        ],
-        "intelligence_gaps": [
-            "Need corroboration from structured conflict datasets",
-            "Need baseline comparison against historical incident frequency",
-            "Need source reliability weighting",
-            "Need geospatial event clustering",
-            "Need human analyst validation for high-impact warnings"
-        ],
-        "scenarios": scenarios,
-        "recommended_monitoring": [
-            "Track changes in warning score over the next 24–72 hours",
-            "Compare media signals with ACLED/GDELT event data",
-            "Monitor sanctions, cyber, military, and energy indicators",
-            "Escalate to analyst review if score rises above 70",
-            "Generate country-specific exposure report for affected assets or portfolios"
-        ]
-    }
-
+return result
 
 @router.get("/dashboard")
 def early_warning_dashboard(
