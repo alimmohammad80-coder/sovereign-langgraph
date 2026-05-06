@@ -5,7 +5,7 @@ from app.api.ingest import router as ingest_router
 from app.api.signals import router as signals_router
 from app.api.dashboard import router as dashboard_router
 from routers.supply_chain import router as supply_chain_router
-
+from routes.financial_risk import router as financial_risk_router
 
 app = FastAPI(
     title="Sovereign Intelligence API",
@@ -31,6 +31,7 @@ app.include_router(dashboard_router)
 # Supply Chain Risk Engine router
 app.include_router(supply_chain_router)
 
+app.include_router(financial_risk_router)
 
 @app.get("/")
 def root():
