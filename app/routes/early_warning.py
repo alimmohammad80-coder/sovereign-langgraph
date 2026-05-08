@@ -311,6 +311,27 @@ def calculate_warning_score(signals: List[Dict[str, Any]]) -> int:
 
     return max(0, min(final_score, 100))
 
+def normalize_signal(
+    title: str,
+    summary: str = "",
+    source: str = "unknown",
+    domain: Optional[str] = None,
+    url: Optional[str] = None,
+    published_at: Optional[str] = None,
+    category: str = "open_source_signal",
+    signal_type: str = "news_signal",
+) -> Dict[str, Any]:
+    return {
+        "title": title or "Untitled signal",
+        "summary": summary or "",
+        "source": source or "unknown",
+        "domain": domain,
+        "url": url,
+        "published_at": published_at or datetime.utcnow().isoformat(),
+        "category": category,
+        "signal_type": signal_type,
+    }
+
 
 def fetch_gdelt_signals(query: str, maxrecords: int = 10) -> List[Dict[str, Any]]:
     try:
@@ -330,47 +351,406 @@ def fetch_gdelt_signals(query: str, maxrecords: int = 10) -> List[Dict[str, Any]
 
         articles = data.get("articles", [])
 
-        if not articles:
-            return [
-                {
-                    "title": "No live external signals returned",
-                    "summary": "The external source returned no current articles for this query.",
-                    "source": "system",
-                    "domain": None,
-                    "url": None,
-                    "published_at": datetime.utcnow().isoformat(),
-                    "category": "system_notice",
-                    "signal_type": "system_notice",
-                }
-            ]
-
         return [
-            {
-                "title": article.get("title") or "Untitled signal",
-                "summary": article.get("seendate") or "",
-                "url": article.get("url"),
-                "source": article.get("sourceCountry") or "GDELT",
-                "published_at": article.get("seendate"),
-                "domain": article.get("domain"),
-                "category": "open_source_signal",
-                "signal_type": "news_signal",
-            }
+            normalize_signal(
+                title=article.get("title") or "Untitled GDELT signal",
+                summary=article.get("seendate") or "",
+                url=article.get("url"),
+                source="GDELT",
+                published_at=article.get("seendate"),
+                domain=article.get("domain"),
+                category="open_source_signal",
+                signal_type="gdelt_news_signal",
+            )
             for article in articles
         ]
 
     except Exception as e:
+        print(f"[Early Warning] GDELT fetch error: {e}")
+        return []
+
+
+def fetch_newsapi_signals(query: str, maxrecords: int = 10) -> List[Dict[str, Any]]:
+    api_key = os.getenv("NEWS_API_KEY")
+
+    if not api_key:
+        return []
+
+    try:
+        url = "https://newsapi.org/v2/everything"
+
+        params = {
+            "q": query,
+            "language": "en",
+            "sortBy": "publishedAt",
+            "pageSize": maxrecords,
+            "apiKey": api_key,
+        }
+
+        response = requests.get(url, params=params, timeout=12)
+        response.raise_for_status()
+        data = response.json()
+
+        articles = data.get("articles", [])
+
         return [
-            {
-                "title": "External signal fetch limited",
-                "summary": f"GDELT request unavailable or rate-limited: {str(e)}",
-                "source": "system",
-                "domain": None,
-                "url": None,
-                "published_at": datetime.utcnow().isoformat(),
-                "category": "system_notice",
-                "signal_type": "system_notice",
-            }
+            normalize_signal(
+                title=article.get("title") or "Untitled NewsAPI signal",
+                summary=article.get("description") or article.get("content") or "",
+                source=article.get("source", {}).get("name") or "NewsAPI",
+                domain=None,
+                url=article.get("url"),
+                published_at=article.get("publishedAt"),
+                category="open_source_signal",
+                signal_type="newsapi_signal",
+            )
+            for article in articles
         ]
+
+    except Exception as e:
+        print(f"[Early Warning] NewsAPI fetch error: {e}")
+        return []
+
+
+def fetch_reliefweb_signals(query: str, maxrecords: int = 10) -> List[Dict[str, Any]]:
+    try:
+        url = "https://api.reliefweb.int/v1/reports"
+
+        params = {
+            "appname": "sovereign-intelligence",
+            "query[value]": query,
+            "limit": maxrecords,
+            "sort[]": "date:desc",
+            "profile": "list",
+        }
+
+        response = requests.get(url, params=params, timeout=12)
+        response.raise_for_status()
+        data = response.json()
+
+        items = data.get("data", [])
+
+        signals = []
+
+        for item in items:
+            fields = item.get("fields", {})
+
+            signals.append(
+                normalize_signal(
+                    title=fields.get("title") or "Untitled ReliefWeb signal",
+                    summary=fields.get("body") or "",
+                    source="ReliefWeb",
+                    domain="reliefweb.int",
+                    url=fields.get("url"),
+                    published_at=fields.get("date", {}).get("created"),
+                    category="humanitarian_crisis_signal",
+                    signal_type="reliefweb_report",
+                )
+            )
+
+        return signals
+
+    except Exception as e:
+        print(f"[Early Warning] ReliefWeb fetch error: {e}")
+        return []
+
+
+def fetch_cisa_kev_signals(query: str, maxrecords: int = 10) -> List[Dict[str, Any]]:
+    try:
+        url = "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json"
+
+        response = requests.get(url, timeout=12)
+        response.raise_for_status()
+        data = response.json()
+
+        vulnerabilities = data.get("vulnerabilities", [])
+
+        query_terms = query.lower().split()
+
+        matched = []
+
+        for vuln in vulnerabilities[:200]:
+            text = (
+                f"{vuln.get('cveID', '')} "
+                f"{vuln.get('vendorProject', '')} "
+                f"{vuln.get('product', '')} "
+                f"{vuln.get('vulnerabilityName', '')} "
+                f"{vuln.get('shortDescription', '')}"
+            ).lower()
+
+            if any(term in text for term in query_terms) or "cyber" in query.lower():
+                matched.append(
+                    normalize_signal(
+                        title=f"CISA KEV: {vuln.get('cveID', 'Unknown CVE')} — {vuln.get('vulnerabilityName', 'Known exploited vulnerability')}",
+                        summary=vuln.get("shortDescription") or "",
+                        source="CISA KEV",
+                        domain="cisa.gov",
+                        url="https://www.cisa.gov/known-exploited-vulnerabilities-catalog",
+                        published_at=vuln.get("dateAdded"),
+                        category="cyber_warning_signal",
+                        signal_type="known_exploited_vulnerability",
+                    )
+                )
+
+            if len(matched) >= maxrecords:
+                break
+
+        return matched
+
+    except Exception as e:
+        print(f"[Early Warning] CISA KEV fetch error: {e}")
+        return []
+
+
+def fetch_nvd_cve_signals(query: str, maxrecords: int = 10) -> List[Dict[str, Any]]:
+    try:
+        if "cyber" not in query.lower() and "cve" not in query.lower() and "vulnerability" not in query.lower():
+            return []
+
+        url = "https://services.nvd.nist.gov/rest/json/cves/2.0"
+
+        params = {
+            "keywordSearch": query,
+            "resultsPerPage": maxrecords,
+        }
+
+        response = requests.get(url, params=params, timeout=12)
+        response.raise_for_status()
+        data = response.json()
+
+        items = data.get("vulnerabilities", [])
+
+        signals = []
+
+        for item in items:
+            cve = item.get("cve", {})
+            descriptions = cve.get("descriptions", [])
+            description = ""
+
+            for desc in descriptions:
+                if desc.get("lang") == "en":
+                    description = desc.get("value")
+                    break
+
+            signals.append(
+                normalize_signal(
+                    title=f"NVD CVE: {cve.get('id', 'Unknown CVE')}",
+                    summary=description,
+                    source="NVD",
+                    domain="nist.gov",
+                    url=f"https://nvd.nist.gov/vuln/detail/{cve.get('id')}" if cve.get("id") else None,
+                    published_at=cve.get("published"),
+                    category="cyber_warning_signal",
+                    signal_type="cve_signal",
+                )
+            )
+
+        return signals
+
+    except Exception as e:
+        print(f"[Early Warning] NVD CVE fetch error: {e}")
+        return []
+
+
+def fetch_google_news_rss_signals(query: str, maxrecords: int = 10) -> List[Dict[str, Any]]:
+    try:
+        import feedparser
+        from urllib.parse import quote_plus
+
+        encoded_query = quote_plus(query)
+        url = f"https://news.google.com/rss/search?q={encoded_query}&hl=en-US&gl=US&ceid=US:en"
+
+        feed = feedparser.parse(url)
+
+        signals = []
+
+        for entry in feed.entries[:maxrecords]:
+            signals.append(
+                normalize_signal(
+                    title=entry.get("title") or "Untitled Google News RSS signal",
+                    summary=entry.get("summary") or "",
+                    source="Google News RSS",
+                    domain="news.google.com",
+                    url=entry.get("link"),
+                    published_at=entry.get("published"),
+                    category="open_source_signal",
+                    signal_type="rss_news_signal",
+                )
+            )
+
+        return signals
+
+    except Exception as e:
+        print(f"[Early Warning] Google News RSS fetch error: {e}")
+        return []
+
+
+def fetch_custom_rss_signals(query: str, maxrecords: int = 10) -> List[Dict[str, Any]]:
+    try:
+        import feedparser
+
+        rss_feeds = [
+            {
+                "name": "BBC World",
+                "url": "https://feeds.bbci.co.uk/news/world/rss.xml",
+                "domain": "bbc.co.uk",
+            },
+            {
+                "name": "Al Jazeera",
+                "url": "https://www.aljazeera.com/xml/rss/all.xml",
+                "domain": "aljazeera.com",
+            },
+            {
+                "name": "UN News",
+                "url": "https://news.un.org/feed/subscribe/en/news/all/rss.xml",
+                "domain": "news.un.org",
+            },
+            {
+                "name": "ReliefWeb Updates",
+                "url": "https://reliefweb.int/updates/rss.xml",
+                "domain": "reliefweb.int",
+            },
+            {
+                "name": "CISA Alerts",
+                "url": "https://www.cisa.gov/news-events/cybersecurity-advisories/all.xml",
+                "domain": "cisa.gov",
+            },
+        ]
+
+        query_terms = [
+            term.lower()
+            for term in query.split()
+            if len(term) > 3
+        ]
+
+        signals = []
+
+        for feed_info in rss_feeds:
+            feed = feedparser.parse(feed_info["url"])
+
+            for entry in feed.entries[:25]:
+                title = entry.get("title") or ""
+                summary = entry.get("summary") or ""
+                text = f"{title} {summary}".lower()
+
+                if any(term in text for term in query_terms):
+                    signals.append(
+                        normalize_signal(
+                            title=title or "Untitled RSS signal",
+                            summary=summary,
+                            source=feed_info["name"],
+                            domain=feed_info["domain"],
+                            url=entry.get("link"),
+                            published_at=entry.get("published"),
+                            category="open_source_signal",
+                            signal_type="rss_feed_signal",
+                        )
+                    )
+
+                if len(signals) >= maxrecords:
+                    return signals
+
+        return signals
+
+    except Exception as e:
+        print(f"[Early Warning] Custom RSS fetch error: {e}")
+        return []
+
+
+def fetch_all_early_warning_signals(query: str, maxrecords: int = 30) -> List[Dict[str, Any]]:
+    signals: List[Dict[str, Any]] = []
+
+    source_plan = [
+        ("GDELT", lambda: fetch_gdelt_signals(query, maxrecords=8)),
+        ("NewsAPI", lambda: fetch_newsapi_signals(query, maxrecords=8)),
+        ("ReliefWeb", lambda: fetch_reliefweb_signals(query, maxrecords=6)),
+        ("Google News RSS", lambda: fetch_google_news_rss_signals(query, maxrecords=8)),
+        ("Custom RSS", lambda: fetch_custom_rss_signals(query, maxrecords=8)),
+        ("CISA KEV", lambda: fetch_cisa_kev_signals(query, maxrecords=5)),
+        ("NVD CVE", lambda: fetch_nvd_cve_signals(query, maxrecords=5)),
+    ]
+
+    for source_name, fetcher in source_plan:
+        try:
+            source_signals = fetcher()
+            if source_signals:
+                signals.extend(source_signals)
+        except Exception as e:
+            print(f"[Early Warning] {source_name} failed inside aggregator: {e}")
+
+    deduped = []
+    seen = set()
+
+    for signal in signals:
+        key = (
+            signal.get("title", "").strip().lower(),
+            signal.get("url") or ""
+        )
+
+        if key not in seen:
+            seen.add(key)
+            deduped.append(signal)
+
+    if not deduped:
+        deduped.append(
+            normalize_signal(
+                title="Live external signal feed temporarily limited",
+                summary=(
+                    "No external source returned usable signals for this query. "
+                    "The system is continuing with structured early-warning analysis, "
+                    "sector logic, and saved intelligence memory where available."
+                ),
+                source="system",
+                domain=None,
+                url=None,
+                published_at=datetime.utcnow().isoformat(),
+                category="system_notice",
+                signal_type="system_notice",
+            )
+        )
+
+    return deduped[:maxrecords]
+
+def build_sector_recommended_actions(sector: str) -> List[str]:
+    actions = [
+        "Continue live signal tracking.",
+        "Corroborate against structured datasets and saved intelligence memory.",
+        "Escalate if warning score rises above 70.",
+    ]
+
+    if sector == "Energy & Commodity Risk":
+        actions += [
+            "Run Energy Analysis Agent.",
+            "Run Supply Chain Risk Engine.",
+            "Generate Corporate Exposure Report for energy-sensitive assets."
+        ]
+    elif sector == "Supply Chain & Trade Disruption":
+        actions += [
+            "Run Global Supply Chain Risk Engine.",
+            "Check chokepoint, port, sanctions, and commodity dependencies.",
+            "Run Scenario Simulation Lab for disruption pathways."
+        ]
+    elif sector == "Cyber & Information Operations":
+        actions += [
+            "Monitor cyber advisories and vulnerability feeds.",
+            "Assess information manipulation and disinformation risk.",
+            "Run scenario analysis for cyber-enabled escalation."
+        ]
+    elif sector == "Corporate & Portfolio Exposure":
+        actions += [
+            "Run Corporate Exposure & Portfolio Intelligence.",
+            "Assess affected sectors, assets, counterparties, and insurance exposure.",
+            "Generate executive exposure brief."
+        ]
+    else:
+        actions += [
+            "Run Geopolitical or Security Analysis Agent.",
+            "Run Scenario Simulation Lab.",
+            "Update Global Strategic Risk Map layer."
+        ]
+
+    return actions
+
 
 
 def build_warning_layers(score: int) -> List[Dict[str, Any]]:
@@ -408,6 +788,7 @@ def build_warning_layers(score: int) -> List[Dict[str, Any]]:
     ]
 
 
+
 def score_sector_from_signals(
     sector: Dict[str, Any],
     signals: List[Dict[str, Any]],
@@ -421,9 +802,8 @@ def score_sector_from_signals(
     )
 
     keyword_hits = 0
-    topic_bonus = 0
 
-    for keyword in sector["keywords"]:
+    for keyword in sector.get("keywords", []):
         if keyword.lower() in text_blob:
             keyword_hits += 1
 
@@ -440,9 +820,8 @@ def score_sector_from_signals(
     else:
         score -= 6
 
-    score += topic_bonus
-
     return max(0, min(score, 100))
+
 
 
 def build_current_assessment(
@@ -457,12 +836,13 @@ def build_current_assessment(
         return (
             f"{sector} for {country} is under structured monitoring for {topic}, "
             f"but live external signals are currently limited. The system is maintaining a {status.lower()} posture "
-            f"based on available indicators, known escalation pathways, and analytical framework scoring."
+            f"based on available indicators, known escalation pathways, RSS/API feeds, and analytical framework scoring."
         )
 
     return (
         f"{sector} for {country} is currently assessed at {status.lower()} warning posture "
-        f"for {topic}. The score reflects sector relevance, signal language, potential spillover, and escalation sensitivity."
+        f"for {topic}. The assessment reflects sector relevance, signal language, potential spillover, "
+        f"source diversity, and escalation sensitivity."
     )
 
 
@@ -531,7 +911,11 @@ def build_what_might_happen(sector: str, country: str, topic: str) -> List[str]:
     ]
 
 
-def build_sector_monitoring_indicators(sector: str, country: str, topic: str) -> List[Dict[str, str]]:
+def build_sector_monitoring_indicators(
+    sector: str,
+    country: str,
+    topic: str
+) -> List[Dict[str, str]]:
     common = [
         {
             "indicator": f"Increase in reporting volume related to {topic} in {country}",
@@ -548,6 +932,22 @@ def build_sector_monitoring_indicators(sector: str, country: str, topic: str) ->
     ]
 
     sector_specific = {
+        "Geopolitical Escalation": [
+            {
+                "indicator": "Diplomatic breakdown, military signaling, sanctions, or coercive posture shift",
+                "relevance": "High",
+                "status": "Monitoring",
+                "escalation_threshold": "Escalate if rhetoric is followed by formal government action or observable movement."
+            }
+        ],
+        "Security & Conflict": [
+            {
+                "indicator": "Repeated armed incidents, attacks, troop movement, or protest violence",
+                "relevance": "High",
+                "status": "Monitoring",
+                "escalation_threshold": "Escalate if incidents cluster geographically or involve state/security actors."
+            }
+        ],
         "Energy & Commodity Risk": [
             {
                 "indicator": "Oil, gas, LNG, or commodity price movement linked to the crisis",
@@ -576,22 +976,6 @@ def build_sector_monitoring_indicators(sector: str, country: str, topic: str) ->
                 "relevance": "High",
                 "status": "Monitoring",
                 "escalation_threshold": "Escalate if incident affects critical infrastructure, elections, markets, or public trust."
-            }
-        ],
-        "Security & Conflict": [
-            {
-                "indicator": "Repeated armed incidents, attacks, troop movement, or protest violence",
-                "relevance": "High",
-                "status": "Monitoring",
-                "escalation_threshold": "Escalate if incidents cluster geographically or involve state/security actors."
-            }
-        ],
-        "Geopolitical Escalation": [
-            {
-                "indicator": "Diplomatic breakdown, military signaling, sanctions, or coercive posture shift",
-                "relevance": "High",
-                "status": "Monitoring",
-                "escalation_threshold": "Escalate if rhetoric is followed by formal government action or observable movement."
             }
         ],
         "Economic & Financial Stress": [
@@ -626,7 +1010,7 @@ def build_sector_monitoring_indicators(sector: str, country: str, topic: str) ->
 def build_sector_recommended_actions(sector: str) -> List[str]:
     actions = [
         "Continue live signal tracking.",
-        "Corroborate against structured datasets and saved intelligence memory.",
+        "Corroborate against structured datasets, RSS/API sources, and saved intelligence memory.",
         "Escalate if warning score rises above 70.",
     ]
 
@@ -644,14 +1028,14 @@ def build_sector_recommended_actions(sector: str) -> List[str]:
         ]
     elif sector == "Cyber & Information Operations":
         actions += [
-            "Monitor cyber advisories and vulnerability feeds.",
+            "Monitor cyber advisories, CISA KEV, NVD CVE, and vulnerability feeds.",
             "Assess information manipulation and disinformation risk.",
             "Run scenario analysis for cyber-enabled escalation."
         ]
     elif sector == "Corporate & Portfolio Exposure":
         actions += [
             "Run Corporate Exposure & Portfolio Intelligence.",
-            "Assess affected sectors, assets, counterparties, and insurance exposure.",
+            "Assess affected sectors, assets, counterparties, insurance, and sanctions exposure.",
             "Generate executive exposure brief."
         ]
     else:
@@ -1016,8 +1400,7 @@ def run_early_warning_agent(request: WarningRequest):
     topic = request.topic or "geopolitical risk"
 
     query = f"{country} {topic} crisis warning security escalation"
-    signals = fetch_gdelt_signals(query=query, maxrecords=10)
-
+    signals = fetch_all_early_warning_signals(query=query, maxrecords=30)
     score = calculate_warning_score(signals)
     warning_level = classify_warning_level(score)
 
@@ -1105,13 +1488,16 @@ def run_early_warning_agent(request: WarningRequest):
         ],
     }
 
-    run_id = save_early_warning_run(result)
-
-    result["supabase_run_id"] = run_id
-    result["saved_to_supabase"] = True if run_id else False
+    try:
+        run_id = save_early_warning_run(result)
+        result["supabase_run_id"] = run_id
+        result["saved_to_supabase"] = True if run_id else False
+    except Exception as e:
+        result["supabase_run_id"] = None
+        result["saved_to_supabase"] = False
+        result["supabase_error"] = str(e)
 
     return result
-
 
 @router.get("/dashboard")
 def early_warning_dashboard(
@@ -1119,8 +1505,7 @@ def early_warning_dashboard(
     topic: str = Query("geopolitical risk"),
 ):
     query = f"{country} {topic} warning crisis escalation"
-    signals = fetch_gdelt_signals(query=query, maxrecords=6)
-
+    signals = fetch_all_early_warning_signals(query=query, maxrecords=20)
     score = calculate_warning_score(signals)
     level = classify_warning_level(score)
     warning_layers = build_warning_layers(score)
@@ -1176,7 +1561,7 @@ def global_watchlist():
 
     for item in monitored_areas:
         query = f"{item['country']} {item['topic']} warning escalation crisis"
-        signals = fetch_gdelt_signals(query=query, maxrecords=4)
+        signals = fetch_all_early_warning_signals(query=query, maxrecords=15)
         score = calculate_warning_score(signals)
         sector_alerts = build_sector_alerts(
             country=item["country"],
