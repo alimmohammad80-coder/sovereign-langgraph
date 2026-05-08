@@ -41,6 +41,136 @@ class WarningRequest(BaseModel):
     include_scenarios: Optional[bool] = True
 
 
+SECTOR_DEFINITIONS = [
+    {
+        "sector": "Geopolitical Escalation",
+        "description": "Tracks interstate tension, diplomatic breakdown, military signaling, coercive pressure, and crisis escalation.",
+        "keywords": [
+            "war", "military", "border", "missile", "sanctions", "diplomatic",
+            "embassy", "threat", "invasion", "mobilization", "naval", "airspace",
+            "escalation", "deterrence", "crisis", "ultimatum"
+        ],
+        "relevant_modules": [
+            "Global Strategic Risk Map",
+            "Regional Intelligence Dashboard",
+            "Run Geopolitical Agent",
+            "Scenario Simulation Lab",
+            "Strategic Early Warning System"
+        ],
+    },
+    {
+        "sector": "Security & Conflict",
+        "description": "Tracks armed conflict, terrorism, coups, civil unrest, insurgency, border incidents, and internal instability.",
+        "keywords": [
+            "attack", "terror", "explosion", "coup", "insurgency", "riot",
+            "protest", "clashes", "militia", "armed", "violence", "unrest",
+            "security forces", "casualties", "bombing", "assassination"
+        ],
+        "relevant_modules": [
+            "Run Security Analysis Agent",
+            "Regional Intelligence Dashboard",
+            "Global Strategic Risk Map",
+            "Scenario Simulation Lab",
+            "Strategic Early Warning System"
+        ],
+    },
+    {
+        "sector": "Energy & Commodity Risk",
+        "description": "Tracks oil, gas, LNG, chokepoints, critical minerals, commodity shocks, and resource nationalism.",
+        "keywords": [
+            "oil", "gas", "lng", "energy", "pipeline", "tanker", "hormuz",
+            "suez", "commodity", "rare earth", "mineral", "refinery",
+            "opec", "price spike", "supply disruption", "crude", "shipping"
+        ],
+        "relevant_modules": [
+            "Run Energy Analysis Agent",
+            "Global Supply Chain Risk Engine",
+            "Corporate Exposure & Portfolio Intelligence",
+            "Scenario Simulation Lab",
+            "Global Strategic Risk Map"
+        ],
+    },
+    {
+        "sector": "Supply Chain & Trade Disruption",
+        "description": "Tracks maritime corridors, ports, sanctions, export controls, critical minerals, and logistics disruption.",
+        "keywords": [
+            "shipping", "port", "trade", "export control", "import", "supply chain",
+            "logistics", "container", "maritime", "freight", "chokepoint",
+            "red sea", "taiwan strait", "suez", "blockade", "tariff"
+        ],
+        "relevant_modules": [
+            "Global Supply Chain Risk Engine",
+            "Corporate Exposure & Portfolio Intelligence",
+            "Scenario Simulation Lab",
+            "Global Strategic Risk Map",
+            "Run Geopolitical Agent"
+        ],
+    },
+    {
+        "sector": "Cyber & Information Operations",
+        "description": "Tracks cyberattacks, disinformation, election interference, deepfakes, influence operations, and infrastructure targeting.",
+        "keywords": [
+            "cyber", "hack", "malware", "ransomware", "cve", "vulnerability",
+            "disinformation", "deepfake", "propaganda", "influence operation",
+            "information warfare", "critical infrastructure", "data breach"
+        ],
+        "relevant_modules": [
+            "Cyber & Information Risk Layer",
+            "Strategic Early Warning System",
+            "Scenario Simulation Lab",
+            "Corporate Exposure & Portfolio Intelligence"
+        ],
+    },
+    {
+        "sector": "Economic & Financial Stress",
+        "description": "Tracks inflation, currency pressure, sovereign debt, sanctions exposure, capital flight, and market volatility.",
+        "keywords": [
+            "inflation", "currency", "debt", "default", "capital flight",
+            "interest rate", "market", "banking", "financial crisis",
+            "sanctions", "recession", "sovereign risk", "bond", "stocks"
+        ],
+        "relevant_modules": [
+            "Corporate Exposure & Portfolio Intelligence",
+            "Regional Intelligence Dashboard",
+            "Scenario Simulation Lab",
+            "Global Strategic Risk Map",
+            "Strategic Early Warning System"
+        ],
+    },
+    {
+        "sector": "Political Stability & Governance",
+        "description": "Tracks protests, election instability, elite fragmentation, legitimacy crisis, repression, and policy shocks.",
+        "keywords": [
+            "election", "protest", "government", "parliament", "president",
+            "repression", "opposition", "legitimacy", "corruption", "policy shock",
+            "state of emergency", "civil society", "regime", "cabinet"
+        ],
+        "relevant_modules": [
+            "Run Geopolitical Agent",
+            "Regional Intelligence Dashboard",
+            "Scenario Simulation Lab",
+            "Strategic Early Warning System"
+        ],
+    },
+    {
+        "sector": "Corporate & Portfolio Exposure",
+        "description": "Tracks company exposure, asset exposure, operational risk, supply-chain dependencies, insurance risk, and investor impact.",
+        "keywords": [
+            "company", "corporate", "asset", "portfolio", "insurance", "operations",
+            "factory", "investment", "market exposure", "supply dependency",
+            "sanctions exposure", "business disruption", "earnings", "sector"
+        ],
+        "relevant_modules": [
+            "Corporate Exposure & Portfolio Intelligence",
+            "Global Supply Chain Risk Engine",
+            "Scenario Simulation Lab",
+            "Run Energy Analysis Agent",
+            "Strategic Early Warning System"
+        ],
+    },
+]
+
+
 def classify_warning_level(score: int) -> str:
     if score >= 85:
         return "Critical"
@@ -53,13 +183,59 @@ def classify_warning_level(score: int) -> str:
     return "Low"
 
 
+def classify_signal_noise(score: int, has_system_notice: bool = False) -> Dict[str, str]:
+    if has_system_notice:
+        return {
+            "classification": "Insufficient Live Data",
+            "judgment": "Live external signal access is limited. The system is relying on structured analytical logic, known escalation pathways, and saved intelligence memory where available.",
+            "meaning": "This should not be treated as absence of risk. It means the live feed requires corroboration from additional APIs, structured datasets, and analyst validation."
+        }
+
+    if score >= 85:
+        return {
+            "classification": "Strong Signal",
+            "judgment": "The warning pattern is repeated, strategically meaningful, and consistent with known escalation pathways.",
+            "meaning": "This is decision-relevant and should trigger senior review, automated alerting, and scenario/exposure analysis."
+        }
+
+    if score >= 70:
+        return {
+            "classification": "Signal",
+            "judgment": "The warning appears relevant and actionable, with enough severity and momentum to justify escalation.",
+            "meaning": "Users should monitor closely and consider running scenario, supply-chain, energy, or corporate exposure analysis."
+        }
+
+    if score >= 50:
+        return {
+            "classification": "Emerging Signal",
+            "judgment": "The warning is not yet a crisis, but patterns are becoming relevant enough for active monitoring.",
+            "meaning": "Users should track changes, compare with structured datasets, and build a warning timeline."
+        }
+
+    if score >= 30:
+        return {
+            "classification": "Mixed Signal",
+            "judgment": "The warning contains some relevant indicators, but the evidence is partial, isolated, or not yet corroborated.",
+            "meaning": "Users should avoid overreaction but continue monitoring for repetition, clustering, and escalation."
+        }
+
+    return {
+        "classification": "Noise / Low Signal",
+        "judgment": "Current signals are weak, isolated, or low-confidence.",
+        "meaning": "No immediate action is required beyond routine monitoring."
+    }
+
+
 def calculate_warning_score(signals: List[Dict[str, Any]]) -> int:
     if not signals:
         return 35
 
     severity_total = 0
+    probability_total = 0
     velocity_total = 0
     confidence_total = 0
+    strategic_relevance_total = 0
+    spillover_total = 0
 
     high_terms = [
         "attack", "strike", "missile", "war", "invasion", "sanctions",
@@ -74,35 +250,63 @@ def calculate_warning_score(signals: List[Dict[str, Any]]) -> int:
         "disruption", "militia", "embargo", "closure", "exercise"
     ]
 
+    spillover_terms = [
+        "oil", "gas", "shipping", "market", "supply chain", "cyber",
+        "sanctions", "trade", "currency", "energy", "port", "commodity"
+    ]
+
     for signal in signals:
         text = f"{signal.get('title', '')} {signal.get('summary', '')}".lower()
 
         severity = 20
+        probability = 25
         velocity = 20
         confidence = 50
+        strategic_relevance = 35
+        spillover = 20
+
+        if signal.get("source") == "system" or signal.get("category") == "system_notice":
+            confidence = 25
+            probability = 25
+            strategic_relevance = 35
 
         for term in high_terms:
             if term in text:
                 severity += 8
+                probability += 5
                 velocity += 5
                 confidence += 3
+                strategic_relevance += 4
 
         for term in medium_terms:
             if term in text:
                 severity += 4
+                probability += 3
                 velocity += 3
                 confidence += 2
+                strategic_relevance += 2
+
+        for term in spillover_terms:
+            if term in text:
+                spillover += 8
+                strategic_relevance += 3
 
         severity_total += min(severity, 100)
+        probability_total += min(probability, 100)
         velocity_total += min(velocity, 100)
         confidence_total += min(confidence, 95)
+        strategic_relevance_total += min(strategic_relevance, 100)
+        spillover_total += min(spillover, 100)
 
     n = len(signals)
 
     final_score = int(
-        ((severity_total / n) * 0.45)
-        + ((velocity_total / n) * 0.30)
-        + ((confidence_total / n) * 0.25)
+        ((severity_total / n) * 0.25)
+        + ((probability_total / n) * 0.20)
+        + ((velocity_total / n) * 0.15)
+        + ((confidence_total / n) * 0.15)
+        + ((strategic_relevance_total / n) * 0.15)
+        + ((spillover_total / n) * 0.10)
     )
 
     return max(0, min(final_score, 100))
@@ -204,6 +408,315 @@ def build_warning_layers(score: int) -> List[Dict[str, Any]]:
     ]
 
 
+def score_sector_from_signals(
+    sector: Dict[str, Any],
+    signals: List[Dict[str, Any]],
+    base_score: int
+) -> int:
+    text_blob = " ".join(
+        [
+            f"{signal.get('title', '')} {signal.get('summary', '')}".lower()
+            for signal in signals
+        ]
+    )
+
+    keyword_hits = 0
+    topic_bonus = 0
+
+    for keyword in sector["keywords"]:
+        if keyword.lower() in text_blob:
+            keyword_hits += 1
+
+    score = base_score
+
+    if keyword_hits >= 6:
+        score += 18
+    elif keyword_hits >= 4:
+        score += 12
+    elif keyword_hits >= 2:
+        score += 7
+    elif keyword_hits >= 1:
+        score += 4
+    else:
+        score -= 6
+
+    score += topic_bonus
+
+    return max(0, min(score, 100))
+
+
+def build_current_assessment(
+    country: str,
+    topic: str,
+    sector: str,
+    score: int,
+    status: str,
+    has_system_notice: bool
+) -> str:
+    if has_system_notice:
+        return (
+            f"{sector} for {country} is under structured monitoring for {topic}, "
+            f"but live external signals are currently limited. The system is maintaining a {status.lower()} posture "
+            f"based on available indicators, known escalation pathways, and analytical framework scoring."
+        )
+
+    return (
+        f"{sector} for {country} is currently assessed at {status.lower()} warning posture "
+        f"for {topic}. The score reflects sector relevance, signal language, potential spillover, and escalation sensitivity."
+    )
+
+
+def build_what_might_happen(sector: str, country: str, topic: str) -> List[str]:
+    if sector == "Energy & Commodity Risk":
+        return [
+            "Oil, gas, LNG, or commodity price volatility may increase.",
+            "Shipping insurance or transport costs may rise.",
+            "Energy infrastructure or maritime chokepoints may become more exposed.",
+            "Corporate and sovereign energy exposure may require reassessment."
+        ]
+
+    if sector == "Supply Chain & Trade Disruption":
+        return [
+            "Trade routes, ports, or maritime corridors may face disruption.",
+            "Export controls or sanctions may affect exposed sectors.",
+            "Logistics delays may create second-order effects for companies and investors.",
+            "Critical mineral or semiconductor dependencies may become more visible."
+        ]
+
+    if sector == "Cyber & Information Operations":
+        return [
+            "Cyber activity may target public institutions, firms, or critical infrastructure.",
+            "Disinformation or deepfake activity may increase around the crisis.",
+            "Attribution ambiguity may complicate response options.",
+            "Information operations may distort public perception and investor confidence."
+        ]
+
+    if sector == "Economic & Financial Stress":
+        return [
+            "Currency, inflation, or debt pressures may intensify.",
+            "Sanctions or market volatility may affect capital flows.",
+            "Investor exposure may require reassessment.",
+            "Financial stress may spill into political or social instability."
+        ]
+
+    if sector == "Security & Conflict":
+        return [
+            "Localized incidents may become repeated or clustered.",
+            "Security forces, militias, or armed actors may escalate activity.",
+            "Civil unrest or violence may spread geographically.",
+            "A triggering incident may change the warning level quickly."
+        ]
+
+    if sector == "Political Stability & Governance":
+        return [
+            "Protests, elite fragmentation, or legitimacy challenges may intensify.",
+            "Election or governance disputes may create instability.",
+            "Government repression or emergency measures may increase.",
+            "Policy shocks may affect companies, markets, or diplomatic posture."
+        ]
+
+    if sector == "Corporate & Portfolio Exposure":
+        return [
+            "Exposed firms, assets, supply chains, or investments may face operational risk.",
+            "Insurance, compliance, and sanctions exposure may increase.",
+            "Portfolio sensitivity to the country or sector may rise.",
+            "Decision-makers may need scenario and exposure analysis."
+        ]
+
+    return [
+        "Diplomatic pressure, military signaling, or coercive behavior may intensify.",
+        "Regional actors may adjust posture in response to perceived escalation.",
+        "A trigger event may rapidly increase strategic risk.",
+        "Cross-domain spillover may affect energy, markets, cyber, or supply chains."
+    ]
+
+
+def build_sector_monitoring_indicators(sector: str, country: str, topic: str) -> List[Dict[str, str]]:
+    common = [
+        {
+            "indicator": f"Increase in reporting volume related to {topic} in {country}",
+            "relevance": "Medium",
+            "status": "Monitoring",
+            "escalation_threshold": "Escalate if reporting volume rises across multiple independent sources."
+        },
+        {
+            "indicator": "Shift from rhetoric to operational activity",
+            "relevance": "High",
+            "status": "Monitoring",
+            "escalation_threshold": "Escalate if statements are followed by military, cyber, economic, or coercive actions."
+        },
+    ]
+
+    sector_specific = {
+        "Energy & Commodity Risk": [
+            {
+                "indicator": "Oil, gas, LNG, or commodity price movement linked to the crisis",
+                "relevance": "High",
+                "status": "Monitoring",
+                "escalation_threshold": "Escalate if price movement coincides with confirmed disruption or threat reporting."
+            },
+            {
+                "indicator": "Chokepoint, tanker, pipeline, or port disruption",
+                "relevance": "High",
+                "status": "Monitoring",
+                "escalation_threshold": "Immediate escalation if confirmed by multiple sources."
+            },
+        ],
+        "Supply Chain & Trade Disruption": [
+            {
+                "indicator": "Shipping delays, port closures, insurance premium changes, or rerouting",
+                "relevance": "High",
+                "status": "Monitoring",
+                "escalation_threshold": "Escalate if disruption affects major trade corridors or critical goods."
+            }
+        ],
+        "Cyber & Information Operations": [
+            {
+                "indicator": "Cyber incident, disinformation campaign, deepfake, or infrastructure targeting",
+                "relevance": "High",
+                "status": "Monitoring",
+                "escalation_threshold": "Escalate if incident affects critical infrastructure, elections, markets, or public trust."
+            }
+        ],
+        "Security & Conflict": [
+            {
+                "indicator": "Repeated armed incidents, attacks, troop movement, or protest violence",
+                "relevance": "High",
+                "status": "Monitoring",
+                "escalation_threshold": "Escalate if incidents cluster geographically or involve state/security actors."
+            }
+        ],
+        "Geopolitical Escalation": [
+            {
+                "indicator": "Diplomatic breakdown, military signaling, sanctions, or coercive posture shift",
+                "relevance": "High",
+                "status": "Monitoring",
+                "escalation_threshold": "Escalate if rhetoric is followed by formal government action or observable movement."
+            }
+        ],
+        "Economic & Financial Stress": [
+            {
+                "indicator": "Currency pressure, inflation, sanctions, market volatility, or debt stress",
+                "relevance": "Medium",
+                "status": "Monitoring",
+                "escalation_threshold": "Escalate if financial stress aligns with political or security indicators."
+            }
+        ],
+        "Political Stability & Governance": [
+            {
+                "indicator": "Protests, elite splits, election disputes, repression, or emergency rule",
+                "relevance": "Medium",
+                "status": "Monitoring",
+                "escalation_threshold": "Escalate if unrest spreads geographically or state response intensifies."
+            }
+        ],
+        "Corporate & Portfolio Exposure": [
+            {
+                "indicator": "Operational disruption, asset exposure, insurance risk, sanctions exposure, or supply dependency",
+                "relevance": "High",
+                "status": "Monitoring",
+                "escalation_threshold": "Escalate if corporate assets, counterparties, or supply routes are directly affected."
+            }
+        ],
+    }
+
+    return common + sector_specific.get(sector, [])
+
+
+def build_sector_recommended_actions(sector: str) -> List[str]:
+    actions = [
+        "Continue live signal tracking.",
+        "Corroborate against structured datasets and saved intelligence memory.",
+        "Escalate if warning score rises above 70.",
+    ]
+
+    if sector == "Energy & Commodity Risk":
+        actions += [
+            "Run Energy Analysis Agent.",
+            "Run Supply Chain Risk Engine.",
+            "Generate Corporate Exposure Report for energy-sensitive assets."
+        ]
+    elif sector == "Supply Chain & Trade Disruption":
+        actions += [
+            "Run Global Supply Chain Risk Engine.",
+            "Check chokepoint, port, sanctions, and commodity dependencies.",
+            "Run Scenario Simulation Lab for disruption pathways."
+        ]
+    elif sector == "Cyber & Information Operations":
+        actions += [
+            "Monitor cyber advisories and vulnerability feeds.",
+            "Assess information manipulation and disinformation risk.",
+            "Run scenario analysis for cyber-enabled escalation."
+        ]
+    elif sector == "Corporate & Portfolio Exposure":
+        actions += [
+            "Run Corporate Exposure & Portfolio Intelligence.",
+            "Assess affected sectors, assets, counterparties, and insurance exposure.",
+            "Generate executive exposure brief."
+        ]
+    else:
+        actions += [
+            "Run Geopolitical or Security Analysis Agent.",
+            "Run Scenario Simulation Lab.",
+            "Update Global Strategic Risk Map layer."
+        ]
+
+    return actions
+
+
+def build_sector_alerts(
+    country: str,
+    topic: str,
+    overall_score: int,
+    signals: List[Dict[str, Any]]
+) -> List[Dict[str, Any]]:
+    has_system_notice = any(
+        signal.get("source") == "system" or signal.get("category") == "system_notice"
+        for signal in signals
+    )
+
+    sector_alerts = []
+
+    topic_lower = topic.lower()
+
+    for sector in SECTOR_DEFINITIONS:
+        sector_score = score_sector_from_signals(sector, signals, overall_score)
+
+        for keyword in sector["keywords"]:
+            if keyword.lower() in topic_lower:
+                sector_score = min(sector_score + 12, 100)
+                break
+
+        sector_status = classify_warning_level(sector_score)
+        signal_noise = classify_signal_noise(sector_score, has_system_notice)
+
+        sector_alerts.append(
+            {
+                "sector": sector["sector"],
+                "description": sector["description"],
+                "score": sector_score,
+                "status": sector_status,
+                "signal_or_noise": signal_noise["classification"],
+                "signal_noise_judgment": signal_noise["judgment"],
+                "signal_noise_meaning": signal_noise["meaning"],
+                "current_assessment": build_current_assessment(
+                    country=country,
+                    topic=topic,
+                    sector=sector["sector"],
+                    score=sector_score,
+                    status=sector_status,
+                    has_system_notice=has_system_notice,
+                ),
+                "what_might_happen": build_what_might_happen(sector["sector"], country, topic),
+                "monitoring_indicators": build_sector_monitoring_indicators(sector["sector"], country, topic),
+                "recommended_actions": build_sector_recommended_actions(sector["sector"]),
+                "relevant_modules": sector["relevant_modules"],
+            }
+        )
+
+    return sorted(sector_alerts, key=lambda x: x["score"], reverse=True)
+
+
 def generate_indicators(country: str, topic: str, signals: List[Dict[str, Any]]) -> List[str]:
     indicators = [
         f"Increase in reporting volume related to {topic} in {country}",
@@ -219,7 +732,126 @@ def generate_indicators(country: str, topic: str, signals: List[Dict[str, Any]])
     return indicators
 
 
-def generate_scenarios(country: str, warning_level: str, topic: str) -> List[Dict[str, str]]:
+def build_monitoring_indicators_by_category(country: str, topic: str) -> Dict[str, List[Dict[str, str]]]:
+    return {
+        "Military/Security": [
+            {
+                "indicator": "Troop movement, missile/drone activity, attacks, or border incidents",
+                "relevance": "High",
+                "status": "Monitoring",
+                "escalation_threshold": "Escalate if confirmed movement or attack is reported by multiple sources."
+            }
+        ],
+        "Diplomatic/Political": [
+            {
+                "indicator": "Diplomatic breakdown, sanctions announcement, embassy warning, or emergency meeting",
+                "relevance": "High",
+                "status": "Monitoring",
+                "escalation_threshold": "Escalate if diplomatic signaling shifts from rhetoric to formal action."
+            }
+        ],
+        "Economic/Market": [
+            {
+                "indicator": "Currency movement, inflation pressure, market volatility, sanctions exposure",
+                "relevance": "Medium",
+                "status": "Monitoring",
+                "escalation_threshold": "Escalate if market stress aligns with security or political indicators."
+            }
+        ],
+        "Energy/Supply Chain": [
+            {
+                "indicator": "Port disruption, tanker incident, chokepoint risk, oil/gas price volatility",
+                "relevance": "High",
+                "status": "Monitoring",
+                "escalation_threshold": "Escalate if physical disruption or credible threat affects a major corridor."
+            }
+        ],
+        "Cyber/Information": [
+            {
+                "indicator": "Cyberattack, vulnerability exploitation, disinformation, deepfake, influence operation",
+                "relevance": "Medium",
+                "status": "Monitoring",
+                "escalation_threshold": "Escalate if linked to critical infrastructure, election integrity, or state-backed activity."
+            }
+        ],
+        "Social/Local Stability": [
+            {
+                "indicator": "Protests, riots, repression, elite fragmentation, civil unrest",
+                "relevance": "Medium",
+                "status": "Monitoring",
+                "escalation_threshold": "Escalate if unrest spreads across cities or involves security-force violence."
+            }
+        ],
+    }
+
+
+def build_recommended_decision_actions() -> Dict[str, List[str]]:
+    return {
+        "Monitor": [
+            "Continue live signal tracking.",
+            "Watch for repeated indicators rather than isolated claims.",
+            "Compare current signals with historical patterns."
+        ],
+        "Corroborate": [
+            "Validate against GDELT, ACLED, sanctions, energy, cyber, and market data.",
+            "Check source reliability and cross-source repetition.",
+            "Separate official reporting from social amplification."
+        ],
+        "Escalate": [
+            "Escalate if warning score exceeds 70.",
+            "Notify analyst or decision-maker if a trigger indicator is confirmed.",
+            "Generate executive brief if cross-domain spillover is detected."
+        ],
+        "Simulate": [
+            "Run Scenario Simulation Lab.",
+            "Test baseline, deterioration, and strategic shock pathways.",
+            "Estimate second-order effects across markets, supply chains, and security."
+        ],
+        "Assess Exposure": [
+            "Run Corporate Exposure & Portfolio Intelligence.",
+            "Run Supply Chain Risk Engine.",
+            "Run Energy Analysis Agent if energy, chokepoint, or commodity exposure is present."
+        ],
+    }
+
+
+def infer_relevant_modules_from_topic(topic: str, sector_alerts: List[Dict[str, Any]]) -> List[str]:
+    topic_lower = topic.lower()
+    modules = set()
+
+    for alert in sector_alerts[:3]:
+        for module in alert.get("relevant_modules", []):
+            modules.add(module)
+
+    if any(word in topic_lower for word in ["oil", "gas", "hormuz", "energy", "lng", "chokepoint", "shipping", "suez", "red sea"]):
+        modules.update([
+            "Run Energy Analysis Agent",
+            "Global Supply Chain Risk Engine",
+            "Corporate Exposure & Portfolio Intelligence",
+            "Scenario Simulation Lab",
+            "Global Strategic Risk Map"
+        ])
+
+    if any(word in topic_lower for word in ["cyber", "deepfake", "disinformation", "information", "ransomware", "malware"]):
+        modules.update([
+            "Cyber & Information Risk Layer",
+            "Scenario Simulation Lab",
+            "Corporate Exposure & Portfolio Intelligence",
+            "Strategic Early Warning System"
+        ])
+
+    if any(word in topic_lower for word in ["protest", "election", "coup", "governance", "unrest"]):
+        modules.update([
+            "Run Geopolitical Agent",
+            "Run Security Analysis Agent",
+            "Regional Intelligence Dashboard",
+            "Scenario Simulation Lab"
+        ])
+
+    return sorted(modules)
+
+
+def generate_scenarios(country: str, warning_level: str, topic: str) -> List[Dict[str, Any]]:
     return [
         {
             "scenario": "Baseline Continuity",
@@ -227,6 +859,13 @@ def generate_scenarios(country: str, warning_level: str, topic: str) -> List[Dic
             "probability": "Medium",
             "impact": "Moderate",
             "strategic_implication": "Decision-makers should continue monitoring but avoid overreacting without corroborated indicators.",
+            "affected_sectors": ["Geopolitical Escalation", "Political Stability & Governance"],
+            "trigger_indicators": [
+                "Repeated official warnings",
+                "Increased reporting volume",
+                "Diplomatic friction",
+                "Localized incidents without wider escalation"
+            ]
         },
         {
             "scenario": "Accelerated Deterioration",
@@ -234,6 +873,14 @@ def generate_scenarios(country: str, warning_level: str, topic: str) -> List[Dic
             "probability": "Medium-Low" if warning_level in ["Low", "Watch"] else "Medium-High",
             "impact": "High",
             "strategic_implication": "Organizations should review exposure, contingency plans, dependencies, and escalation thresholds.",
+            "affected_sectors": ["Security & Conflict", "Energy & Commodity Risk", "Supply Chain & Trade Disruption"],
+            "trigger_indicators": [
+                "Military movement",
+                "Sanctions announcement",
+                "Port or chokepoint disruption",
+                "Cyber incident",
+                "Mass protest or security-force response"
+            ]
         },
         {
             "scenario": "Strategic Shock",
@@ -241,6 +888,14 @@ def generate_scenarios(country: str, warning_level: str, topic: str) -> List[Dic
             "probability": "Low" if warning_level in ["Low", "Watch"] else "Medium",
             "impact": "Severe",
             "strategic_implication": "Rapid decision support, executive notification, and crisis-response protocols may be required.",
+            "affected_sectors": ["Corporate & Portfolio Exposure", "Economic & Financial Stress", "Cyber & Information Operations"],
+            "trigger_indicators": [
+                "Missile or drone attack",
+                "Major cyberattack",
+                "Confirmed blockade or port closure",
+                "Market shock",
+                "Diplomatic rupture"
+            ]
         },
     ]
 
@@ -349,7 +1004,7 @@ def early_warning_health():
     return {
         "status": "online",
         "module": "Strategic Early Warning System",
-        "version": "early-warning-system-v2-supabase",
+        "version": "early-warning-system-v3-sector-framework",
         "supabase_configured": True if supabase else False,
         "timestamp": datetime.utcnow().isoformat(),
     }
@@ -366,9 +1021,38 @@ def run_early_warning_agent(request: WarningRequest):
     score = calculate_warning_score(signals)
     warning_level = classify_warning_level(score)
 
+    has_system_notice = any(
+        signal.get("source") == "system" or signal.get("category") == "system_notice"
+        for signal in signals
+    )
+
+    signal_noise_assessment = classify_signal_noise(
+        score=score,
+        has_system_notice=has_system_notice
+    )
+
     indicators = generate_indicators(country, topic, signals)
     scenarios = generate_scenarios(country, warning_level, topic) if request.include_scenarios else []
     warning_layers = build_warning_layers(score)
+
+    sector_alerts = build_sector_alerts(
+        country=country,
+        topic=topic,
+        overall_score=score,
+        signals=signals
+    )
+
+    monitoring_indicators_by_category = build_monitoring_indicators_by_category(
+        country=country,
+        topic=topic
+    )
+
+    recommended_decision_actions = build_recommended_decision_actions()
+
+    relevant_modules = infer_relevant_modules_from_topic(
+        topic=topic,
+        sector_alerts=sector_alerts
+    )
 
     result = {
         "engine": "sovereign_strategic_early_warning_system",
@@ -380,14 +1064,19 @@ def run_early_warning_agent(request: WarningRequest):
         "timestamp": datetime.utcnow().isoformat(),
         "warning_score": score,
         "warning_level": warning_level,
-        "confidence_score": 60,
+        "confidence_score": 60 if not has_system_notice else 35,
         "executive_judgment": (
             f"{country} currently registers a {warning_level.lower()} strategic warning posture "
-            f"for {topic}. The assessment is based on open-source signal density, escalation language, "
-            f"cross-domain indicators, and the velocity of reported developments. This should be treated "
-            f"as an early-warning product, not a final intelligence assessment."
+            f"for {topic}. The assessment considers severity, probability, velocity, confidence, "
+            f"strategic relevance, and cross-domain spillover. This should be treated as an early-warning "
+            f"product designed to distinguish signal from noise, not as a final intelligence assessment."
         ),
         "warning_layers": warning_layers,
+        "signal_noise_assessment": signal_noise_assessment,
+        "sector_alerts": sector_alerts,
+        "monitoring_indicators_by_category": monitoring_indicators_by_category,
+        "recommended_decision_actions": recommended_decision_actions,
+        "relevant_modules": relevant_modules,
         "key_signals": signals,
         "early_warning_indicators": indicators,
         "drivers": [
@@ -396,12 +1085,14 @@ def run_early_warning_agent(request: WarningRequest):
             "Potential cross-domain spillover",
             "Regional or market sensitivity",
             "Uncertainty around adversary intent and capability",
+            "Sector relevance to Sovereign Intelligence modules",
         ],
         "intelligence_gaps": [
-            "Need corroboration from structured conflict datasets",
+            "Need corroboration from structured conflict datasets such as ACLED or similar sources",
             "Need baseline comparison against historical incident frequency",
             "Need source reliability weighting",
             "Need geospatial event clustering",
+            "Need energy, sanctions, cyber, and market data fusion",
             "Need human analyst validation for high-impact warnings",
         ],
         "scenarios": scenarios,
@@ -434,19 +1125,37 @@ def early_warning_dashboard(
     level = classify_warning_level(score)
     warning_layers = build_warning_layers(score)
 
+    has_system_notice = any(
+        signal.get("source") == "system" or signal.get("category") == "system_notice"
+        for signal in signals
+    )
+
+    signal_noise_assessment = classify_signal_noise(score, has_system_notice)
+
+    sector_alerts = build_sector_alerts(
+        country=country,
+        topic=topic,
+        overall_score=score,
+        signals=signals
+    )
+
     return {
         "module": "Strategic Early Warning Dashboard",
         "country": country,
         "topic": topic,
         "warning_score": score,
         "warning_level": level,
+        "signal_noise_assessment": signal_noise_assessment,
         "summary": {
             "active_signals": len(signals),
             "priority": level,
             "watch_status": "Active Watch" if score >= 50 else "Routine Monitoring",
+            "most_affected_sector": sector_alerts[0]["sector"] if sector_alerts else None,
+            "recommended_posture": "Escalate / Active Review" if score >= 70 else "Active Monitoring" if score >= 40 else "Routine Monitoring",
             "last_updated": datetime.utcnow().isoformat(),
         },
         "warning_layers": warning_layers,
+        "sector_alerts": sector_alerts,
         "signals": signals,
     }
 
@@ -469,6 +1178,12 @@ def global_watchlist():
         query = f"{item['country']} {item['topic']} warning escalation crisis"
         signals = fetch_gdelt_signals(query=query, maxrecords=4)
         score = calculate_warning_score(signals)
+        sector_alerts = build_sector_alerts(
+            country=item["country"],
+            topic=item["topic"],
+            overall_score=score,
+            signals=signals
+        )
 
         watchlist.append(
             {
@@ -479,6 +1194,11 @@ def global_watchlist():
                 "warning_score": score,
                 "warning_level": classify_warning_level(score),
                 "active_signals": len(signals),
+                "most_affected_sector": sector_alerts[0]["sector"] if sector_alerts else None,
+                "strategic_relevance": (
+                    f"{item['area']} is relevant to Sovereign Intelligence because it can affect "
+                    f"security, markets, energy, supply chains, corporate exposure, or regional stability."
+                ),
                 "summary": f"{item['area']} is under automated monitoring for escalation, instability, strategic disruption, and cross-domain spillover.",
             }
         )
