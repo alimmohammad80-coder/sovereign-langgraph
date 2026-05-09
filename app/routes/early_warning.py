@@ -656,19 +656,35 @@ def fetch_custom_rss_signals(query: str, maxrecords: int = 10) -> List[Dict[str,
         print(f"[Early Warning] Custom RSS fetch error: {e}")
         return []
 
-
-def fetch_all_early_warning_signals(query: str, maxrecords: int = 30) -> List[Dict[str, Any]]:
+def fetch_all_early_warning_signals(query: str, maxrecords: int = 12) -> List[Dict[str, Any]]:
     signals: List[Dict[str, Any]] = []
 
     source_plan = [
-        ("GDELT", lambda: fetch_gdelt_signals(query, maxrecords=8)),
-        ("NewsAPI", lambda: fetch_newsapi_signals(query, maxrecords=8)),
-        ("ReliefWeb", lambda: fetch_reliefweb_signals(query, maxrecords=6)),
-        ("Google News RSS", lambda: fetch_google_news_rss_signals(query, maxrecords=8)),
-        ("Custom RSS", lambda: fetch_custom_rss_signals(query, maxrecords=8)),
-        ("CISA KEV", lambda: fetch_cisa_kev_signals(query, maxrecords=5)),
-        ("NVD CVE", lambda: fetch_nvd_cve_signals(query, maxrecords=5)),
+        ("Google News RSS", lambda: fetch_google_news_rss_signals(query, maxrecords=5)),
+        ("Custom RSS", lambda: fetch_custom_rss_signals(query, maxrecords=5)),
+        ("GDELT", lambda: fetch_gdelt_signals(query, maxrecords=4)),
     ]
+
+    cyber_terms = [
+        "cyber",
+        "cve",
+        "vulnerability",
+        "ransomware",
+        "malware",
+        "hack",
+        "critical infrastructure",
+    ]
+
+    if any(term in query.lower() for term in cyber_terms):
+        source_plan.extend([
+            ("CISA KEV", lambda: fetch_cisa_kev_signals(query, maxrecords=3)),
+            ("NVD CVE", lambda: fetch_nvd_cve_signals(query, maxrecords=3)),
+        ])
+
+    if os.getenv("NEWS_API_KEY"):
+        source_plan.append(
+            ("NewsAPI", lambda: fetch_newsapi_signals(query, maxrecords=4))
+        )
 
     for source_name, fetcher in source_plan:
         try:
@@ -678,14 +694,13 @@ def fetch_all_early_warning_signals(query: str, maxrecords: int = 30) -> List[Di
         except Exception as e:
             print(f"[Early Warning] {source_name} failed inside aggregator: {e}")
 
-    deduped = []
+    deduped: List[Dict[str, Any]] = []
     seen = set()
 
     for signal in signals:
-        key = (
-            signal.get("title", "").strip().lower(),
-            signal.get("url") or ""
-        )
+        title = str(signal.get("title") or "").strip().lower()
+        url = str(signal.get("url") or "").strip()
+        key = (title, url)
 
         if key not in seen:
             seen.add(key)
@@ -710,46 +725,6 @@ def fetch_all_early_warning_signals(query: str, maxrecords: int = 30) -> List[Di
         )
 
     return deduped[:maxrecords]
-
-def build_sector_recommended_actions(sector: str) -> List[str]:
-    actions = [
-        "Continue live signal tracking.",
-        "Corroborate against structured datasets and saved intelligence memory.",
-        "Escalate if warning score rises above 70.",
-    ]
-
-    if sector == "Energy & Commodity Risk":
-        actions += [
-            "Run Energy Analysis Agent.",
-            "Run Supply Chain Risk Engine.",
-            "Generate Corporate Exposure Report for energy-sensitive assets."
-        ]
-    elif sector == "Supply Chain & Trade Disruption":
-        actions += [
-            "Run Global Supply Chain Risk Engine.",
-            "Check chokepoint, port, sanctions, and commodity dependencies.",
-            "Run Scenario Simulation Lab for disruption pathways."
-        ]
-    elif sector == "Cyber & Information Operations":
-        actions += [
-            "Monitor cyber advisories and vulnerability feeds.",
-            "Assess information manipulation and disinformation risk.",
-            "Run scenario analysis for cyber-enabled escalation."
-        ]
-    elif sector == "Corporate & Portfolio Exposure":
-        actions += [
-            "Run Corporate Exposure & Portfolio Intelligence.",
-            "Assess affected sectors, assets, counterparties, and insurance exposure.",
-            "Generate executive exposure brief."
-        ]
-    else:
-        actions += [
-            "Run Geopolitical or Security Analysis Agent.",
-            "Run Scenario Simulation Lab.",
-            "Update Global Strategic Risk Map layer."
-        ]
-
-    return actions
 
 
 
@@ -1400,7 +1375,7 @@ def run_early_warning_agent(request: WarningRequest):
     topic = request.topic or "geopolitical risk"
 
     query = f"{country} {topic} crisis warning security escalation"
-    signals = fetch_all_early_warning_signals(query=query, maxrecords=30)
+    signals = fetch_all_early_warning_signals(query=query, maxrecords=12)
     score = calculate_warning_score(signals)
     warning_level = classify_warning_level(score)
 
@@ -1505,7 +1480,7 @@ def early_warning_dashboard(
     topic: str = Query("geopolitical risk"),
 ):
     query = f"{country} {topic} warning crisis escalation"
-    signals = fetch_all_early_warning_signals(query=query, maxrecords=20)
+    signals = fetch_all_early_warning_signals(query=query, maxrecords=8)
     score = calculate_warning_score(signals)
     level = classify_warning_level(score)
     warning_layers = build_warning_layers(score)
@@ -1544,56 +1519,96 @@ def early_warning_dashboard(
         "signals": signals,
     }
 
-
 @router.get("/global-watchlist")
 def global_watchlist():
     monitored_areas = [
-        {"area": "Taiwan Strait", "country": "China/Taiwan", "region": "Indo-Pacific", "topic": "Taiwan Strait escalation risk"},
-        {"area": "Strait of Hormuz", "country": "Iran", "region": "Middle East", "topic": "Energy chokepoint and military escalation risk"},
-        {"area": "Red Sea Shipping Corridor", "country": "Yemen/Red Sea", "region": "Middle East / Africa", "topic": "Shipping disruption and maritime security risk"},
-        {"area": "Russia-Ukraine War Zone", "country": "Ukraine", "region": "Europe", "topic": "Military escalation and European security risk"},
-        {"area": "India-Pakistan Crisis Corridor", "country": "India/Pakistan", "region": "South Asia", "topic": "Border escalation and nuclear signaling risk"},
-        {"area": "Korean Peninsula", "country": "North Korea/South Korea", "region": "East Asia", "topic": "Missile nuclear and military escalation risk"},
-        {"area": "Venezuela Political Crisis", "country": "Venezuela", "region": "Latin America", "topic": "Political instability and regional spillover risk"},
+        {
+            "area": "Taiwan Strait",
+            "country": "China/Taiwan",
+            "region": "Indo-Pacific",
+            "topic": "Taiwan Strait escalation risk",
+            "warning_score": 58,
+            "warning_level": "Elevated",
+            "most_affected_sector": "Geopolitical Escalation",
+        },
+        {
+            "area": "Strait of Hormuz",
+            "country": "Iran",
+            "region": "Middle East",
+            "topic": "Energy chokepoint and military escalation risk",
+            "warning_score": 56,
+            "warning_level": "Elevated",
+            "most_affected_sector": "Energy & Commodity Risk",
+        },
+        {
+            "area": "Red Sea Shipping Corridor",
+            "country": "Yemen/Red Sea",
+            "region": "Middle East / Africa",
+            "topic": "Shipping disruption and maritime security risk",
+            "warning_score": 54,
+            "warning_level": "Elevated",
+            "most_affected_sector": "Supply Chain & Trade Disruption",
+        },
+        {
+            "area": "Russia-Ukraine War Zone",
+            "country": "Ukraine",
+            "region": "Europe",
+            "topic": "Military escalation and European security risk",
+            "warning_score": 68,
+            "warning_level": "Elevated",
+            "most_affected_sector": "Security & Conflict",
+        },
+        {
+            "area": "India-Pakistan Crisis Corridor",
+            "country": "India/Pakistan",
+            "region": "South Asia",
+            "topic": "Border escalation and nuclear signaling risk",
+            "warning_score": 49,
+            "warning_level": "Watch",
+            "most_affected_sector": "Geopolitical Escalation",
+        },
+        {
+            "area": "Korean Peninsula",
+            "country": "North Korea/South Korea",
+            "region": "East Asia",
+            "topic": "Missile nuclear and military escalation risk",
+            "warning_score": 61,
+            "warning_level": "Elevated",
+            "most_affected_sector": "Security & Conflict",
+        },
+        {
+            "area": "Venezuela Political Crisis",
+            "country": "Venezuela",
+            "region": "Latin America",
+            "topic": "Political instability and regional spillover risk",
+            "warning_score": 44,
+            "warning_level": "Watch",
+            "most_affected_sector": "Political Stability & Governance",
+        },
     ]
 
     watchlist = []
 
     for item in monitored_areas:
-        query = f"{item['country']} {item['topic']} warning escalation crisis"
-        signals = fetch_all_early_warning_signals(query=query, maxrecords=15)
-        score = calculate_warning_score(signals)
-        sector_alerts = build_sector_alerts(
-            country=item["country"],
-            topic=item["topic"],
-            overall_score=score,
-            signals=signals
-        )
-
-        watchlist.append(
-            {
-                "area": item["area"],
-                "country": item["country"],
-                "region": item["region"],
-                "topic": item["topic"],
-                "warning_score": score,
-                "warning_level": classify_warning_level(score),
-                "active_signals": len(signals),
-                "most_affected_sector": sector_alerts[0]["sector"] if sector_alerts else None,
-                "strategic_relevance": (
-                    f"{item['area']} is relevant to Sovereign Intelligence because it can affect "
-                    f"security, markets, energy, supply chains, corporate exposure, or regional stability."
-                ),
-                "summary": f"{item['area']} is under automated monitoring for escalation, instability, strategic disruption, and cross-domain spillover.",
-            }
-        )
+        watchlist.append({
+            **item,
+            "active_signals": 0,
+            "strategic_relevance": (
+                f"{item['area']} is relevant to Sovereign Intelligence because it can affect "
+                f"security, markets, energy, supply chains, corporate exposure, or regional stability."
+            ),
+            "summary": (
+                f"{item['area']} is under structured monitoring for escalation, instability, "
+                f"strategic disruption, and cross-domain spillover."
+            ),
+        })
 
     return {
         "module": "Global Strategic Watchlist",
+        "mode": "lightweight_structured_watchlist",
         "timestamp": datetime.utcnow().isoformat(),
         "watchlist": sorted(watchlist, key=lambda x: x["warning_score"], reverse=True),
     }
-
 
 @router.get("/recent-runs")
 def get_recent_early_warning_runs(limit: int = Query(10, ge=1, le=50)):
