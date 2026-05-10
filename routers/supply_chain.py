@@ -5,6 +5,7 @@ from typing import Dict, Any, Optional
 from services.apis.gdelt_api import fetch_gdelt_signals
 from services.apis.ofac_api import fetch_ofac_sanctions
 from services.apis.eia_api import fetch_eia_energy_signals
+from app.services.simulation_question_generator import generate_simulation_questions
 
 router = APIRouter(prefix="/api/supply-chain", tags=["Supply Chain Risk"])
 
@@ -201,37 +202,74 @@ def classify_global_risk(score: int) -> str:
         return "Low"
     return "Minimal"
 
-
 @router.get("/overview")
 def get_supply_chain_overview():
-    global_score = round(sum(item["risk_score"] for item in CHOKEPOINTS) / len(CHOKEPOINTS))
+
+    global_score = round(
+        sum(item["risk_score"] for item in CHOKEPOINTS) / len(CHOKEPOINTS)
+    )
+
     top_dependencies = sorted(
-        list({commodity for item in CHOKEPOINTS for commodity in item["affected_commodities"]})
+        list({
+            commodity
+            for item in CHOKEPOINTS
+            for commodity in item["affected_commodities"]
+        })
     )[:6]
+
+    result = {
+        "region": "Global maritime chokepoints",
+        "topic": "supply chain and chokepoint risk",
+        "executive_judgment": "Global supply chain risk is elevated due to critical chokepoint exposure across Hormuz, Bab el-Mandeb, Taiwan Strait, and Suez Canal.",
+
+        "global_score": global_score,
+        "risk_level": classify_global_risk(global_score),
+        "active_chokepoint_alerts": len(
+            [item for item in CHOKEPOINTS if item["risk_score"] >= 70]
+        ),
+        "critical_dependency_exposure": top_dependencies,
+        "disruption_probability_30d": min(round(global_score * 0.55), 95),
+        "top_risks": sorted(
+            CHOKEPOINTS,
+            key=lambda x: x["risk_score"],
+            reverse=True
+        )[:3]
+    }
+
+    simulation_questions = generate_simulation_questions(result)
 
     return {
         "engine": "sovereign_supply_chain_risk",
         "status": "success",
         "last_updated": datetime.utcnow().isoformat(),
-        "data": {
-            "global_score": global_score,
-            "risk_level": classify_global_risk(global_score),
-            "active_chokepoint_alerts": len([item for item in CHOKEPOINTS if item["risk_score"] >= 70]),
-            "critical_dependency_exposure": top_dependencies,
-            "disruption_probability_30d": min(round(global_score * 0.55), 95),
-            "top_risks": sorted(CHOKEPOINTS, key=lambda x: x["risk_score"], reverse=True)[:3]
-        }
+        "data": result,
+        "simulation_questions": simulation_questions
     }
 
 
 @router.get("/chokepoints")
 def get_chokepoints():
-    return {
-        "status": "success",
+
+    result = {
+        "region": "Global maritime chokepoints",
+        "topic": "critical trade and supply chain disruption analysis",
+        "executive_judgment": (
+            "Multiple global maritime chokepoints are experiencing elevated "
+            "geopolitical and supply-chain disruption risks affecting energy, "
+            "shipping, manufacturing, and strategic trade flows."
+        ),
         "count": len(CHOKEPOINTS),
         "data": CHOKEPOINTS
     }
 
+    simulation_questions = generate_simulation_questions(result)
+
+    return {
+        "status": "success",
+        "count": len(CHOKEPOINTS),
+        "data": CHOKEPOINTS,
+        "simulation_questions": simulation_questions
+    }
 
 @router.get("/indicators")
 def get_indicators():
