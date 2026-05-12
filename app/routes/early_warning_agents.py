@@ -44,6 +44,15 @@ gemini_client = (
     else None
 )
 
+if gemini_client:
+    print("[EWS Agents] Gemini configured.")
+else:
+    print("[EWS Agents] Gemini not configured or unavailable.")
+
+if supabase:
+    print("[EWS Agents] Supabase configured.")
+else:
+    print("[EWS Agents] Supabase not configured or unavailable.")
 
 class RawSignal(BaseModel):
     source: Optional[str] = "unknown"
@@ -60,34 +69,60 @@ class SiftRequest(BaseModel):
     items: List[RawSignal]
 
 
+class DeepAssessRequest(BaseModel):
+    sifted_signal_id: Optional[str] = None
+    country: Optional[str] = None
+    region: Optional[str] = None
+    topic: Optional[str] = None
+    include_red_team: Optional[bool] = True
+    include_grounding: Optional[bool] = False
+    sifter_output: Optional[Dict[str, Any]] = None
+
+class SiftRequest(BaseModel):
+    domain: Optional[str] = "geopolitical_conflict"
+    query: Optional[str] = None
+    items: List[RawSignal]
+
+
 def content_hash(title: str, url: Optional[str]) -> str:
     base = f"{title.strip().lower()}::{url or ''}"
     return hashlib.sha256(base.encode("utf-8")).hexdigest()
 
 
 def safe_json_parse(text: str) -> Dict[str, Any]:
+    if not text:
+        return {
+            "status": "error",
+            "message": "Empty model output.",
+        }
+
+    cleaned = text.strip()
+
+    # Remove markdown code fences
+    if cleaned.startswith("```json"):
+        cleaned = cleaned[len("```json"):].strip()
+    elif cleaned.startswith("```"):
+        cleaned = cleaned[len("```"):].strip()
+
+    if cleaned.endswith("```"):
+        cleaned = cleaned[:-3].strip()
+
+    # Extract first JSON object if extra text exists
+    start = cleaned.find("{")
+    end = cleaned.rfind("}")
+
+    if start != -1 and end != -1 and end > start:
+        cleaned = cleaned[start:end + 1]
+
     try:
-        return json.loads(text)
-    except Exception:
-        cleaned = text.strip()
-
-        if cleaned.startswith("```json"):
-            cleaned = cleaned.replace("```json", "").replace("```", "").strip()
-        elif cleaned.startswith("```"):
-            cleaned = cleaned.replace("```", "").strip()
-
-        try:
-            return json.loads(cleaned)
-        except Exception:
-            return {
-                "is_relevant": False,
-                "signal_classification": "Unparsed Output",
-                "confidence_score": 0,
-                "severity_level": 1,
-                "bottom_line": "Model output could not be parsed as JSON.",
-                "raw_text": text,
-            }
-
+        return json.loads(cleaned)
+    except Exception as e:
+        return {
+            "status": "unparsed_output",
+            "message": "Model output could not be parsed as JSON.",
+            "parse_error": str(e),
+            "raw_text": text,
+        }
 
 def save_raw_signal(item: RawSignal, query: Optional[str]) -> Optional[str]:
     if not supabase:
@@ -329,6 +364,153 @@ Return exactly one valid JSON object with these keys:
         fallback["model_error"] = str(e)
         return fallback
 
+def run_gemini_deep_assessment(
+    country: Optional[str],
+    region: Optional[str],
+    topic: Optional[str],
+    sifter_output: Dict[str, Any],
+    include_red_team: bool = True,
+    include_grounding: bool = False,
+) -> Dict[str, Any]:
+    if not gemini_client:
+        return {
+            "status": "unavailable",
+            "provider": "local_fallback",
+            "model_used": "none",
+            "message": "Gemini is not configured.",
+        }
+
+    prompt = f"""
+You are the Senior Strategic Intelligence Analyst for Sovereign Intelligence.
+
+Mission:
+Turn a high-signal early warning item into a professional intelligence assessment.
+
+Do not summarize news. Produce intelligence judgment.
+
+Context:
+Country: {country}
+Region: {region}
+Topic: {topic}
+
+Sifter Output:
+{sifter_output}
+
+Analytical Requirements:
+1. Validate whether the signal is strategically meaningful.
+2. Identify the likely 48-72 hour implications.
+3. Build a ripple-effect chain across security, energy, finance, supply chain, cyber/information, and political stability.
+4. Produce three scenario paths:
+   - Status Quo
+   - Escalation
+   - De-escalation
+5. If red team is enabled, challenge the assessment and identify counter-evidence.
+6. If grounding is requested, mark what must be externally verified.
+
+Important scoring rules:
+
+- warning_score must be 0–100.
+
+- confidence_score must be 0–100.
+
+- vulnerability_index must be 0–100.
+
+- severity is not requested in this deep assessment.
+
+- Do not confuse severity_level 1–10 from the sifter with warning_score 0–100.
+
+
+Return valid JSON only with exactly these keys:
+{{
+  "status": "success",
+  "analyst_bottom_line": "string",
+  "risk_level": "Low | Watch | Elevated | High | Critical",
+  "warning_score": 0,
+  "confidence_score": 0,
+  "vulnerability_index": 0,
+  "so_what": "string",
+  "ripple_effects": [
+    {{
+      "stage": "Trigger | Primary Impact | Cross-Domain Spillover | Decision Consequence",
+      "assessment": "string"
+    }}
+  ],
+  "scenario_tree": [
+    {{
+      "scenario": "Status Quo | Escalation | De-escalation",
+      "probability": "Low | Medium | High",
+      "impact": "Low | Moderate | High | Severe",
+      "description": "string",
+      "trigger_indicators": ["string"]
+    }}
+  ],
+  "red_team_challenge": {{
+    "enabled": true,
+    "counter_evidence": ["string"],
+    "false_positive_risks": ["string"],
+    "confidence_adjustment": "string"
+  }},
+  "priority_indicators_24h": ["string"],
+  "exposed_domains": ["Security", "Energy", "Finance", "Supply Chain", "Cyber", "Political", "Corporate Exposure"],
+  "recommended_actions": ["string"],
+  "verification": {{
+    "grounding_requested": false,
+    "verification_required": true,
+    "sources_to_check": ["Reuters", "AP", "official government statements", "maritime advisories", "market data"]
+  }},
+  "executive_brief": {{
+    "tldr": "string",
+    "key_judgments": ["string"],
+    "monitoring_priorities": ["string"],
+    "decision_relevance": "string"
+  }}
+}}
+"""
+
+    try:
+        response = gemini_client.models.generate_content(
+            model=GEMINI_ANALYST_MODEL,
+            contents=prompt,
+        )
+
+        raw_text = response.text or ""
+        parsed = safe_json_parse(raw_text)
+
+        # Normalize warning_score if model mistakenly returns 1–10 scale.
+        try:
+            warning_score = int(parsed.get("warning_score", 0) or 0)
+            if 1 <= warning_score <= 10:
+                parsed["warning_score"] = warning_score * 10
+        except Exception:
+            parsed["warning_score"] = 0
+
+        try:
+            confidence_score = int(parsed.get("confidence_score", 0) or 0)
+            parsed["confidence_score"] = max(0, min(confidence_score, 100))
+        except Exception:
+            parsed["confidence_score"] = 0
+
+        try:
+            vulnerability_index = int(parsed.get("vulnerability_index", 0) or 0)
+            parsed["vulnerability_index"] = max(0, min(vulnerability_index, 100))
+        except Exception:
+            parsed["vulnerability_index"] = 0
+
+        parsed["provider"] = "Google Gemini"
+        parsed["model_used"] = GEMINI_ANALYST_MODEL
+        parsed["include_red_team"] = include_red_team
+        parsed["include_grounding"] = include_grounding
+
+        return parsed
+
+    except Exception as e:
+        print(f"[EWS Agents] Gemini deep assessment error: {e}")
+        return {
+            "status": "error",
+            "provider": "Google Gemini",
+            "model_used": GEMINI_ANALYST_MODEL,
+            "error": str(e),
+        }
 
 @router.get("/health")
 def ews_agents_health():
@@ -388,4 +570,99 @@ def sift_signals(request: SiftRequest):
         "items_processed": len(items),
         "high_signal_count": high_signal_count,
         "results": results,
+    }
+
+@router.post("/deep-assess")
+def deep_assess_signal(request: DeepAssessRequest):
+    sifter_output = request.sifter_output
+
+    if not sifter_output and request.sifted_signal_id and supabase:
+        try:
+            response = (
+                supabase.table("ews_sifted_signals")
+                .select("*")
+                .eq("id", request.sifted_signal_id)
+                .limit(1)
+                .execute()
+            )
+
+            if response.data:
+                row = response.data[0]
+                sifter_output = row.get("raw_model_output") or {
+                    "is_relevant": row.get("is_relevant"),
+                    "signal_classification": row.get("signal_classification"),
+                    "domain": row.get("domain"),
+                    "country_or_region": row.get("country_or_region"),
+                    "confidence_score": row.get("confidence_score"),
+                    "severity_level": row.get("severity_level"),
+                    "bottom_line": row.get("bottom_line"),
+                    "so_what": row.get("so_what"),
+                    "affected_domains": row.get("affected_domains"),
+                    "monitoring_indicators": row.get("monitoring_indicators"),
+                    "counter_indicators": row.get("counter_indicators"),
+                    "verification_required": row.get("verification_required"),
+                    "recommended_action": row.get("recommended_action"),
+                }
+
+        except Exception as e:
+            return {
+                "status": "error",
+                "message": f"Could not load sifted signal from Supabase: {str(e)}",
+            }
+
+    if not sifter_output:
+        return {
+            "status": "error",
+            "message": "Provide either sifter_output or sifted_signal_id.",
+        }
+
+    assessment = run_gemini_deep_assessment(
+        country=request.country,
+        region=request.region,
+        topic=request.topic,
+        sifter_output=sifter_output,
+        include_red_team=request.include_red_team,
+        include_grounding=request.include_grounding,
+    )
+
+    verified_alert_id = None
+
+    if supabase and assessment.get("status") == "success":
+        try:
+            payload = {
+                "sifted_signal_id": request.sifted_signal_id,
+                "country": request.country,
+                "region": request.region,
+                "topic": request.topic,
+                "risk_level": assessment.get("risk_level"),
+                "warning_score": assessment.get("warning_score"),
+                "confidence_score": assessment.get("confidence_score"),
+                "vulnerability_index": assessment.get("vulnerability_index"),
+                "bottom_line": assessment.get("analyst_bottom_line"),
+                "executive_brief": assessment.get("executive_brief"),
+                "scenario_tree": assessment.get("scenario_tree"),
+                "ripple_effects": assessment.get("ripple_effects"),
+                "source_verification": assessment.get("verification"),
+                "status": "active",
+            }
+
+            response = (
+                supabase.table("ews_verified_alerts")
+                .insert(payload)
+                .execute()
+            )
+
+            if response.data:
+                verified_alert_id = response.data[0]["id"]
+
+        except Exception as e:
+            assessment["supabase_save_error"] = str(e)
+
+    return {
+        "status": "success",
+        "architecture": "Agentic Mesh Phase 2",
+        "agent": "Gemini Pro Analyst + Red Team",
+        "sifted_signal_id": request.sifted_signal_id,
+        "verified_alert_id": verified_alert_id,
+        "assessment": assessment,
     }
