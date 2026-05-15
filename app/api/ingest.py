@@ -2,7 +2,7 @@ from fastapi import APIRouter
 from app.services.news_service import fetch_news
 from app.services.news_storage_service import save_raw_news
 from app.services.normalize_service import normalize_news_articles
-from app.services.gdelt_service import fetch_gdelt
+from app.services.gdelt_service import fetch_gdelt_news
 from app.services.gdelt_storage_service import save_raw_gdelt
 from app.services.gdelt_normalize_service import normalize_gdelt_articles
 
@@ -87,7 +87,7 @@ def ingest_and_normalize_news(query: str = "geopolitics"):
 
 @router.get("/gdelt")
 def ingest_gdelt(query: str = "geopolitics"):
-    data = fetch_gdelt(query=query)
+    data = fetch_gdelt_news(query=query)
     articles = data.get("articles", []) if isinstance(data, dict) else []
 
     return {
