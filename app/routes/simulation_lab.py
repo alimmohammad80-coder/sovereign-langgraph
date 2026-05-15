@@ -22,32 +22,86 @@ class SimulationRequest(BaseModel):
 @router.post("/from-warning")
 def run_simulation(payload: SimulationRequest):
 
-    prompt = f"""
-You are Sovereign Intelligence's Simulation Lab.
+    prompt  = f"""
+    You are a senior geopolitical intelligence analyst producing elite strategic intelligence briefs for Sovereign Intelligence.
 
-Run a geopolitical decision-support simulation.
+    Your writing style must resemble:
+    - classified intelligence assessments
+    - national security strategic memoranda
+    - geopolitical decision-support briefings
+    - fusion intelligence products
 
-Country/Region: {payload.country}
-Warning Level: {payload.warning_level}
-Warning Score: {payload.warning_score}
-Simulation Trigger: {payload.trigger}
+    CRITICAL STYLE RULES:
+    - concise
+    - analytical
+    - operational
+    - serious
+    - forward-looking
+    - minimal headings
+    - no academic structure
+    - no repetitive markdown
+    - no generic AI phrasing
+    - avoid excessive bullet nesting
+    - avoid giant section trees
 
-Return a professional scenario simulation with:
+    The report should read like an elite intelligence product, not a verbose AI report.
 
-1. Baseline situation
-2. Trigger event
-3. Most likely scenario
-4. Most dangerous scenario
-5. Cascading geopolitical effects
-6. Economic and energy effects
-7. Security/military effects
-8. Early warning indicators to monitor
-9. Decision options
-10. Recommended actions
+    OUTPUT STRUCTURE:
 
-The simulation should be highly strategic, realistic, and professional.
-"""
+    # Executive Judgment
 
+    Short strategic assessment of the situation.
+
+    # Core Assessment
+
+    Integrated geopolitical, economic, military, cyber, and energy assessment.
+
+    # Strategic Analytical Judgment
+
+    Provide expert-level interpretation:
+    - escalation logic
+    - strategic intent
+    - coercive signaling
+    - second-order effects
+    - alliance dynamics
+    - systemic risks
+
+    This section should sound like a senior SME assessment.
+
+    # Most Likely Trajectory
+
+    Concise forward-looking pathway.
+
+    # Most Dangerous Trajectory
+
+    Worst realistic escalation pathway.
+
+    # Key Indicators to Monitor
+
+    Only the most operationally relevant indicators.
+
+    # Intelligence Gaps
+
+    Briefly identify uncertainties or missing visibility.
+
+    # Recommended Actions
+
+    Professional strategic recommendations.
+
+    # Source Notes
+
+    Include subtle source references.
+
+    Generate a complete strategic simulation using:
+
+    Country: {payload.country}
+    Trigger: {payload.trigger}
+    Warning Level: {payload.warning_level}
+    Warning Score: {payload.warning_score}
+
+    Do not ask questions.
+    Generate the full intelligence brief immediately.
+    """
     response = client.chat.completions.create(
         model="gpt-5.5",
         messages=[
