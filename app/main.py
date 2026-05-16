@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.routes.intelligence_pipeline import router as intelligence_pipeline_router
 from app.routes.fusion_signals import router as fusion_signals_router
 from app.routes.risk_signals import router as risk_signals_router
 from app.routes.google_news import router as google_news_router
@@ -46,6 +47,7 @@ app.include_router(google_news_router)
 app.include_router(risk_signals_router)
 app.include_router(fusion_signals_router)
 app.include_router(simulation_lab_router)
+app.include_router(intelligence_pipeline_router)
 
 # Supply Chain Risk Engine router
 app.include_router(supply_chain_router)
