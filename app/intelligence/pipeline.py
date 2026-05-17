@@ -10,7 +10,9 @@ from app.intelligence.signals.scorer import (
 from app.intelligence.analysis.gpt_fusion import generate_intelligence_assessment
 from app.intelligence.storage import store_intelligence_run
 
-
+from app.intelligence.analysis.cross_domain import (
+    generate_cross_domain_impacts
+)
 def run_intelligence_pipeline(
     module: str,
     entity: str,
@@ -33,6 +35,8 @@ def run_intelligence_pipeline(
         level=level,
         signals=scored_signals,
     )
+
+    cross_domain = generate_cross_domain_impacts(entity)
 
     result = {
         "status": "success",

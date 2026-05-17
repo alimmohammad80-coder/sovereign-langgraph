@@ -1,53 +1,68 @@
 import os
+import json
 from openai import OpenAI
-from typing import List
-from app.intelligence.schemas import IntelligenceSignal
 
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+def get_openai_client():
+    api_key = os.getenv("OPENAI_API_KEY")
+
+    if not api_key:
+        raise RuntimeError("OPENAI_API_KEY is missing.")
+
+    return OpenAI(api_key=api_key)
 
 
 def generate_intelligence_assessment(
-    module: str,
-    entity: str,
-    indicator: str,
-    score: int,
-    level: str,
-    signals: List[IntelligenceSignal],
-) -> dict:
-    signal_text = "\n".join(
-        [
-            f"- {s.title} | Source: {s.source} | Severity: {s.severity} | Summary: {s.summary}"
-            for s in signals[:8]
-        ]
-    )
+    module,
+    entity,
+    indicator,
+    level,
+    score,
+    signals,
+):
+    client = get_openai_client()
+
+    signal_text = "\n".join([
+        f"- {s.title}: {s.summary}"
+        for s in signals
+    ])
 
     prompt = f"""
 You are Sovereign Intelligence's fusion analysis engine.
 
-Generate a concise intelligence-grade assessment.
+Return VALID JSON only.
 
-Module: {module}
 Entity: {entity}
+Module: {module}
 Indicator: {indicator}
+Warning Level: {level}
 Score: {score}
-Level: {level}
 
-Live Signals:
+Signals:
 {signal_text}
 
-Return JSON only with these keys:
-executive_judgment
-strategic_assessment
-cross_domain_impacts
-confidence
-intelligence_gaps
-recommended_actions
-simulation_ready
-simulation_triggers
-related_entities
+Return this exact JSON structure:
+{{
+  "executive_judgment": "short intelligence judgment",
+  "strategic_assessment": "concise strategic assessment",
+  "cross_domain_impacts": {{
+    "military": "",
+    "political": "",
+    "economic": "",
+    "cyber": "",
+    "supply_chain": "",
+    "financial": ""
+  }},
+  "confidence": "Low / Moderate / High",
+  "intelligence_gaps": [],
+  "recommended_actions": [],
+  "simulation_ready": true,
+  "simulation_triggers": [],
+  "related_entities": []
+}}
 
-Keep it concise, serious, and operational.
 Do not use markdown.
+Do not wrap JSON in code fences.
 """
 
     response = client.chat.completions.create(
@@ -55,25 +70,28 @@ Do not use markdown.
         messages=[
             {
                 "role": "system",
-                "content": "You are a senior geopolitical fusion intelligence analyst. Return valid JSON only.",
+                "content": "You are a senior strategic intelligence analyst. Return valid JSON only."
             },
-            {"role": "user", "content": prompt},
-        ],
+            {
+                "role": "user",
+                "content": prompt
+            }
+        ]
     )
 
-    import json
+    text = response.choices[0].message.content
 
     try:
-        return json.loads(response.choices[0].message.content)
+        return json.loads(text)
     except Exception:
         return {
-            "executive_judgment": response.choices[0].message.content,
-            "strategic_assessment": "Fusion assessment generated, but JSON parsing failed.",
+            "executive_judgment": text,
+            "strategic_assessment": "JSON parsing failed; raw model output returned in executive_judgment.",
             "cross_domain_impacts": {},
             "confidence": "Moderate",
-            "intelligence_gaps": ["Structured JSON parsing failed."],
-            "recommended_actions": ["Review assessment manually."],
+            "intelligence_gaps": ["Model returned non-JSON output."],
+            "recommended_actions": ["Review fusion prompt or retry assessment."],
             "simulation_ready": score >= 55,
-            "simulation_triggers": [indicator],
-            "related_entities": [entity],
+            "simulation_triggers": [],
+            "related_entities": []
         }
