@@ -1,12 +1,14 @@
 from typing import List, Dict, Any
 
 from app.intelligence.signals.normalizer import normalize_raw_items
+from app.intelligence.signals.deduplicator import deduplicate_signals
 from app.intelligence.signals.scorer import (
     score_signals,
     calculate_overall_warning_score,
     determine_warning_level,
 )
 from app.intelligence.analysis.gpt_fusion import generate_intelligence_assessment
+from app.intelligence.storage import store_intelligence_run
 
 
 def run_intelligence_pipeline(
@@ -17,7 +19,8 @@ def run_intelligence_pipeline(
 ) -> Dict[str, Any]:
 
     signals = normalize_raw_items(raw_items)
-    scored_signals = score_signals(signals)
+    deduped_signals = deduplicate_signals(signals)
+    scored_signals = score_signals(deduped_signals)
 
     score = calculate_overall_warning_score(scored_signals)
     level = determine_warning_level(score)
@@ -31,7 +34,7 @@ def run_intelligence_pipeline(
         signals=scored_signals,
     )
 
-    return {
+    result = {
         "status": "success",
         "entity": entity,
         "module": module,
@@ -41,3 +44,10 @@ def run_intelligence_pipeline(
         "signals": [s.model_dump() for s in scored_signals],
         **assessment,
     }
+
+    try:
+        store_intelligence_run(result)
+    except Exception as e:
+        result["storage_error"] = str(e)
+
+    return result
