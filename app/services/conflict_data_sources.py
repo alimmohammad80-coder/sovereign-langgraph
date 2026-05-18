@@ -32,7 +32,7 @@ def fetch_google_news_conflict_items(country: str, indicator: str | None = None,
 
 def score_live_rss_signals(items):
     text = " ".join([
-        f"{item.get('title', '')} {item.get('summary', '')}".lower()
+        f"{item.get('title', '')} {item.get('snippet', '')}".lower()
         for item in items
     ])
 
