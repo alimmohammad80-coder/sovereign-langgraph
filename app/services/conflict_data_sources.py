@@ -1,4 +1,6 @@
 import feedparser
+import re
+from html import unescape
 from datetime import datetime, timezone
 from urllib.parse import quote_plus
 
@@ -13,12 +15,16 @@ def fetch_google_news_conflict_items(country: str, indicator: str | None = None,
     items = []
 
     for entry in feed.entries[:limit]:
+        raw_summary = entry.get("summary", "")
+        clean_summary = re.sub(r"<[^>]+>", "", raw_summary)
+        clean_summary = unescape(clean_summary).strip()
+
         items.append({
             "title": entry.get("title", ""),
             "source": entry.get("source", {}).get("title", "Google News"),
             "url": entry.get("link", ""),
             "published": entry.get("published", ""),
-            "summary": entry.get("summary", "")
+            "snippet": clean_summary
         })
 
     return items
