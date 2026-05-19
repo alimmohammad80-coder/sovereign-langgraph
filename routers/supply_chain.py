@@ -279,134 +279,121 @@ def get_indicators():
         "data": INDICATORS
     }
 
-
 @router.post("/run-agent")
 def run_supply_chain_agent(payload: dict):
-    agent_type = payload.get("agent_type", "full_supply_chain_briefing_agent")
-    selected_chokepoint = payload.get("selected_chokepoint")
+
     selected_country = payload.get("selected_country")
-    selected_commodity = payload.get("selected_commodity")
     selected_sector = payload.get("selected_sector")
-    selected_route = payload.get("selected_route")
-    time_horizon = payload.get("time_horizon", "30 days")
+    selected_chokepoint = payload.get("selected_chokepoint")
+    selected_commodity = payload.get("selected_commodity")
+    
+    risk_score = 35
+    drivers = []
+    affected_sectors = []
+    convergence_score = 0
 
-    selected_target = (
-        selected_chokepoint
-        or selected_country
-        or selected_commodity
-        or selected_sector
-        or selected_route
-    )
+    if selected_country in ["China", "Taiwan"]:
+        risk_score += 18
+        drivers.append("High geopolitical exposure")
+        convergence_score += 1
 
-    if not selected_target:
-        return {
-            "status": "error",
-            "message": "No target selected. Select a chokepoint, country, commodity, sector, or route before running the agent.",
-            "required_fields": [
-                "selected_chokepoint",
-                "selected_country",
-                "selected_commodity",
-                "selected_sector",
-                "selected_route"
-            ]
-        }
+    if selected_country in ["Russia", "Iran"]:
+        risk_score += 20
+        drivers.append("Sanctions and geopolitical pressure")
+        convergence_score += 1
 
-    matched_chokepoint = find_chokepoint(selected_chokepoint)
+    if selected_sector == "semiconductors":
+        risk_score += 15
+        affected_sectors.append("Technology")
+        drivers.append("Semiconductor dependency risk")
+        convergence_score += 1
 
-    if matched_chokepoint:
-        target_name = matched_chokepoint["name"]
-        risk_score = matched_chokepoint["risk_score"]
-        risk_level = matched_chokepoint["risk_level"]
-        drivers = matched_chokepoint["primary_drivers"]
-        affected_sectors = matched_chokepoint["affected_sectors"]
-        commodities = matched_chokepoint["affected_commodities"]
-        routes = matched_chokepoint["affected_routes"]
-        confidence = matched_chokepoint["confidence"]
-        forecast_7d = matched_chokepoint["forecast_7d"]
-        forecast_30d = matched_chokepoint["forecast_30d"]
-        forecast_90d = matched_chokepoint["forecast_90d"]
-        recent_signals = matched_chokepoint["recent_signals"]
+    if selected_sector == "energy":
+        risk_score += 14
+        affected_sectors.append("Energy")
+        drivers.append("Energy market volatility")
+        convergence_score += 1
+
+    if selected_sector == "maritime":
+        risk_score += 12
+        affected_sectors.append("Shipping")
+        drivers.append("Shipping route exposure")
+        convergence_score += 1
+
+    if selected_chokepoint in [
+        "Taiwan Strait",
+        "Strait of Hormuz",
+        "Bab el-Mandeb",
+        "South China Sea"
+    ]:
+        risk_score += 20
+        drivers.append(f"Strategic chokepoint exposure: {selected_chokepoint}")
+        convergence_score += 1
+
+    if selected_commodity:
+        risk_score += 8
+        drivers.append(f"Commodity disruption risk: {selected_commodity}")
+
+    risk_score = min(risk_score, 100)
+
+    if risk_score >= 85:
+        level = "Critical"
+    elif risk_score >= 70:
+        level = "High"
+    elif risk_score >= 50:
+        level = "Elevated"
+    elif risk_score >= 30:
+        level = "Watch"
     else:
-        target_name = selected_target
-        risk_score = 72
-        risk_level = "High"
-        drivers = [
-            "Supply chain concentration",
-            "Geopolitical exposure",
-            "Limited substitution capacity",
-            "Market sensitivity"
-        ]
-        affected_sectors = [
-            selected_sector or "Energy",
-            "Shipping",
-            "Manufacturing",
-            "Consumer goods"
-        ]
-        commodities = [selected_commodity] if selected_commodity else ["To be determined"]
-        routes = [selected_route] if selected_route else ["Route exposure requires additional data"]
-        confidence = "Medium"
-        forecast_7d = "Moderate"
-        forecast_30d = "Elevated"
-        forecast_90d = "Uncertain without additional data"
-        recent_signals = [
-            "Selected target requires further corroboration",
-            "Exposure assessment available at preliminary confidence level",
-            "Additional live data sources should be connected for higher precision"
-        ]
+        level = "Stable"
+
+    forecast = {
+        "7_day": min(100, risk_score - 8),
+        "30_day": risk_score,
+        "90_day": min(100, risk_score + 6)
+    }
+
+    executive_judgment = (
+        f"{selected_country} shows {level.lower()} supply-chain risk "
+        f"with exposure across strategic sectors and logistics networks."
+    )
 
     return {
         "status": "success",
-        "agent_type": agent_type,
-        "selected_target": target_name,
+        "agent_type": "full_supply_chain_briefing_agent_v2",
+        "selected_target": selected_country,
         "input_context": {
-            "selected_chokepoint": selected_chokepoint,
             "selected_country": selected_country,
-            "selected_commodity": selected_commodity,
             "selected_sector": selected_sector,
-            "selected_route": selected_route,
-            "time_horizon": time_horizon
+            "selected_chokepoint": selected_chokepoint,
+            "selected_commodity": selected_commodity,
+            "time_horizon": "30 days"
         },
         "output": {
-            "executive_judgment": (
-                f"{target_name} shows {risk_level.lower()} supply chain risk over the "
-                f"{time_horizon} horizon. The risk is driven by {', '.join(drivers[:3])}, "
-                f"with likely exposure across {', '.join(affected_sectors[:3])}."
-            ),
-            "key_signals": [
-                f"Current assessed risk level: {risk_level}",
-                f"Risk score: {risk_score}/100",
-                f"Affected commodities: {', '.join(commodities)}",
-                f"Affected routes: {', '.join(routes)}",
-                *recent_signals
-            ],
+            "executive_judgment": executive_judgment,
             "risk_score": risk_score,
-            "risk_level": risk_level,
+            "risk_level": level,
+            "forecast": forecast,
+            "convergence_score": convergence_score,
             "main_drivers": drivers,
             "affected_sectors": affected_sectors,
-            "affected_commodities": commodities,
-            "affected_routes": routes,
-            "forecast_horizon": time_horizon,
-            "forecast": {
-                "7_day": forecast_7d,
-                "30_day": forecast_30d,
-                "90_day": forecast_90d
-            },
-            "confidence": confidence,
-            "intelligence_gaps": [
-                "Live AIS vessel movement data",
-                "Real-time insurance premium data",
-                "Supplier-level exposure data",
-                "Confirmed port congestion and delay feeds"
-            ],
+            "confidence": "Medium-High" if risk_score >= 60 else "Medium",
             "recommended_actions": [
-                "Review exposure to affected routes and commodities",
-                "Stress-test procurement and logistics timelines",
-                "Compare alternative routes or suppliers",
-                "Run a scenario simulation for second-order effects",
-                "Monitor early warning indicators for escalation"
+                "Review supplier and route exposure",
+                "Stress-test logistics continuity",
+                "Identify alternative sourcing pathways",
+                "Monitor escalation indicators",
+                "Run simulation scenarios"
+            ],
+            "simulation_questions": [
+                "What happens if this chokepoint closes for 7 days?",
+                "Which firms and sectors are most exposed?",
+                "What second-order effects impact global markets?",
+                "Which alternative routes reduce disruption risk?"
             ]
         }
     }
+
 
 @router.get("/external/gdelt")
 def get_external_gdelt(query: str = "supply chain disruption", maxrecords: int = 20):
