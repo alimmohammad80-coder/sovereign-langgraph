@@ -394,7 +394,7 @@ def run_supply_chain_agent(payload: dict):
             "live_signals": live_signals,
             "extracted_signals": extracted_signals,
             "live_sources": live_data.get("source_status", {}),
-            "live_articles": live_data.get("gdelt_news", []),
+            "live_articles": live_data.get("combined_articles", []),
 
             "recommended_actions": [
                 "Review supplier and route exposure",

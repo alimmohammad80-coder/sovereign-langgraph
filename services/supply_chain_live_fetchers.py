@@ -1,16 +1,47 @@
 import requests
+import feedparser
 from datetime import datetime
+from urllib.parse import quote_plus
+
+
+def fetch_google_news_supply_chain(country=None, sector=None, chokepoint=None, commodity=None, limit=8):
+    query_parts = [x for x in [country, sector, chokepoint, commodity, "supply chain disruption"] if x]
+    query = " ".join(query_parts)
+
+    rss_url = (
+        "https://news.google.com/rss/search?q="
+        + quote_plus(query)
+        + "&hl=en-US&gl=US&ceid=US:en"
+    )
+
+    try:
+        feed = feedparser.parse(rss_url)
+        articles = []
+
+        for entry in feed.entries[:limit]:
+            articles.append({
+                "source": "Google News RSS",
+                "title": entry.get("title"),
+                "url": entry.get("link"),
+                "domain": entry.get("source", {}).get("title") if isinstance(entry.get("source"), dict) else None,
+                "published_at": entry.get("published"),
+                "summary": entry.get("summary"),
+                "query": query
+            })
+
+        return articles
+
+    except Exception as e:
+        return [{
+            "source": "Google News RSS",
+            "error": str(e),
+            "query": query,
+            "published_at": datetime.utcnow().isoformat()
+        }]
 
 
 def fetch_gdelt_supply_chain_news(country=None, sector=None, chokepoint=None, commodity=None, limit=5):
-    query_parts = []
-
-    for item in [country, sector, chokepoint, commodity]:
-        if item:
-            query_parts.append(str(item))
-
-    query_parts.append("supply chain disruption")
-
+    query_parts = [x for x in [country, sector, chokepoint, commodity, "supply chain disruption"] if x]
     query = " ".join(query_parts)
 
     url = "https://api.gdeltproject.org/api/v2/doc/doc"
@@ -23,10 +54,9 @@ def fetch_gdelt_supply_chain_news(country=None, sector=None, chokepoint=None, co
     }
 
     try:
-        response = requests.get(url, params=params, timeout=25)
+        response = requests.get(url, params=params, timeout=8)
         response.raise_for_status()
         data = response.json()
-
         articles = data.get("articles", [])
 
         return [
@@ -43,17 +73,23 @@ def fetch_gdelt_supply_chain_news(country=None, sector=None, chokepoint=None, co
         ]
 
     except Exception as e:
-        return [
-            {
-                "source": "GDELT",
-                "error": str(e),
-                "query": query,
-                "published_at": datetime.utcnow().isoformat()
-            }
-        ]
+        return [{
+            "source": "GDELT",
+            "error": str(e),
+            "query": query,
+            "published_at": datetime.utcnow().isoformat()
+        }]
 
 
 def fetch_live_supply_chain_sources(country=None, sector=None, chokepoint=None, commodity=None):
+    google_news = fetch_google_news_supply_chain(
+        country=country,
+        sector=sector,
+        chokepoint=chokepoint,
+        commodity=commodity,
+        limit=8
+    )
+
     gdelt_news = fetch_gdelt_supply_chain_news(
         country=country,
         sector=sector,
@@ -62,10 +98,21 @@ def fetch_live_supply_chain_sources(country=None, sector=None, chokepoint=None, 
         limit=5
     )
 
+    combined_articles = []
+
+    if google_news:
+        combined_articles.extend(google_news)
+
+    if gdelt_news and not gdelt_news[0].get("error"):
+        combined_articles.extend(gdelt_news)
+
     return {
+        "google_news": google_news,
         "gdelt_news": gdelt_news,
+        "combined_articles": combined_articles,
         "source_status": {
-            "gdelt": "connected",
+            "google_news": "connected",
+            "gdelt": "connected_with_fallback",
             "ofac": "planned",
             "eia": "planned",
             "world_bank": "planned",
