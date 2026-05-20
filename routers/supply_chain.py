@@ -6,6 +6,9 @@ from services.apis.gdelt_api import fetch_gdelt_signals
 from services.apis.ofac_api import fetch_ofac_sanctions
 from services.apis.eia_api import fetch_eia_energy_signals
 from app.services.simulation_question_generator import generate_simulation_questions
+from services.supply_chain_live_fetchers import fetch_live_supply_chain_sources
+from services.supply_chain_signal_extractor import extract_supply_chain_signals
+
 
 router = APIRouter(prefix="/api/supply-chain", tags=["Supply Chain Risk"])
 
@@ -36,8 +39,7 @@ CHOKEPOINTS = [
         "forecast_7d": "Elevated",
         "forecast_30d": "High",
         "forecast_90d": "Persistent elevated risk",
-        "confidence": "Medium-High"
-    },
+        "confidence": "Medium-High"    },
     {
         "id": "taiwan-strait",
         "name": "Taiwan Strait",
@@ -62,8 +64,7 @@ CHOKEPOINTS = [
         "forecast_7d": "Moderate",
         "forecast_30d": "High",
         "forecast_90d": "Structurally elevated",
-        "confidence": "Medium"
-    },
+        "confidence": "Medium"    },
     {
         "id": "bab-el-mandeb",
         "name": "Bab el-Mandeb",
@@ -88,8 +89,7 @@ CHOKEPOINTS = [
         "forecast_7d": "High",
         "forecast_30d": "High",
         "forecast_90d": "Persistent conflict-linked risk",
-        "confidence": "Medium-High"
-    },
+        "confidence": "Medium-High"    },
     {
         "id": "suez",
         "name": "Suez Canal",
@@ -114,8 +114,7 @@ CHOKEPOINTS = [
         "forecast_7d": "Moderate",
         "forecast_30d": "Elevated",
         "forecast_90d": "Dependent on Red Sea security environment",
-        "confidence": "Medium"
-    }
+        "confidence": "Medium"    }
 ]
 
 
@@ -127,8 +126,7 @@ INDICATORS = [
         "current_value": 67,
         "direction": "Rising",
         "severity": "High",
-        "confidence": "Medium",
-        "source_type": "AIS / shipping data",
+        "confidence": "Medium",        "source_type": "AIS / shipping data",
         "methodology_note": "Rising rerouting may indicate disruption, insurance concerns, or conflict avoidance behavior."
     },
     {
@@ -138,8 +136,7 @@ INDICATORS = [
         "current_value": 82,
         "direction": "Rising",
         "severity": "Critical",
-        "confidence": "High",
-        "source_type": "Energy market / trade data",
+        "confidence": "High",        "source_type": "Energy market / trade data",
         "methodology_note": "High oil transit exposure increases vulnerability to chokepoint disruption and price shocks."
     },
     {
@@ -149,8 +146,7 @@ INDICATORS = [
         "current_value": 79,
         "direction": "Stable",
         "severity": "High",
-        "confidence": "Medium-High",
-        "source_type": "Trade / industrial concentration data",
+        "confidence": "Medium-High",        "source_type": "Trade / industrial concentration data",
         "methodology_note": "Measures exposure to concentrated semiconductor production and transit corridors."
     },
     {
@@ -160,8 +156,7 @@ INDICATORS = [
         "current_value": 61,
         "direction": "Rising",
         "severity": "Moderate",
-        "confidence": "Medium",
-        "source_type": "Port / shipping data",
+        "confidence": "Medium",        "source_type": "Port / shipping data",
         "methodology_note": "Delay increases can signal congestion, rerouting pressure, or operational disruption."
     },
     {
@@ -171,8 +166,7 @@ INDICATORS = [
         "current_value": 74,
         "direction": "Rising",
         "severity": "High",
-        "confidence": "Medium",
-        "source_type": "Sanctions / trade policy data",
+        "confidence": "Medium",        "source_type": "Sanctions / trade policy data",
         "methodology_note": "Tracks exposure to restrictions affecting dual-use, technology, energy, and strategic commodities."
     }
 ]
@@ -279,6 +273,7 @@ def get_indicators():
         "data": INDICATORS
     }
 
+
 @router.post("/run-agent")
 def run_supply_chain_agent(payload: dict):
 
@@ -286,7 +281,18 @@ def run_supply_chain_agent(payload: dict):
     selected_sector = payload.get("selected_sector")
     selected_chokepoint = payload.get("selected_chokepoint")
     selected_commodity = payload.get("selected_commodity")
-    
+
+    live_data = fetch_live_supply_chain_sources(
+        country=selected_country,
+        sector=selected_sector,
+        chokepoint=selected_chokepoint,
+        commodity=selected_commodity
+    )
+
+    signal_result = extract_supply_chain_signals(live_data)
+    live_signals = signal_result.get("signals", {})
+    extracted_signals = signal_result.get("extracted_signals", [])
+
     risk_score = 35
     drivers = []
     affected_sectors = []
@@ -314,12 +320,6 @@ def run_supply_chain_agent(payload: dict):
         drivers.append("Energy market volatility")
         convergence_score += 1
 
-    if selected_sector == "maritime":
-        risk_score += 12
-        affected_sectors.append("Shipping")
-        drivers.append("Shipping route exposure")
-        convergence_score += 1
-
     if selected_chokepoint in [
         "Taiwan Strait",
         "Strait of Hormuz",
@@ -333,6 +333,18 @@ def run_supply_chain_agent(payload: dict):
     if selected_commodity:
         risk_score += 8
         drivers.append(f"Commodity disruption risk: {selected_commodity}")
+
+    if live_signals.get("military_escalation"):
+        risk_score += 12
+        drivers.append("Live signal: military escalation")
+
+    if live_signals.get("port_disruption"):
+        risk_score += 10
+        drivers.append("Live signal: port disruption")
+
+    if live_signals.get("sanctions_expansion"):
+        risk_score += 10
+        drivers.append("Live signal: sanctions or restrictions")
 
     risk_score = min(risk_score, 100)
 
@@ -360,7 +372,7 @@ def run_supply_chain_agent(payload: dict):
 
     return {
         "status": "success",
-        "agent_type": "full_supply_chain_briefing_agent_v2",
+        "agent_type": "full_supply_chain_briefing_agent_v3",
         "selected_target": selected_country,
         "input_context": {
             "selected_country": selected_country,
@@ -377,7 +389,13 @@ def run_supply_chain_agent(payload: dict):
             "convergence_score": convergence_score,
             "main_drivers": drivers,
             "affected_sectors": affected_sectors,
-            "confidence": "Medium-High" if risk_score >= 60 else "Medium",
+            "confidence": "Medium-High",
+
+            "live_signals": live_signals,
+            "extracted_signals": extracted_signals,
+            "live_sources": live_data.get("source_status", {}),
+            "live_articles": live_data.get("gdelt_news", []),
+
             "recommended_actions": [
                 "Review supplier and route exposure",
                 "Stress-test logistics continuity",
@@ -385,6 +403,7 @@ def run_supply_chain_agent(payload: dict):
                 "Monitor escalation indicators",
                 "Run simulation scenarios"
             ],
+
             "simulation_questions": [
                 "What happens if this chokepoint closes for 7 days?",
                 "Which firms and sectors are most exposed?",
@@ -393,6 +412,7 @@ def run_supply_chain_agent(payload: dict):
             ]
         }
     }
+
 
 
 @router.get("/external/gdelt")
@@ -516,8 +536,7 @@ def generate_supply_chain_fusion_report(payload: dict):
             ),
             "risk_score": risk_score,
             "risk_level": risk_level,
-            "confidence": confidence
-        },
+            "confidence": confidence        },
         "external_signals": {
             "gdelt": gdelt_signals,
             "ofac": ofac_signals,
