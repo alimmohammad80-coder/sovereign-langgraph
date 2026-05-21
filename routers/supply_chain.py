@@ -9,6 +9,8 @@ from app.services.simulation_question_generator import generate_simulation_quest
 from services.supply_chain_live_fetchers import fetch_live_supply_chain_sources
 from services.supply_chain_signal_extractor import extract_supply_chain_signals
 from services.supply_chain_event_analyzer import analyze_supply_chain_events
+from services.supply_chain_ofac import fetch_ofac_sdn_matches
+from services.supply_chain_article_filter import filter_relevant_articles
 
 
 router = APIRouter(prefix="/api/supply-chain", tags=["Supply Chain Risk"])
@@ -296,12 +298,20 @@ def run_supply_chain_agent(payload: dict):
 
     live_articles = live_data.get("combined_articles", [])
 
+    filtered_live_articles = filter_relevant_articles(
+        articles=live_articles,
+        country=selected_country,
+        sector=selected_sector,
+        chokepoint=selected_chokepoint,
+        commodity=selected_commodity
+    )
+
     event_analysis = analyze_supply_chain_events(
         country=selected_country,
         sector=selected_sector,
         chokepoint=selected_chokepoint,
         commodity=selected_commodity,
-        live_articles=live_articles,
+        live_articles=filtered_live_articles,
         extracted_signals=extracted_signals,
         live_signals=live_signals
     )
@@ -310,6 +320,24 @@ def run_supply_chain_agent(payload: dict):
     drivers = []
     affected_sectors = []
     convergence_score = 0
+
+    try:
+        ofac_result = fetch_ofac_sdn_matches(
+            country=selected_country,
+            commodity=selected_commodity,
+            sector=selected_sector
+        )
+    except Exception as e:
+        ofac_result = {
+            "ofac_sanctions_signal": False,
+            "sanctions_matches": [],
+            "ofac_status": f"error: {str(e)}"
+        }
+
+    if ofac_result.get("ofac_sanctions_signal") and selected_country in ["Russia", "Iran", "North Korea"]:
+        risk_score += 10
+        drivers.append("Live signal: OFAC sanctions exposure")
+
 
     if selected_country in ["China", "Taiwan"]:
         risk_score += 18
@@ -407,7 +435,12 @@ def run_supply_chain_agent(payload: dict):
             "live_signals": live_signals,
             "extracted_signals": extracted_signals,
             "live_sources": live_data.get("source_status", {}),
-            "live_articles": live_data.get("combined_articles", []),
+            "live_articles": filtered_live_articles,
+            "filtered_live_articles": filtered_live_articles,
+            "article_relevance_count": len(filtered_live_articles),
+            "ofac_sanctions_signal": ofac_result.get("ofac_sanctions_signal"),
+            "sanctions_matches": ofac_result.get("sanctions_matches", []),
+            "ofac_status": ofac_result.get("ofac_status"),
 
             "event_analysis": event_analysis,
             "live_event_analysis": event_analysis.get("live_event_analysis"),
