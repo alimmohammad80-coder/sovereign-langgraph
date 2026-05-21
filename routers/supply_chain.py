@@ -10,6 +10,7 @@ from services.supply_chain_live_fetchers import fetch_live_supply_chain_sources
 from services.supply_chain_signal_extractor import extract_supply_chain_signals
 from services.supply_chain_event_analyzer import analyze_supply_chain_events
 from services.supply_chain_ofac import fetch_ofac_sdn_matches
+from services.supply_chain_fusion_reasoner import build_supply_chain_fusion_brief
 from services.supply_chain_article_filter import filter_relevant_articles
 
 
@@ -411,6 +412,23 @@ def run_supply_chain_agent(payload: dict):
         f"with exposure across strategic sectors and logistics networks."
     )
 
+
+    fusion_result = build_supply_chain_fusion_brief(
+        country=selected_country,
+        sector=selected_sector,
+        chokepoint=selected_chokepoint,
+        commodity=selected_commodity,
+        risk_score=risk_score,
+        risk_level=level,
+        forecast=forecast,
+        live_articles=filtered_live_articles,
+        extracted_signals=extracted_signals,
+        live_signals=live_signals,
+        sanctions_matches=ofac_result.get("sanctions_matches", []),
+        cascading_effects=event_analysis.get("cascading_effects", []),
+        event_analysis=event_analysis
+    )
+
     return {
         "status": "success",
         "agent_type": "full_supply_chain_briefing_agent_v3",
@@ -424,6 +442,9 @@ def run_supply_chain_agent(payload: dict):
         },
         "output": {
             "executive_judgment": executive_judgment,
+            "fusion_brief": fusion_result.get("fusion_brief"),
+            "fusion_status": fusion_result.get("status"),
+            "fusion_error": fusion_result.get("error"),
             "risk_score": risk_score,
             "risk_level": level,
             "forecast": forecast,
