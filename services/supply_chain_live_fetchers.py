@@ -19,11 +19,15 @@ def fetch_google_news_supply_chain(country=None, sector=None, chokepoint=None, c
         articles = []
 
         for entry in feed.entries[:limit]:
+            source_title = None
+            if hasattr(entry, "source") and isinstance(entry.source, dict):
+                source_title = entry.source.get("title")
+
             articles.append({
                 "source": "Google News RSS",
                 "title": entry.get("title"),
                 "url": entry.get("link"),
-                "domain": entry.get("source", {}).get("title") if isinstance(entry.get("source"), dict) else None,
+                "domain": source_title,
                 "published_at": entry.get("published"),
                 "summary": entry.get("summary"),
                 "query": query

@@ -8,6 +8,7 @@ from services.apis.eia_api import fetch_eia_energy_signals
 from app.services.simulation_question_generator import generate_simulation_questions
 from services.supply_chain_live_fetchers import fetch_live_supply_chain_sources
 from services.supply_chain_signal_extractor import extract_supply_chain_signals
+from services.supply_chain_event_analyzer import analyze_supply_chain_events
 
 
 router = APIRouter(prefix="/api/supply-chain", tags=["Supply Chain Risk"])
@@ -293,6 +294,18 @@ def run_supply_chain_agent(payload: dict):
     live_signals = signal_result.get("signals", {})
     extracted_signals = signal_result.get("extracted_signals", [])
 
+    live_articles = live_data.get("combined_articles", [])
+
+    event_analysis = analyze_supply_chain_events(
+        country=selected_country,
+        sector=selected_sector,
+        chokepoint=selected_chokepoint,
+        commodity=selected_commodity,
+        live_articles=live_articles,
+        extracted_signals=extracted_signals,
+        live_signals=live_signals
+    )
+
     risk_score = 35
     drivers = []
     affected_sectors = []
@@ -395,6 +408,12 @@ def run_supply_chain_agent(payload: dict):
             "extracted_signals": extracted_signals,
             "live_sources": live_data.get("source_status", {}),
             "live_articles": live_data.get("combined_articles", []),
+
+            "event_analysis": event_analysis,
+            "live_event_analysis": event_analysis.get("live_event_analysis"),
+            "event_severity_score": event_analysis.get("event_severity_score"),
+            "event_level": event_analysis.get("event_level"),
+            "cascading_effects": event_analysis.get("cascading_effects"),
 
             "recommended_actions": [
                 "Review supplier and route exposure",
