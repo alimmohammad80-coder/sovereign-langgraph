@@ -103,24 +103,9 @@ def conflict_health():
 
 @router.get("/indicators")
 def conflict_indicators():
-    try:
-        graph_context = get_conflict_graph_context(
-            country=request.country,
-            region=request.region,
-            indicator=request.indicator,
-        )
-    except Exception as graph_error:
-        graph_context = {
-            "status": "error",
-            "graph_context_available": False,
-            "error": str(graph_error),
-            "graph_context": [],
-            "strategic_pathways": [],
-        }
 
     return {
         "status": "success",
-        "strategic_knowledge_graph": graph_context,
         "indicators": [
             "Armed clashes",
             "Troop mobilization",
@@ -159,8 +144,24 @@ def run_conflict_forecast(request: ConflictForecastRequest):
     scenarios = generate_conflict_scenarios(request.country, scoring, forecast)
     simulation_questions = generate_simulation_questions(request.country, scoring, forecast)
 
+    try:
+        graph_context = get_conflict_graph_context(
+            country=request.country,
+            region=request.region,
+            indicator=request.indicator,
+        )
+    except Exception as graph_error:
+        graph_context = {
+            "status": "error",
+            "graph_context_available": False,
+            "error": str(graph_error),
+            "graph_context": [],
+            "strategic_pathways": [],
+        }
+
     return {
         "status": "success",
+        "strategic_knowledge_graph": graph_context,
         "module": "conflict_forecasting",
         "country": request.country,
         "region": request.region,
