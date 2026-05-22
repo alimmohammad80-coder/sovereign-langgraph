@@ -15,7 +15,7 @@ def headers():
         "apikey": SUPABASE_SERVICE_ROLE_KEY,
         "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
         "Content-Type": "application/json",
-        "Prefer": "return=representation"
+        "Prefer": "resolution=ignore-duplicates,return=representation"
     }
 
 
@@ -42,7 +42,7 @@ async def save_signals(signals: List[Dict[str, Any]]) -> int:
 
     async with httpx.AsyncClient(timeout=20) as client:
         r = await client.post(
-            f"{SUPABASE_URL}/rest/v1/sovereign_signals",
+            f"{SUPABASE_URL}/rest/v1/sovereign_signals?on_conflict=url",
             headers=headers(),
             json=rows
         )
@@ -72,7 +72,7 @@ async def save_alerts(alerts: List[Dict[str, Any]]) -> int:
 
     async with httpx.AsyncClient(timeout=20) as client:
         r = await client.post(
-            f"{SUPABASE_URL}/rest/v1/sovereign_alerts",
+            f"{SUPABASE_URL}/rest/v1/sovereign_alerts?on_conflict=url",
             headers=headers(),
             json=rows
         )
