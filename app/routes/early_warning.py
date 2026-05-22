@@ -1358,6 +1358,79 @@ def save_early_warning_run(result: Dict[str, Any]) -> Optional[str]:
         return None
 
 
+
+
+def get_early_warning_graph_context(
+    entity: str = None,
+    indicator: str = None,
+    sector: str = None,
+    region: str = None
+):
+    """
+    Pull relevant Global Strategic Knowledge Graph context for Strategic Early Warning.
+    Safe helper: never crashes the Early Warning endpoint.
+    """
+    try:
+        from routers.strategic_knowledge_graph import (
+            fetch_entity_by_name,
+            fetch_relationships_for_entity,
+            get_connected_entities,
+            build_risk_pathways,
+            recommend_modules,
+        )
+
+        graph_inputs = [entity, indicator, sector, region]
+        graph_context = []
+
+        for item in graph_inputs:
+            if not item:
+                continue
+
+            matched = fetch_entity_by_name(item)
+            if not matched:
+                continue
+
+            relationships = fetch_relationships_for_entity(matched["id"])
+            connected = get_connected_entities(relationships)
+            pathways = build_risk_pathways(matched, connected)
+            modules = recommend_modules(matched, connected)
+
+            graph_context.append({
+                "input": item,
+                "matched_entity": matched,
+                "connected_entities": connected[:10],
+                "risk_pathways": pathways[:8],
+                "recommended_modules": modules,
+            })
+
+        strategic_pathways = []
+        for block in graph_context:
+            strategic_pathways.extend(block.get("risk_pathways", []))
+
+        strategic_pathways = sorted(
+            strategic_pathways,
+            key=lambda x: x.get("risk_score", 0),
+            reverse=True
+        )[:12]
+
+        return {
+            "status": "success",
+            "graph_context_available": True,
+            "entities_analyzed": len(graph_context),
+            "graph_context": graph_context,
+            "strategic_pathways": strategic_pathways,
+        }
+
+    except Exception as e:
+        return {
+            "status": "error",
+            "graph_context_available": False,
+            "error": str(e),
+            "graph_context": [],
+            "strategic_pathways": [],
+        }
+
+
 @router.get("/health")
 def early_warning_health():
     return {
@@ -1412,8 +1485,25 @@ def run_early_warning_agent(request: WarningRequest):
         sector_alerts=sector_alerts
     )
 
+    try:
+        graph_context = get_early_warning_graph_context(
+            entity=country,
+            indicator=topic,
+            sector=locals().get("sector"),
+            region=request.region,
+        )
+    except Exception as graph_error:
+        graph_context = {
+            "status": "error",
+            "graph_context_available": False,
+            "error": str(graph_error),
+            "graph_context": [],
+            "strategic_pathways": [],
+        }
+
     result = {
         "engine": "sovereign_strategic_early_warning_system",
+        "strategic_knowledge_graph": graph_context,
         "status": "success",
         "country": country,
         "region": request.region,
@@ -1747,4 +1837,6 @@ def early_warning_from_signals(country: str = "China", limit: int = 10):
         "simulation_triggers": simulation_triggers,
         "simulation_ready": warning_score >= 55
     }
+
+
 
