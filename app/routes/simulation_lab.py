@@ -19,6 +19,97 @@ class SimulationRequest(BaseModel):
     warning_score: int = 0
 
 
+
+
+def get_simulation_graph_context(
+    country: str = None,
+    region: str = None,
+    topic: str = None,
+    scenario: str = None
+):
+    """
+    Pull relevant Global Strategic Knowledge Graph context for Scenario Simulation Lab.
+    Safe helper: never crashes simulation generation.
+    """
+    try:
+        from routers.strategic_knowledge_graph import (
+            fetch_entity_by_name,
+            fetch_relationships_for_entity,
+            get_connected_entities,
+            build_risk_pathways,
+            recommend_modules,
+        )
+
+        graph_inputs = [country, topic, region, scenario]
+        graph_context = []
+
+        for item in graph_inputs:
+            if not item:
+                continue
+
+            matched = fetch_entity_by_name(item)
+            if not matched:
+                continue
+
+            relationships = fetch_relationships_for_entity(matched["id"])
+            connected = get_connected_entities(relationships)
+            pathways = build_risk_pathways(matched, connected)
+            modules = recommend_modules(matched, connected)
+
+            graph_context.append({
+                "input": item,
+                "matched_entity": matched,
+                "connected_entities": connected[:10],
+                "risk_pathways": pathways[:8],
+                "recommended_modules": modules,
+            })
+
+        strategic_pathways = []
+        for block in graph_context:
+            strategic_pathways.extend(block.get("risk_pathways", []))
+
+        strategic_pathways = sorted(
+            strategic_pathways,
+            key=lambda x: x.get("risk_score", 0),
+            reverse=True
+        )[:12]
+
+        scenario_prompts = []
+        for pathway in strategic_pathways[:8]:
+            source = pathway.get("source_entity")
+            target = pathway.get("target_entity")
+            relationship = pathway.get("relationship")
+            scenario_prompts.append({
+                "title": f"{source} → {target} escalation pathway",
+                "prompt": (
+                    f"Simulate how {source} could affect {target} through the "
+                    f"{relationship} pathway. Assess likely-case, worst-case, "
+                    f"early indicators, second-order effects, and decision options."
+                ),
+                "risk_score": pathway.get("risk_score", 50),
+                "confidence_score": pathway.get("confidence_score", 70),
+            })
+
+        return {
+            "status": "success",
+            "graph_context_available": True,
+            "entities_analyzed": len(graph_context),
+            "graph_context": graph_context,
+            "strategic_pathways": strategic_pathways,
+            "graph_generated_scenarios": scenario_prompts,
+        }
+
+    except Exception as e:
+        return {
+            "status": "error",
+            "graph_context_available": False,
+            "error": str(e),
+            "graph_context": [],
+            "strategic_pathways": [],
+            "graph_generated_scenarios": [],
+        }
+
+
 @router.post("/from-warning")
 def run_simulation(payload: SimulationRequest):
 
@@ -135,8 +226,26 @@ def run_simulation(payload: SimulationRequest):
         .execute()
     )
 
+    try:
+        graph_context = get_simulation_graph_context(
+            country=getattr(payload, "country", None),
+            region=getattr(payload, "region", None),
+            topic=getattr(payload, "trigger", None),
+            scenario=getattr(payload, "trigger", None),
+        )
+    except Exception as graph_error:
+        graph_context = {
+            "status": "error",
+            "graph_context_available": False,
+            "error": str(graph_error),
+            "graph_context": [],
+            "strategic_pathways": [],
+            "graph_generated_scenarios": [],
+        }
+
     return {
         "status": "success",
+        "strategic_knowledge_graph": graph_context,
         "engine": "sovereign_simulation_lab",
         "country": payload.country,
         "trigger": payload.trigger,
