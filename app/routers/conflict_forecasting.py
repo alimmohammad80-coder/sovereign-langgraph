@@ -21,6 +21,78 @@ class ConflictForecastRequest(BaseModel):
     timeframe: Optional[str] = "30d"
     limit: Optional[int] = 10
 
+
+
+def get_conflict_graph_context(
+    country: str = None,
+    region: str = None,
+    indicator: str = None
+):
+    """
+    Pull relevant Global Strategic Knowledge Graph context for Conflict Forecasting.
+    Safe helper: never crashes the Conflict Forecasting endpoint.
+    """
+    try:
+        from routers.strategic_knowledge_graph import (
+            fetch_entity_by_name,
+            fetch_relationships_for_entity,
+            get_connected_entities,
+            build_risk_pathways,
+            recommend_modules,
+        )
+
+        graph_inputs = [country, indicator, region]
+        graph_context = []
+
+        for item in graph_inputs:
+            if not item:
+                continue
+
+            matched = fetch_entity_by_name(item)
+            if not matched:
+                continue
+
+            relationships = fetch_relationships_for_entity(matched["id"])
+            connected = get_connected_entities(relationships)
+            pathways = build_risk_pathways(matched, connected)
+            modules = recommend_modules(matched, connected)
+
+            graph_context.append({
+                "input": item,
+                "matched_entity": matched,
+                "connected_entities": connected[:10],
+                "risk_pathways": pathways[:8],
+                "recommended_modules": modules,
+            })
+
+        strategic_pathways = []
+        for block in graph_context:
+            strategic_pathways.extend(block.get("risk_pathways", []))
+
+        strategic_pathways = sorted(
+            strategic_pathways,
+            key=lambda x: x.get("risk_score", 0),
+            reverse=True
+        )[:12]
+
+        return {
+            "status": "success",
+            "graph_context_available": True,
+            "entities_analyzed": len(graph_context),
+            "graph_context": graph_context,
+            "strategic_pathways": strategic_pathways,
+        }
+
+    except Exception as e:
+        return {
+            "status": "error",
+            "graph_context_available": False,
+            "error": str(e),
+            "graph_context": [],
+            "strategic_pathways": [],
+        }
+
+
 @router.get("/health")
 def conflict_health():
     return {
@@ -31,8 +103,24 @@ def conflict_health():
 
 @router.get("/indicators")
 def conflict_indicators():
+    try:
+        graph_context = get_conflict_graph_context(
+            country=request.country,
+            region=request.region,
+            indicator=request.indicator,
+        )
+    except Exception as graph_error:
+        graph_context = {
+            "status": "error",
+            "graph_context_available": False,
+            "error": str(graph_error),
+            "graph_context": [],
+            "strategic_pathways": [],
+        }
+
     return {
         "status": "success",
+        "strategic_knowledge_graph": graph_context,
         "indicators": [
             "Armed clashes",
             "Troop mobilization",
