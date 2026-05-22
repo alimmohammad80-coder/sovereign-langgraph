@@ -233,6 +233,188 @@ def recommend_modules(entity: Dict[str, Any], connected: List[Dict[str, Any]]):
     return list(modules)
 
 
+
+
+def extract_graph_entities_from_text(
+    text_value: str,
+    max_entities: int = 10,
+    include_related: bool = True
+):
+    """
+    Extracts known Strategic Knowledge Graph entities from free text.
+
+    This is deterministic and database-grounded:
+    - No LLM required
+    - Uses strategic_entities table
+    - Matches exact entity names and tag signals
+    - Optionally adds high-risk connected entities
+
+    Example:
+    "PLA Military Pressure and Taiwan Strait escalation affecting semiconductors"
+    -> Taiwan, PLA Military Pressure, Taiwan Strait, Semiconductors, China, Advanced Chips
+    """
+    db = require_supabase()
+
+    if not text_value:
+        return {
+            "matched_entities": [],
+            "expanded_entities": [],
+            "entity_names": [],
+        }
+
+    text_blob = text_value.lower()
+
+    entities_result = (
+        db.table("strategic_entities")
+        .select("*")
+        .limit(1000)
+        .execute()
+    )
+
+    all_entities = entities_result.data or []
+
+    matched = []
+
+    for entity in all_entities:
+        name = entity.get("name", "")
+        entity_type = entity.get("entity_type", "")
+        tags = entity.get("tags", []) or []
+
+        if not name:
+            continue
+
+        name_lower = name.lower()
+        score = 0
+        reasons = []
+
+        # Exact name match
+        if name_lower in text_blob:
+            score += 10
+            reasons.append("matched entity name")
+
+        # Singular/plural soft handling for common cases
+        if name_lower.endswith("s"):
+            singular = name_lower[:-1]
+            if singular and singular in text_blob:
+                score += 7
+                reasons.append("matched singular form")
+
+        # Tag match
+        for tag in tags:
+            tag_clean = str(tag).replace("_", " ").lower()
+            if tag_clean and tag_clean in text_blob:
+                score += 2
+                reasons.append(f"matched tag: {tag_clean}")
+
+        # Domain synonyms
+        synonym_map = {
+            "semiconductors": ["semiconductor", "chip", "chips", "tsmc", "silicon"],
+            "advanced chips": ["advanced chip", "ai chip", "ai chips", "high-end chip", "high-end chips"],
+            "taiwan strait": ["cross-strait", "taiwan blockade", "taiwan quarantine"],
+            "pla military pressure": ["pla", "chinese military pressure", "chinese drills", "military pressure"],
+            "strati of hormuz": ["hormuz"],
+            "strait of hormuz": ["hormuz"],
+            "red sea": ["houthi shipping", "red sea shipping"],
+            "artificial intelligence": ["ai", "frontier ai", "ai compute"],
+            "cyberattack": ["cyber attack", "cyber operation", "cyber operations"],
+            "export controls": ["export control", "technology controls", "chip controls"],
+        }
+
+        for canonical, synonyms in synonym_map.items():
+            if name_lower == canonical:
+                for syn in synonyms:
+                    if syn in text_blob:
+                        score += 6
+                        reasons.append(f"matched synonym: {syn}")
+
+        # Avoid noisy tag-only matches such as Russia matching only because of "military".
+        strong_reason = any(
+            reason.startswith("matched entity name")
+            or reason.startswith("matched singular form")
+            or reason.startswith("matched synonym")
+            for reason in reasons
+        )
+
+        if score > 0 and (strong_reason or score >= 6):
+            matched.append({
+                "entity": entity,
+                "match_score": score,
+                "match_reasons": list(dict.fromkeys(reasons)),
+            })
+
+    matched = sorted(
+        matched,
+        key=lambda x: (
+            x.get("match_score", 0),
+            x.get("entity", {}).get("importance_score", 0)
+        ),
+        reverse=True
+    )
+
+    matched = matched[:max_entities]
+
+    expanded = list(matched)
+
+    if include_related:
+        seen_ids = {m["entity"]["id"] for m in matched if m.get("entity", {}).get("id")}
+
+        for item in matched[:5]:
+            entity = item.get("entity", {})
+            entity_id = entity.get("id")
+            if not entity_id:
+                continue
+
+            try:
+                relationships = fetch_relationships_for_entity(entity_id)
+                connected = get_connected_entities(relationships)
+
+                for rel in connected[:5]:
+                    related_entity = rel.get("entity")
+                    if not related_entity:
+                        continue
+
+                    related_id = related_entity.get("id")
+                    if not related_id or related_id in seen_ids:
+                        continue
+
+                    risk_weight = rel.get("risk_weight") or 50
+
+                    # Only expand highly relevant/high-risk links
+                    if risk_weight >= 85:
+                        expanded.append({
+                            "entity": related_entity,
+                            "match_score": risk_weight,
+                            "match_reasons": [
+                                f"expanded from {entity.get('name')} via {rel.get('relationship_type')}"
+                            ],
+                        })
+                        seen_ids.add(related_id)
+
+            except Exception:
+                continue
+
+    expanded = sorted(
+        expanded,
+        key=lambda x: (
+            x.get("match_score", 0),
+            x.get("entity", {}).get("importance_score", 0)
+        ),
+        reverse=True
+    )[:max_entities]
+
+    entity_names = []
+    for item in expanded:
+        name = item.get("entity", {}).get("name")
+        if name and name not in entity_names:
+            entity_names.append(name)
+
+    return {
+        "matched_entities": matched,
+        "expanded_entities": expanded,
+        "entity_names": entity_names,
+    }
+
+
 # ------------------------------------------------------------
 # API Endpoints
 # ------------------------------------------------------------
@@ -528,4 +710,19 @@ def run_scenario_links(request: ImpactAnalysisRequest):
         "status": "success",
         "entity": entity,
         "scenario_prompts": scenario_prompts,
+    }
+
+
+@router.post("/extract-entities")
+def extract_entities_endpoint(request: GraphQueryRequest):
+    extraction = extract_graph_entities_from_text(
+        text_value=request.query,
+        max_entities=request.limit or 10,
+        include_related=True,
+    )
+
+    return {
+        "status": "success",
+        "query": request.query,
+        "extraction": extraction,
     }

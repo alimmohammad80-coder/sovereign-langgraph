@@ -40,7 +40,20 @@ def get_simulation_graph_context(
             recommend_modules,
         )
 
-        graph_inputs = [country, topic, region, scenario]
+        from routers.strategic_knowledge_graph import extract_graph_entities_from_text
+
+        extraction_text = " ".join([
+            str(x) for x in [country, region, topic, scenario]
+            if x
+        ])
+
+        extracted = extract_graph_entities_from_text(
+            extraction_text,
+            max_entities=10,
+            include_related=True,
+        )
+
+        graph_inputs = extracted.get("entity_names", []) or [country, topic, region, scenario]
         graph_context = []
 
         for item in graph_inputs:
