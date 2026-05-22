@@ -278,6 +278,106 @@ def get_indicators():
     }
 
 
+
+
+def strict_filter_supply_chain_articles(
+    articles,
+    country=None,
+    sector=None,
+    chokepoint=None,
+    commodity=None
+):
+    """
+    Filters live articles so unrelated chokepoints do not contaminate analysis.
+    Example: Hormuz articles should not drive Taiwan Strait assessment.
+    """
+
+    if not articles:
+        return []
+
+    country = (country or "").lower()
+    sector = (sector or "").lower()
+    chokepoint = (chokepoint or "").lower()
+    commodity = (commodity or "").lower()
+
+    false_chokepoints = [
+        "strait of hormuz",
+        "hormuz",
+        "red sea",
+        "bab el-mandeb",
+        "suez",
+        "panama canal",
+        "malacca",
+        "black sea",
+    ]
+
+    filtered = []
+
+    for article in articles:
+        title = (article.get("title") or "").lower()
+        summary = (article.get("summary") or "").lower()
+        text_blob = f"{title} {summary}"
+
+        score = 0
+        reasons = []
+
+        # Strong target match
+        if chokepoint and chokepoint in text_blob:
+            score += 5
+            reasons.append("matched selected chokepoint")
+
+        if country and country in text_blob:
+            score += 2
+            reasons.append("matched selected country")
+
+        if sector and sector in text_blob:
+            score += 2
+            reasons.append("matched selected sector")
+
+        if commodity and commodity in text_blob:
+            score += 2
+            reasons.append("matched selected commodity")
+
+        # Semiconductor synonyms
+        if sector == "semiconductors" and any(x in text_blob for x in ["semiconductor", "chip", "chips", "tsmc"]):
+            score += 2
+            reasons.append("matched semiconductor synonym")
+
+        if commodity == "advanced chips" and any(x in text_blob for x in ["advanced chip", "chips", "semiconductor", "ai chip", "tsmc"]):
+            score += 2
+            reasons.append("matched chip synonym")
+
+        # Penalize wrong chokepoints unless they are the selected chokepoint
+        for wrong in false_chokepoints:
+            if wrong in text_blob and chokepoint and wrong not in chokepoint:
+                score -= 5
+                reasons.append(f"penalized unrelated chokepoint: {wrong}")
+
+        # For chokepoint-driven analysis, require the selected chokepoint OR strong sector+country match
+        if chokepoint:
+            has_selected_chokepoint = chokepoint in text_blob
+            has_strong_context = score >= 4 and (
+                (country and country in text_blob) or
+                (sector and any(x in text_blob for x in [sector, "semiconductor", "chip", "chips", "tsmc"]))
+            )
+
+            if not has_selected_chokepoint and not has_strong_context:
+                continue
+
+        if score >= 2:
+            article["strict_relevance_score"] = score
+            article["strict_relevance_reasons"] = reasons
+            filtered.append(article)
+
+    filtered = sorted(
+        filtered,
+        key=lambda x: x.get("strict_relevance_score", 0),
+        reverse=True
+    )
+
+    return filtered
+
+
 def get_supply_chain_graph_context(
     country: str = None,
     sector: str = None,
@@ -364,6 +464,17 @@ def run_supply_chain_agent(payload: dict):
     )
 
     signal_result = extract_supply_chain_signals(live_data)
+
+    filtered_live_articles = strict_filter_supply_chain_articles(
+        live_data.get("gdelt_news", []) or live_data.get("live_articles", []) or [],
+        country=selected_country,
+        sector=selected_sector,
+        chokepoint=selected_chokepoint,
+        commodity=selected_commodity,
+    )
+
+    live_data["filtered_live_articles"] = filtered_live_articles
+    live_data["strict_filter_applied"] = True
     live_signals = signal_result.get("signals", {})
     extracted_signals = signal_result.get("extracted_signals", [])
 
