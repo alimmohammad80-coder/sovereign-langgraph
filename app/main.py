@@ -1,6 +1,10 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from dotenv import load_dotenv
+load_dotenv()
 
+
+from routers.strategic_knowledge_graph import router as strategic_knowledge_graph_router
 from app.routes import supply_chain
 from app.routers.conflict_forecasting import router as conflict_forecasting_router
 from app.routes.intelligence_pipeline import router as intelligence_pipeline_router
@@ -51,6 +55,8 @@ app.include_router(fusion_signals_router)
 app.include_router(simulation_lab_router)
 app.include_router(intelligence_pipeline_router)
 app.include_router(conflict_forecasting_router)
+app.include_router(strategic_knowledge_graph_router)
+
 
 # Supply Chain Risk Engine router
 app.include_router(supply_chain_router)
