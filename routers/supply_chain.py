@@ -869,11 +869,3 @@ def generate_supply_chain_fusion_report(payload: dict):
     }
 
 
-@router.get("/debug-graph-context")
-def debug_supply_chain_graph_context():
-    return get_supply_chain_graph_context(
-        country="China",
-        sector="Semiconductors",
-        chokepoint="Taiwan Strait",
-        commodity="Advanced Chips",
-    )
