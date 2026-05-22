@@ -278,6 +278,76 @@ def get_indicators():
     }
 
 
+def get_supply_chain_graph_context(
+    country: str = None,
+    sector: str = None,
+    chokepoint: str = None,
+    commodity: str = None
+):
+    """
+    Pull relevant strategic knowledge graph context for supply-chain analysis.
+    Safe helper: never crashes the Supply Chain endpoint.
+    """
+    try:
+        from routers.strategic_knowledge_graph import (
+            fetch_entity_by_name,
+            fetch_relationships_for_entity,
+            get_connected_entities,
+            build_risk_pathways,
+            recommend_modules,
+        )
+
+        graph_inputs = [country, sector, chokepoint, commodity]
+        graph_context = []
+
+        for item in graph_inputs:
+            if not item:
+                continue
+
+            entity = fetch_entity_by_name(item)
+
+            if not entity:
+                continue
+
+            relationships = fetch_relationships_for_entity(entity["id"])
+            connected = get_connected_entities(relationships)
+            pathways = build_risk_pathways(entity, connected)
+            modules = recommend_modules(entity, connected)
+
+            graph_context.append({
+                "input": item,
+                "matched_entity": entity,
+                "connected_entities": connected[:10],
+                "risk_pathways": pathways[:8],
+                "recommended_modules": modules,
+            })
+
+        strategic_pathways = []
+        for block in graph_context:
+            strategic_pathways.extend(block.get("risk_pathways", []))
+
+        strategic_pathways = sorted(
+            strategic_pathways,
+            key=lambda x: x.get("risk_score", 0),
+            reverse=True
+        )[:12]
+
+        return {
+            "status": "success",
+            "graph_context_available": True,
+            "entities_analyzed": len(graph_context),
+            "graph_context": graph_context,
+            "strategic_pathways": strategic_pathways,
+        }
+
+    except Exception as e:
+        return {
+            "status": "error",
+            "graph_context_available": False,
+            "error": str(e),
+            "graph_context": [],
+            "strategic_pathways": [],
+        }
 @router.post("/run-agent")
 def run_supply_chain_agent(payload: dict):
 
@@ -429,10 +499,27 @@ def run_supply_chain_agent(payload: dict):
         event_analysis=event_analysis
     )
 
+    try:
+        graph_context = get_supply_chain_graph_context(
+            country=locals().get("selected_country"),
+            sector=locals().get("selected_sector"),
+            chokepoint=locals().get("selected_chokepoint"),
+            commodity=locals().get("selected_commodity"),
+        )
+    except Exception as graph_error:
+        graph_context = {
+            "status": "error",
+            "graph_context_available": False,
+            "error": str(graph_error),
+            "graph_context": [],
+            "strategic_pathways": [],
+        }
+
     return {
         "status": "success",
         "agent_type": "full_supply_chain_briefing_agent_v3",
         "selected_target": selected_country,
+        "strategic_knowledge_graph": graph_context,
         "input_context": {
             "selected_country": selected_country,
             "selected_sector": selected_sector,
@@ -669,3 +756,13 @@ def generate_supply_chain_fusion_report(payload: dict):
             "Generate executive decision brief for affected sectors."
         ]
     }
+
+
+@router.get("/debug-graph-context")
+def debug_supply_chain_graph_context():
+    return get_supply_chain_graph_context(
+        country="China",
+        sector="Semiconductors",
+        chokepoint="Taiwan Strait",
+        commodity="Advanced Chips",
+    )
