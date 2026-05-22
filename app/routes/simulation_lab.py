@@ -1,286 +1,134 @@
 from fastapi import APIRouter
-from pydantic import BaseModel
-from openai import OpenAI
-from app.services.supabase_service import supabase
-import os
+from pydantic import BaseModel, Field
+from typing import Any, Dict, List, Optional
 
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-
-router = APIRouter(
-    prefix="/api/simulation",
-    tags=["Simulation Lab"]
-)
+try:
+    from app.services.scenario_engine import run_scenario_simulation, generate_default_questions
+except Exception:
+    run_scenario_simulation = None
+    generate_default_questions = None
 
 
-class SimulationRequest(BaseModel):
-    country: str = "China"
-    trigger: str
-    warning_level: str = "Elevated"
-    warning_score: int = 0
+router = APIRouter(prefix="/api/simulation-lab", tags=["Simulation Lab"])
 
 
+class SimulationLabRequest(BaseModel):
+    title: Optional[str] = None
+    country: Optional[str] = None
+    region: Optional[str] = None
+    actor: Optional[str] = None
+    sector: Optional[str] = None
+    scenario: Optional[str] = None
+    event: Optional[str] = None
+    question: Optional[str] = None
+    time_horizon: Optional[str] = "30 days"
+    source_module: Optional[str] = "simulation_lab"
+    risk_score: Optional[int] = None
+    risk_level: Optional[str] = None
+    drivers: List[str] = Field(default_factory=list)
+    indicators: List[str] = Field(default_factory=list)
+    source_report: Dict[str, Any] = Field(default_factory=dict)
 
 
-def get_simulation_graph_context(
-    country: str = None,
-    region: str = None,
-    topic: str = None,
-    scenario: str = None
-):
-    """
-    Pull relevant Global Strategic Knowledge Graph context for Scenario Simulation Lab.
-    Safe helper: never crashes simulation generation.
-    """
-    try:
-        from routers.strategic_knowledge_graph import (
-            fetch_entity_by_name,
-            fetch_relationships_for_entity,
-            get_connected_entities,
-            build_risk_pathways,
-            recommend_modules,
-        )
-
-        from routers.strategic_knowledge_graph import extract_graph_entities_from_text
-
-        extraction_text = " ".join([
-            str(x) for x in [country, region, topic, scenario]
-            if x
-        ])
-
-        extracted = extract_graph_entities_from_text(
-            extraction_text,
-            max_entities=10,
-            include_related=True,
-        )
-
-        graph_inputs = extracted.get("entity_names", []) or [country, topic, region, scenario]
-        graph_context = []
-
-        for item in graph_inputs:
-            if not item:
-                continue
-
-            matched = fetch_entity_by_name(item)
-            if not matched:
-                continue
-
-            relationships = fetch_relationships_for_entity(matched["id"])
-            connected = get_connected_entities(relationships)
-            pathways = build_risk_pathways(matched, connected)
-            modules = recommend_modules(matched, connected)
-
-            graph_context.append({
-                "input": item,
-                "matched_entity": matched,
-                "connected_entities": connected[:10],
-                "risk_pathways": pathways[:8],
-                "recommended_modules": modules,
-            })
-
-        strategic_pathways = []
-        for block in graph_context:
-            strategic_pathways.extend(block.get("risk_pathways", []))
-
-        strategic_pathways = sorted(
-            strategic_pathways,
-            key=lambda x: x.get("risk_score", 0),
-            reverse=True
-        )[:12]
-
-        scenario_prompts = []
-        for pathway in strategic_pathways[:8]:
-            source = pathway.get("source_entity")
-            target = pathway.get("target_entity")
-            relationship = pathway.get("relationship")
-            scenario_prompts.append({
-                "title": f"{source} → {target} escalation pathway",
-                "prompt": (
-                    f"Simulate how {source} could affect {target} through the "
-                    f"{relationship} pathway. Assess likely-case, worst-case, "
-                    f"early indicators, second-order effects, and decision options."
-                ),
-                "risk_score": pathway.get("risk_score", 50),
-                "confidence_score": pathway.get("confidence_score", 70),
-            })
-
-        return {
-            "status": "success",
-            "graph_context_available": True,
-            "entities_analyzed": len(graph_context),
-            "graph_context": graph_context,
-            "strategic_pathways": strategic_pathways,
-            "graph_generated_scenarios": scenario_prompts,
-        }
-
-    except Exception as e:
-        return {
-            "status": "error",
-            "graph_context_available": False,
-            "error": str(e),
-            "graph_context": [],
-            "strategic_pathways": [],
-            "graph_generated_scenarios": [],
-        }
-
-
-@router.post("/from-warning")
-def run_simulation(payload: SimulationRequest):
-
-    prompt  = f"""
-    You are a senior geopolitical intelligence analyst producing elite strategic intelligence briefs for Sovereign Intelligence.
-
-    Your writing style must resemble:
-    - classified intelligence assessments
-    - national security strategic memoranda
-    - geopolitical decision-support briefings
-    - fusion intelligence products
-
-    CRITICAL STYLE RULES:
-    - concise
-    - analytical
-    - operational
-    - serious
-    - forward-looking
-    - minimal headings
-    - no academic structure
-    - no repetitive markdown
-    - no generic AI phrasing
-    - avoid excessive bullet nesting
-    - avoid giant section trees
-
-    The report should read like an elite intelligence product, not a verbose AI report.
-
-    OUTPUT STRUCTURE:
-
-    # Executive Judgment
-
-    Short strategic assessment of the situation.
-
-    # Core Assessment
-
-    Integrated geopolitical, economic, military, cyber, and energy assessment.
-
-    # Strategic Analytical Judgment
-
-    Provide expert-level interpretation:
-    - escalation logic
-    - strategic intent
-    - coercive signaling
-    - second-order effects
-    - alliance dynamics
-    - systemic risks
-
-    This section should sound like a senior SME assessment.
-
-    # Most Likely Trajectory
-
-    Concise forward-looking pathway.
-
-    # Most Dangerous Trajectory
-
-    Worst realistic escalation pathway.
-
-    # Key Indicators to Monitor
-
-    Only the most operationally relevant indicators.
-
-    # Intelligence Gaps
-
-    Briefly identify uncertainties or missing visibility.
-
-    # Recommended Actions
-
-    Professional strategic recommendations.
-
-    # Source Notes
-
-    Include subtle source references.
-
-    Generate a complete strategic simulation using:
-
-    Country: {payload.country}
-    Trigger: {payload.trigger}
-    Warning Level: {payload.warning_level}
-    Warning Score: {payload.warning_score}
-
-    Do not ask questions.
-    Generate the full intelligence brief immediately.
-    """
-    response = client.chat.completions.create(
-        model="gpt-5.5",
-        messages=[
-            {
-                "role": "system",
-                "content": (
-                    "You are a geopolitical simulation and strategic "
-                    "forecasting engine for Sovereign Intelligence."
-                )
-            },
-            {
-                "role": "user",
-                "content": prompt
-            }
-        ]
-    )
-
-    simulation_text = response.choices[0].message.content
-
-    saved = (
-        supabase
-        .table("simulation_runs")
-        .insert({
-            "country": payload.country,
-            "trigger": payload.trigger,
-            "warning_level": payload.warning_level,
-            "warning_score": payload.warning_score,
-            "simulation": simulation_text,
-            "model": "gpt-5.5"
-        })
-        .execute()
-    )
-
-    try:
-        graph_context = get_simulation_graph_context(
-            country=getattr(payload, "country", None),
-            region=getattr(payload, "region", None),
-            topic=getattr(payload, "trigger", None),
-            scenario=getattr(payload, "trigger", None),
-        )
-    except Exception as graph_error:
-        graph_context = {
-            "status": "error",
-            "graph_context_available": False,
-            "error": str(graph_error),
-            "graph_context": [],
-            "strategic_pathways": [],
-            "graph_generated_scenarios": [],
-        }
-
+@router.get("/health")
+async def simulation_lab_health():
     return {
-        "status": "success",
-        "strategic_knowledge_graph": graph_context,
-        "engine": "sovereign_simulation_lab",
-        "country": payload.country,
-        "trigger": payload.trigger,
-        "simulation": simulation_text,
-        "saved_run": saved.data
+        "status": "online",
+        "module": "simulation_lab",
+        "message": "Old Simulation Lab route preserved with GPT-5.5 enrichment available"
     }
 
 
-@router.get("/recent")
-def recent_simulations(limit: int = 10):
+@router.post("/run")
+async def run_simulation_lab(request: SimulationLabRequest):
+    payload = request.model_dump()
 
-    result = (
-        supabase
-        .table("simulation_runs")
-        .select("*")
-        .order("created_at", desc=True)
-        .limit(limit)
-        .execute()
+    event = (
+        payload.get("event")
+        or payload.get("scenario")
+        or payload.get("question")
+        or payload.get("title")
+        or "Strategic simulation"
     )
+
+    scenario_payload = {
+        "source_module": payload.get("source_module") or "simulation_lab",
+        "scenario_type": "legacy_simulation_lab_refined",
+        "country": payload.get("country"),
+        "region": payload.get("region"),
+        "sector": payload.get("sector"),
+        "entity": payload.get("actor"),
+        "event": event,
+        "risk_score": payload.get("risk_score"),
+        "risk_level": payload.get("risk_level"),
+        "time_horizon": payload.get("time_horizon"),
+        "drivers": payload.get("drivers", []),
+        "indicators": payload.get("indicators", []),
+        "source_report": payload.get("source_report", {}),
+        "user_question": payload.get("question") or event,
+    }
+
+    if run_scenario_simulation:
+        enriched = await run_scenario_simulation(scenario_payload)
+    else:
+        enriched = {
+            "scenario_title": event,
+            "executive_judgment": "Simulation Lab is online, but GPT enrichment engine is unavailable.",
+            "simulation_questions": []
+        }
+
+    old_style_response = {
+        "title": enriched.get("scenario_title") or event,
+        "executive_summary": enriched.get("executive_judgment", ""),
+        "baseline": enriched.get("baseline_assessment", {}),
+        "best_case": enriched.get("scenarios", {}).get("best_case", {}),
+        "most_likely": enriched.get("scenarios", {}).get("most_likely", {}),
+        "worst_case": enriched.get("scenarios", {}).get("worst_case", {}),
+        "escalation_pathway": enriched.get("escalation_ladder", []),
+        "second_order_effects": enriched.get("second_order_effects", []),
+        "third_order_effects": enriched.get("third_order_effects", []),
+        "decision_options": enriched.get("decision_options", []),
+        "monitoring_indicators": enriched.get("monitoring_indicators", []),
+        "simulation_questions": enriched.get("simulation_questions", []),
+        "confidence_score": enriched.get("confidence_score", 0),
+        "raw_enriched_result": enriched
+    }
 
     return {
         "status": "success",
-        "count": len(result.data),
-        "simulations": result.data
+        "module": "simulation_lab",
+        "version": "legacy_refined_gpt55",
+        "input": payload,
+        "result": old_style_response
+    }
+
+
+@router.post("/questions")
+async def simulation_lab_questions(request: SimulationLabRequest):
+    payload = request.model_dump()
+    source_module = payload.get("source_module") or "simulation_lab"
+
+    if generate_default_questions:
+        questions = generate_default_questions(source_module, payload)
+    else:
+        event = payload.get("event") or payload.get("scenario") or "this scenario"
+        questions = [
+            {
+                "question": f"What happens if {event} escalates over the next 30 days?",
+                "scenario_type": "escalation",
+                "best_for_module": source_module,
+                "why_this_matters": "Tests near-term escalation risk."
+            },
+            {
+                "question": f"What is the worst-case pathway for {event}?",
+                "scenario_type": "worst_case",
+                "best_for_module": source_module,
+                "why_this_matters": "Identifies severe downside risk."
+            }
+        ]
+
+    return {
+        "status": "success",
+        "module": "simulation_lab",
+        "questions": questions
     }

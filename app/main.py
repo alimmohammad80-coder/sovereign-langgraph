@@ -27,6 +27,8 @@ from app.routes.simulation_lab import router as simulation_lab_router
 
 from app.routes.fusion import router as fusion_router
 from app.routes import scenario
+from app.routes import simulation_lab
+from app.routes import simulation
 
 app = FastAPI(
     title="Sovereign Intelligence API",
@@ -107,3 +109,9 @@ app.include_router(signals.router)
 
 # Scenario Simulation Lab
 app.include_router(scenario.router)
+
+# Refined legacy Simulation Lab route
+app.include_router(simulation_lab.router)
+
+# Simulation Lab legacy alias route
+app.include_router(simulation.router)
