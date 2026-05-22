@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from app.routers import signals
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 load_dotenv()
@@ -99,3 +100,6 @@ def list_routes():
         }
         for route in app.routes
     ]
+
+
+app.include_router(signals.router)
