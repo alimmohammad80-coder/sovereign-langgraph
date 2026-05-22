@@ -26,6 +26,7 @@ from app.routes.early_warning_agents import router as early_warning_agents_route
 from app.routes.simulation_lab import router as simulation_lab_router
 
 from app.routes.fusion import router as fusion_router
+from app.routes import scenario
 
 app = FastAPI(
     title="Sovereign Intelligence API",
@@ -103,3 +104,6 @@ def list_routes():
 
 
 app.include_router(signals.router)
+
+# Scenario Simulation Lab
+app.include_router(scenario.router)
