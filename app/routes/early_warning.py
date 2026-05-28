@@ -1,9 +1,18 @@
+from app.services.strategic_report_composer import select_trigger_event, validate_report
 from fastapi import APIRouter, Query
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 import os
 import requests
+from google import genai
+
+import json
+from app.services.strategic_report_composer import (
+    select_trigger_event,
+    build_strategic_early_warning_prompt,
+    validate_report,
+)
 
 try:
     from supabase import create_client
@@ -11,6 +20,10 @@ except Exception as e:
     create_client = None
     print(f"[Early Warning] Supabase import unavailable: {e}")
 
+
+
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+GEMINI_MODEL = os.getenv("GEMINI_ANALYST_MODEL") or os.getenv("GEMINI_MODEL") or "gemini-2.5-flash"
 
 router = APIRouter(
     prefix="/api/early-warning",
@@ -34,9 +47,11 @@ else:
 
 
 class WarningRequest(BaseModel):
-    country: Optional[str] = "Global"
+    country: Optional[str] = None
+    entity: Optional[str] = None
     region: Optional[str] = None
-    topic: Optional[str] = "geopolitical risk"
+    topic: Optional[str] = None
+    indicator: Optional[str] = None
     timeframe: Optional[str] = "30 days"
     include_scenarios: Optional[bool] = True
 
@@ -1444,11 +1459,28 @@ def early_warning_health():
 
 @router.post("/run")
 def run_early_warning_agent(request: WarningRequest):
-    country = request.country or "Global"
-    topic = request.topic or "geopolitical risk"
+    country = getattr(request, "entity", None) or request.country or "Global"
+    topic = getattr(request, "indicator", None) or request.topic or "geopolitical risk"
+    entity = country
+    indicator = topic
 
     query = f"{country} {topic} crisis warning security escalation"
     signals = fetch_all_early_warning_signals(query=query, maxrecords=12)
+
+    # Sovereign hard relevance filter: keep only signals tied to selected country/topic.
+    country_l = (country or "").lower()
+    topic_l = (topic or "").lower()
+    topic_terms = [t for t in topic_l.replace("/", " ").replace("-", " ").split() if len(t) > 2]
+
+    def is_relevant_signal(s):
+        blob = f"{s.get('title','')} {s.get('summary','')} {s.get('source','')} {s.get('domain','')}".lower()
+        country_match = country_l in blob if country_l else True
+        topic_match = any(term in blob for term in topic_terms) if topic_terms else True
+        china_taiwan_match = country_l == "taiwan" and ("china" in blob or "pla" in blob or "strait" in blob or "taiwan" in blob)
+        return country_match and (topic_match or china_taiwan_match)
+
+    signals = [s for s in signals if is_relevant_signal(s)]
+
     score = calculate_warning_score(signals)
     warning_level = classify_warning_level(score)
 
@@ -1501,6 +1533,65 @@ def run_early_warning_agent(request: WarningRequest):
             "strategic_pathways": [],
         }
 
+
+    trigger_event = select_trigger_event(signals, country=country, topic=topic)
+
+    report_prompt = build_strategic_early_warning_prompt(
+        entity=country,
+        indicator=topic,
+        risk_score=score,
+        risk_level=warning_level,
+        confidence="Medium",
+        time_horizon="30 days",
+        trigger_event=trigger_event,
+        signals=signals[:8],
+    )
+
+    fallback_report = {
+        "bluf": f"{trigger_event.get('date')} — {trigger_event.get('title')} is the latest relevant development shaping the {topic} warning picture for {country}. Current indicators suggest a {warning_level.lower()} warning posture, with available evidence requiring continued corroboration.",
+        "current_situation": f"{country} is currently assessed at a {warning_level.lower()} warning level for {topic}, with a warning score of {score}/100 and confidence score of 60/100. Current reporting should be treated as early warning material requiring further validation.",
+        "strategic_assessment": f"The strategic significance of {topic} in {country} lies in its connection to military signaling, political coercion, semiconductor exposure, supply chains, and regional deterrence dynamics.",
+        "forecast_outlook": "Over the next 30 days, the most likely trajectory is continued monitoring with moderate probability of intensified pressure if military activity, official rhetoric, or reporting volume increases.",
+        "operational_implications": f"Decision-makers should monitor whether {topic} affects semiconductor supply chains, maritime routes, cyber exposure, military posture, or investor confidence linked to {country}."
+    }
+
+    gemini_debug_error = None
+    gemini_raw_preview = None
+
+    try:
+        if not GEMINI_API_KEY:
+            raise RuntimeError("Missing GEMINI_API_KEY")
+
+        client = genai.Client(api_key=GEMINI_API_KEY)
+
+        gemini_response = client.models.generate_content(
+            model=GEMINI_MODEL,
+            contents=report_prompt,
+            config={
+                "temperature": 0.25,
+                "top_p": 0.8,
+                "max_output_tokens": 1800
+            }
+        )
+
+        raw_report = (getattr(gemini_response, "text", "") or "").strip()
+        gemini_raw_preview = raw_report[:500]
+
+        raw_report = raw_report.replace("```json", "").replace("```", "").strip()
+
+        if "{" in raw_report and "}" in raw_report:
+            raw_report = raw_report[raw_report.find("{"): raw_report.rfind("}") + 1]
+
+        parsed_report = json.loads(raw_report)
+
+    except Exception as e:
+        gemini_debug_error = str(e)
+        print(f"[EARLY WARNING GEMINI ERROR] {e}")
+        parsed_report = fallback_report
+
+    report = validate_report(parsed_report)
+
+
     result = {
         "engine": "sovereign_strategic_early_warning_system",
         "strategic_knowledge_graph": graph_context,
@@ -1513,6 +1604,8 @@ def run_early_warning_agent(request: WarningRequest):
         "warning_score": score,
         "warning_level": warning_level,
         "confidence_score": 60 if not has_system_notice else 35,
+        "trigger_event": trigger_event,
+        "report": report,
         "executive_judgment": (
             f"{country} currently registers a {warning_level.lower()} strategic warning posture "
             f"for {topic}. The assessment considers severity, probability, velocity, confidence, "
