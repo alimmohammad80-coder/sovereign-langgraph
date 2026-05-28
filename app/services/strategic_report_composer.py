@@ -1,10 +1,6 @@
 from datetime import datetime
 
 def select_trigger_event(signals, country=None, topic=None):
-    """
-    Selects the best trigger event from available signals.
-    Falls back safely if no verified live signal exists.
-    """
     if isinstance(signals, list) and signals:
         for s in signals:
             if isinstance(s, dict) and s.get("title"):
@@ -24,11 +20,7 @@ def select_trigger_event(signals, country=None, topic=None):
         "summary": ""
     }
 
-
 def validate_report(report):
-    """
-    Ensures Gemini/fallback report always has required fields.
-    """
     if not isinstance(report, dict):
         report = {}
 
@@ -41,7 +33,6 @@ def validate_report(report):
     }
 
     for k, v in defaults.items():
-        if not report.get(k):
-            report[k] = v
+        report.setdefault(k, v)
 
     return report
