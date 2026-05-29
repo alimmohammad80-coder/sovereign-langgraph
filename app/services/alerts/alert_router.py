@@ -34,7 +34,7 @@ def orchestrate_alert(raw_alert: dict) -> dict:
                 "source": raw_alert.get("source"),
                 "url": raw_alert.get("url"),
                 "score": score,
-                "domain": domains[0] if domains else "geopolitical",
+                "domain": domains[0] if isinstance(domains, list) and domains else "geopolitical",
                 "created_at": raw_alert.get("created_at") or raw_alert.get("published_at"),
             }
         ],
