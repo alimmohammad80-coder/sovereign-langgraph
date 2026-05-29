@@ -2,6 +2,7 @@ from fastapi import APIRouter
 from datetime import datetime
 from typing import Dict, Any, Optional
 
+from services.apis.open_meteo_api import fetch_marine_weather_signal
 from services.apis.gdelt_api import fetch_gdelt_signals
 from services.apis.ofac_api import fetch_ofac_sanctions
 from services.apis.eia_api import fetch_eia_energy_signals
@@ -718,18 +719,23 @@ def get_live_supply_chain_signals(query: str = "Strait of Hormuz shipping oil sa
     gdelt = fetch_gdelt_signals(query=query, maxrecords=10)
     ofac = fetch_ofac_sanctions(limit=10)
     eia = fetch_eia_energy_signals()
+    marine_weather = fetch_marine_weather_signal(
+        latitude=26.5667,
+        longitude=56.2500,
+        location_name="Strait of Hormuz"
+    )
 
     return {
         "status": "success",
         "query": query,
-        "sources_used": ["gdelt", "ofac", "eia"],
+        "sources_used": ["gdelt", "ofac", "eia", "open_meteo_marine_weather"],
         "data": {
             "gdelt_signals": gdelt,
             "ofac_signals": ofac,
-            "eia_signals": eia
+            "eia_signals": eia,
+            "marine_weather_signals": marine_weather
         }
     }
-
 
 @router.post("/fusion-report")
 def generate_supply_chain_fusion_report(payload: dict):
@@ -868,4 +874,41 @@ def generate_supply_chain_fusion_report(payload: dict):
         ]
     }
 
+@router.get("/external/marine-weather")
+def get_external_marine_weather(
+    latitude: float = 26.5667,
+    longitude: float = 56.2500,
+    location_name: str = "Strait of Hormuz"
+):
+    return {
+        "status": "success",
+        "source": "open_meteo_marine_weather",
+        "data": fetch_marine_weather_signal(
+            latitude=latitude,
+            longitude=longitude,
+            location_name=location_name
+        )
+    }
 
+@router.get("/live-signals")
+def get_live_supply_chain_signals(query: str = "Strait of Hormuz shipping oil sanctions"):
+    gdelt = fetch_gdelt_signals(query=query, maxrecords=10)
+    ofac = fetch_ofac_sanctions(limit=10)
+    eia = fetch_eia_energy_signals()
+    marine_weather = fetch_marine_weather_signal(
+        latitude=26.5667,
+        longitude=56.2500,
+        location_name="Strait of Hormuz"
+    )
+
+    return {
+        "status": "success",
+        "query": query,
+        "sources_used": ["gdelt", "ofac", "eia", "open_meteo_marine_weather"],
+        "data": {
+            "gdelt_signals": gdelt,
+            "ofac_signals": ofac,
+            "eia_signals": eia,
+            "marine_weather_signals": marine_weather
+        }
+    }

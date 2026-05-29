@@ -31,13 +31,22 @@ def fetch_eia_energy_signals():
         r = requests.get(url, params=params, timeout=30)
         r.raise_for_status()
 
+        data = r.json()
+
+        if isinstance(data, dict):
+            request_info = data.get("request")
+            if isinstance(request_info, dict):
+                params_info = request_info.get("params")
+                if isinstance(params_info, dict) and "api_key" in params_info:
+                    params_info["api_key"] = "REDACTED"
+
         return {
             "source": "EIA",
             "signal_type": "energy_market_signal",
             "severity_score": 7,
             "reliability_score": 9,
             "summary": "Energy price and petroleum market signal from EIA",
-            "data": r.json()
+            "data": data
         }
 
     except Exception as e:
