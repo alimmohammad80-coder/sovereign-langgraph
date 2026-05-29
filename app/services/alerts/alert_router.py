@@ -1,3 +1,4 @@
+from app.services.alerts.alert_lifecycle import update_lifecycle
 from app.services.alerts.signal_classifier import classify_signal
 from app.services.alerts.entity_extractor import extract_entities
 from app.services.alerts.module_recommender import recommend_modules
@@ -41,7 +42,11 @@ def orchestrate_alert(raw_alert: dict) -> dict:
         "created_at": raw_alert.get("created_at") or raw_alert.get("published_at"),
     }
 
+    
+    alert = update_lifecycle(alert)
+
     alert["recommended_modules"] = recommend_modules(alert)
+
 
     alert["launch_contexts"] = {
         m["module"]: build_launch_context(alert, m["module"])

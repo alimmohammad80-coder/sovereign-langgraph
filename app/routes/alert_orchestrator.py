@@ -66,7 +66,13 @@ def get_orchestrated_alerts(
     if severity:
         alerts = [a for a in alerts if a.get("severity") == severity]
 
-    alerts = sorted(alerts, key=lambda x: x.get("risk_score", 0), reverse=True)
+    alerts = [a for a in alerts if a.get("status") != "expired"]
+
+    alerts = sorted(
+        alerts,
+        key=lambda x: x.get("risk_score", 0),
+        reverse=True
+    )
 
     return {
         "status": "success",

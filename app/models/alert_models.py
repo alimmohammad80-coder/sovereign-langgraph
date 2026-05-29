@@ -38,4 +38,10 @@ class OrchestratedAlert(BaseModel):
     recommended_modules: List[RecommendedModule] = Field(default_factory=list)
     source_urls: List[str] = Field(default_factory=list)
     created_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
+    
+    status: str = "active"
+    expires_at: Optional[str] = None
+    last_updated: Optional[str] = None
+    decay_score: Optional[float] = 0.0
+
     launch_context: Dict[str, Any] = Field(default_factory=dict)
