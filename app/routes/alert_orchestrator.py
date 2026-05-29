@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Query, HTTPException
 from typing import Optional
 from app.services.alerts.alert_router import orchestrate_alert
-from app.services.alerts.live_signal_source import fetch_live_signals
+from app.services.alerts.live_signal_source import fetch_live_signals, fetch_raw_signals_debug
 from app.services.alerts.launch_context import build_launch_context
 
 router = APIRouter(prefix="/api/alerts", tags=["Alert Orchestrator"])
@@ -122,4 +122,14 @@ def get_alert_domains():
             "political_risk",
             "geopolitical"
         ]
+    }
+
+
+@router.get("/debug/raw-signals")
+def debug_raw_signals(limit: int = Query(20, ge=1, le=100)):
+    rows = fetch_raw_signals_debug(limit=limit)
+    return {
+        "status": "success",
+        "count": len(rows),
+        "rows": rows
     }

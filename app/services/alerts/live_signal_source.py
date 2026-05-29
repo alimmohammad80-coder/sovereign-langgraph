@@ -23,10 +23,11 @@ def normalize_domains(row: Dict[str, Any]):
     if isinstance(domains, list):
         return domains
 
-    if isinstance(domains, str):
+    if isinstance(domains, str) and domains.strip():
         return [domains]
 
     domain = row.get("domain")
+
     if isinstance(domain, str) and domain.strip():
         return [domain]
 
@@ -37,6 +38,7 @@ def fetch_live_signals(limit: int = 50) -> List[Dict[str, Any]]:
     supabase = get_supabase_client()
 
     if not supabase:
+        print("[alerts] Supabase not configured")
         return []
 
     try:
@@ -49,22 +51,43 @@ def fetch_live_signals(limit: int = 50) -> List[Dict[str, Any]]:
         )
 
         rows = res.data or []
+        print(f"[alerts] fetched {len(rows)} rows from risk_signals")
+
         return [normalize_signal(row) for row in rows]
 
     except Exception as e:
-        print(f"[alerts] Could not fetch from risk_signals: {e}")
+        print(f"[alerts] risk_signals fetch failed: {e}")
         return []
 
 
+def fetch_raw_signals_debug(limit: int = 20):
+    supabase = get_supabase_client()
+
+    if not supabase:
+        return []
+
+    res = (
+        supabase.table("risk_signals")
+        .select("id,title,source,score,risk_score,domain,domains,created_at,url")
+        .order("created_at", desc=True)
+        .limit(limit)
+        .execute()
+    )
+
+    return res.data or []
+
+
 def normalize_signal(row: Dict[str, Any]) -> Dict[str, Any]:
+    score = row.get("risk_score") or row.get("score") or 50
+
     return {
-        "id": row.get("id") or row.get("alert_id"),
+        "id": row.get("id"),
         "title": row.get("title") or row.get("headline") or "Untitled Signal",
         "summary": row.get("summary") or row.get("description") or row.get("content") or "",
         "source": row.get("source") or row.get("provider") or "Live Signal Feed",
         "url": row.get("url") or row.get("source_url") or "",
-        "score": row.get("score") or row.get("risk_score") or row.get("severity_score") or 50,
-        "risk_score": row.get("risk_score") or row.get("score") or 50,
+        "score": score,
+        "risk_score": score,
         "created_at": row.get("created_at") or row.get("published_at"),
         "published_at": row.get("published_at"),
         "domains": normalize_domains(row),
