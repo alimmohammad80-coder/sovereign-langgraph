@@ -124,7 +124,7 @@ def save_signals(signals: List[Dict[str, Any]]) -> Dict[str, Any]:
 
     for signal in signals:
         try:
-            supabase.table("risk_signals").upsert(signal).execute()
+            supabase.table("live_live_risk_signals").upsert(signal).execute()
             saved += 1
         except Exception as e:
             skipped += 1

@@ -43,7 +43,7 @@ def fetch_live_signals(limit: int = 50) -> List[Dict[str, Any]]:
 
     try:
         res = (
-            supabase.table("risk_signals")
+            supabase.table("live_live_risk_signals")
             .select("*")
             .order("created_at", desc=True)
             .limit(limit)
@@ -51,12 +51,12 @@ def fetch_live_signals(limit: int = 50) -> List[Dict[str, Any]]:
         )
 
         rows = res.data or []
-        print(f"[alerts] fetched {len(rows)} rows from risk_signals")
+        print(f"[alerts] fetched {len(rows)} rows from live_risk_signals")
 
         return [normalize_signal(row) for row in rows]
 
     except Exception as e:
-        print(f"[alerts] risk_signals fetch failed: {e}")
+        print(f"[alerts] live_risk_signals fetch failed: {e}")
         return []
 
 
@@ -67,7 +67,7 @@ def fetch_raw_signals_debug(limit: int = 20):
         return []
 
     res = (
-        supabase.table("risk_signals")
+        supabase.table("live_live_risk_signals")
         .select("id,title,source,score,risk_score,domain,domains,created_at,url")
         .order("created_at", desc=True)
         .limit(limit)
