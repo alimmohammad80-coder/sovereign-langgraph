@@ -1,3 +1,4 @@
+from app.routes.ingestion import router as ingestion_router
 from app.routes.alert_orchestrator import router as alert_orchestrator_router
 from fastapi import FastAPI
 from app.routers import signals
@@ -119,3 +120,6 @@ app.include_router(simulation.router)
 
 # Alert Orchestrator
 app.include_router(alert_orchestrator_router)
+
+# Live Signal Ingestion
+app.include_router(ingestion_router)
