@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Query, HTTPException
 from typing import Optional
 from app.services.alerts.alert_router import orchestrate_alert
+from app.services.alerts.live_signal_source import fetch_live_signals
 from app.services.alerts.launch_context import build_launch_context
 
 router = APIRouter(prefix="/api/alerts", tags=["Alert Orchestrator"])
@@ -53,7 +54,11 @@ def get_orchestrated_alerts(
     domain: Optional[str] = None,
     severity: Optional[str] = None,
 ):
-    alerts = [orchestrate_alert(a) for a in RAW_ALERTS]
+    
+    live_signals = fetch_live_signals(limit=limit)
+    source_alerts = live_signals if live_signals else RAW_ALERTS
+    alerts = [orchestrate_alert(a) for a in source_alerts]
+
 
     if domain:
         alerts = [a for a in alerts if domain in a.get("domains", [])]
