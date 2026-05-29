@@ -1,0 +1,146 @@
+from typing import Dict, Any, List
+from datetime import datetime
+
+
+SECTION_KEYS = [
+    "bluf",
+    "current_situation",
+    "strategic_assessment",
+    "forecast_outlook",
+    "operational_implications",
+]
+
+
+def select_trigger_event(signals: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """
+    Selects the most important recent event.
+    Priority: recency + severity + source quality.
+    """
+
+    if not signals:
+        return {
+            "date": datetime.utcnow().strftime("%Y-%m-%d"),
+            "title": "No verified triggering development identified from live sources.",
+            "source": "Sovereign Intelligence",
+            "url": None,
+            "summary": "The system did not identify a sufficiently reliable recent event."
+        }
+
+    def score_signal(signal: Dict[str, Any]) -> int:
+        severity = int(signal.get("severity", signal.get("risk_score", 50)) or 50)
+        source_quality = int(signal.get("source_quality", 5) or 5)
+        recency_bonus = 20 if signal.get("published_at") or signal.get("date") else 0
+        return severity + source_quality + recency_bonus
+
+    ranked = sorted(signals, key=score_signal, reverse=True)
+    top = ranked[0]
+
+    return {
+        "date": top.get("published_at") or top.get("date") or datetime.utcnow().strftime("%Y-%m-%d"),
+        "title": top.get("title", "Latest strategic development detected."),
+        "source": top.get("source", "Unknown source"),
+        "url": top.get("url"),
+        "summary": top.get("summary", "")
+    }
+
+
+def build_strategic_early_warning_prompt(
+    entity: str,
+    indicator: str,
+    risk_score: int,
+    risk_level: str,
+    confidence: str,
+    time_horizon: str,
+    trigger_event: Dict[str, Any],
+    signals: List[Dict[str, Any]],
+) -> str:
+    """
+    Strict intelligence report prompt.
+    Forces BLUF + four analytical paragraphs.
+    """
+
+    signal_briefs = []
+    for s in signals[:8]:
+        signal_briefs.append({
+            "title": s.get("title"),
+            "summary": s.get("summary"),
+            "source": s.get("source"),
+            "date": s.get("published_at") or s.get("date"),
+            "severity": s.get("severity") or s.get("risk_score"),
+            "url": s.get("url"),
+        })
+
+    return f"""
+You are Sovereign Intelligence AI, writing as a senior strategic early warning analyst for national security and corporate decision-makers.
+
+Produce a compressed intelligence report for:
+
+Entity: {entity}
+Indicator: {indicator}
+Risk Score: {risk_score}/100
+Risk Level: {risk_level}
+Confidence: {confidence}
+Time Horizon: {time_horizon}
+
+PRIMARY TRIGGERING DEVELOPMENT:
+Date: {trigger_event.get("date")}
+Title: {trigger_event.get("title")}
+Source: {trigger_event.get("source")}
+Summary: {trigger_event.get("summary")}
+
+Supporting signals:
+{signal_briefs}
+
+STRICT OUTPUT RULES:
+1. Return ONLY valid JSON.
+2. Use exactly these five keys:
+   - bluf
+   - current_situation
+   - strategic_assessment
+   - forecast_outlook
+   - operational_implications
+3. Each key must contain exactly one paragraph.
+4. Each paragraph must be 3 to 5 sentences.
+5. The BLUF must begin with the triggering development date and event.
+6. Do not use bullet points.
+7. Do not use markdown.
+8. Do not write introductions or conclusions.
+9. Do not say "in conclusion."
+10. Do not repeat the same sentence or fact across sections.
+11. Prioritize analytical judgment over description.
+12. Use calm, precise, institutional intelligence language.
+13. Include probability language where appropriate: likely, unlikely, elevated probability, moderate likelihood, high-confidence indicator.
+14. If evidence is limited, say so clearly.
+15. Do not invent facts not supported by the provided signals.
+
+Required JSON shape:
+{{
+  "bluf": "one paragraph",
+  "current_situation": "one paragraph",
+  "strategic_assessment": "one paragraph",
+  "forecast_outlook": "one paragraph",
+  "operational_implications": "one paragraph"
+}}
+"""
+
+
+def validate_report(report: Dict[str, Any]) -> Dict[str, str]:
+    """
+    Enforces exact section structure even if model output is imperfect.
+    """
+
+    clean = {}
+
+    for key in SECTION_KEYS:
+        value = report.get(key, "")
+        if not isinstance(value, str):
+            value = str(value)
+
+        value = " ".join(value.split())
+
+        if not value:
+            value = "Analysis not available from current signals."
+
+        clean[key] = value
+
+    return clean

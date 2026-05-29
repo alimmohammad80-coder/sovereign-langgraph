@@ -1,0 +1,214 @@
+from typing import Dict, Any, List
+from datetime import datetime
+
+
+SECTION_KEYS = [
+    "bluf",
+    "current_situation",
+    "strategic_assessment",
+    "forecast_outlook",
+    "operational_implications",
+]
+
+
+
+def select_trigger_event(signals: List[Dict[str, Any]], country: str = "", topic: str = "") -> Dict[str, Any]:
+    """
+    Select the most relevant recent triggering event.
+    Prioritizes relevance to country/topic, recency, source quality, and operational significance.
+    """
+
+    if not signals:
+        return {
+            "date": datetime.utcnow().strftime("%Y-%m-%d"),
+            "title": "No verified triggering development identified from live sources.",
+            "source": "Sovereign Intelligence",
+            "url": None,
+            "summary": "The system did not identify a sufficiently reliable recent event."
+        }
+
+    country_l = (country or "").lower()
+    topic_l = (topic or "").lower()
+    topic_terms = [t for t in topic_l.replace("/", " ").replace("-", " ").split() if len(t) > 2]
+
+    high_quality_sources = [
+        "reuters", "associated press", "ap news", "bbc", "financial times", "wall street journal",
+        "new york times", "washington post", "guardian", "al jazeera", "council on foreign relations",
+        "international crisis group", "un news", "nato", "institute for the study of war"
+    ]
+
+    operational_terms = [
+        "military", "drill", "drills", "live-fire", "blockade", "warship", "aircraft",
+        "missile", "coercion", "warning", "pressure", "incursion", "patrol", "strait",
+        "taiwan", "pla", "china"
+    ]
+
+    def parse_year(signal):
+        raw = str(signal.get("published_at") or signal.get("date") or "")
+        for year in ["2026", "2025", "2024", "2023"]:
+            if year in raw:
+                return int(year)
+        return 0
+
+    def score_signal(signal: Dict[str, Any]) -> int:
+        title = str(signal.get("title") or "")
+        summary = str(signal.get("summary") or "")
+        source = str(signal.get("source") or "")
+        domain = str(signal.get("domain") or "")
+        text_blob = f"{title} {summary} {source} {domain}".lower()
+
+        score = 0
+
+        if country_l and country_l in text_blob:
+            score += 60
+
+        for term in topic_terms:
+            if term in text_blob:
+                score += 20
+
+        for term in operational_terms:
+            if term in text_blob:
+                score += 8
+
+        if any(src in text_blob for src in high_quality_sources):
+            score += 25
+
+        year = parse_year(signal)
+        if year == 2026:
+            score += 30
+        elif year == 2025:
+            score -= 40
+        elif year and year < 2025:
+            score -= 80
+
+        if "explained" in text_blob or "background" in text_blob:
+            score -= 25
+
+        if country_l and country_l not in text_blob:
+            score -= 80
+
+        return score
+
+    ranked = sorted(signals, key=score_signal, reverse=True)
+    top = ranked[0]
+    top_score = score_signal(top)
+    top_year = parse_year(top)
+
+    if top_score < 60 or top_year < 2026:
+        return {
+            "date": datetime.utcnow().strftime("%Y-%m-%d"),
+            "title": f"No recent verified {topic} triggering development identified for {country}.",
+            "source": "Sovereign Intelligence",
+            "url": None,
+            "summary": "The system found relevant background signals but did not identify a sufficiently recent, high-confidence triggering event."
+        }
+
+    return {
+        "date": top.get("published_at") or top.get("date") or datetime.utcnow().strftime("%Y-%m-%d"),
+        "title": top.get("title", "Latest strategic development detected."),
+        "source": top.get("source", "Unknown source"),
+        "url": top.get("url"),
+        "summary": top.get("summary", "")
+    }
+
+
+def build_strategic_early_warning_prompt(
+    entity: str,
+    indicator: str,
+    risk_score: int,
+    risk_level: str,
+    confidence: str,
+    time_horizon: str,
+    trigger_event: Dict[str, Any],
+    signals: List[Dict[str, Any]],
+) -> str:
+    """
+    Strict intelligence report prompt.
+    Forces BLUF + four analytical paragraphs.
+    """
+
+    signal_briefs = []
+    for s in signals[:8]:
+        signal_briefs.append({
+            "title": s.get("title"),
+            "summary": s.get("summary"),
+            "source": s.get("source"),
+            "date": s.get("published_at") or s.get("date"),
+            "severity": s.get("severity") or s.get("risk_score"),
+            "url": s.get("url"),
+        })
+
+    return f"""
+You are Sovereign Intelligence AI, writing as a senior strategic early warning analyst for national security and corporate decision-makers.
+
+Produce a compressed intelligence report for:
+
+Entity: {entity}
+Indicator: {indicator}
+Risk Score: {risk_score}/100
+Risk Level: {risk_level}
+Confidence: {confidence}
+Time Horizon: {time_horizon}
+
+PRIMARY TRIGGERING DEVELOPMENT:
+Date: {trigger_event.get("date")}
+Title: {trigger_event.get("title")}
+Source: {trigger_event.get("source")}
+Summary: {trigger_event.get("summary")}
+
+Supporting signals:
+{signal_briefs}
+
+STRICT OUTPUT RULES:
+1. Return ONLY valid JSON.
+2. Use exactly these five keys:
+   - bluf
+   - current_situation
+   - strategic_assessment
+   - forecast_outlook
+   - operational_implications
+3. Each key must contain exactly one paragraph.
+4. Each paragraph must be 3 to 5 sentences.
+5. The BLUF must begin with the triggering development date and event.
+6. Do not use bullet points.
+7. Do not use markdown.
+8. Do not write introductions or conclusions.
+9. Do not say "in conclusion."
+10. Do not repeat the same sentence or fact across sections.
+11. Prioritize analytical judgment over description.
+12. Use calm, precise, institutional intelligence language.
+13. Include probability language where appropriate: likely, unlikely, elevated probability, moderate likelihood, high-confidence indicator.
+14. If evidence is limited, say so clearly.
+15. Do not invent facts not supported by the provided signals.
+
+Required JSON shape:
+{{
+  "bluf": "one paragraph",
+  "current_situation": "one paragraph",
+  "strategic_assessment": "one paragraph",
+  "forecast_outlook": "one paragraph",
+  "operational_implications": "one paragraph"
+}}
+"""
+
+
+def validate_report(report: Dict[str, Any]) -> Dict[str, str]:
+    """
+    Enforces exact section structure even if model output is imperfect.
+    """
+
+    clean = {}
+
+    for key in SECTION_KEYS:
+        value = report.get(key, "")
+        if not isinstance(value, str):
+            value = str(value)
+
+        value = " ".join(value.split())
+
+        if not value:
+            value = "Analysis not available from current signals."
+
+        clean[key] = value
+
+    return clean

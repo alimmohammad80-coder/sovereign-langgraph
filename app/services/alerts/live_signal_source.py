@@ -43,7 +43,7 @@ def fetch_live_signals(limit: int = 50) -> List[Dict[str, Any]]:
 
     try:
         res = (
-            supabase.table("live_live_risk_signals")
+            supabase.table("live_risk_signals")
             .select("*")
             .order("created_at", desc=True)
             .limit(limit)
@@ -67,7 +67,7 @@ def fetch_raw_signals_debug(limit: int = 20):
         return []
 
     res = (
-        supabase.table("live_live_risk_signals")
+        supabase.table("live_risk_signals")
         .select("id,title,source,score,risk_score,domain,domains,created_at,url")
         .order("created_at", desc=True)
         .limit(limit)
