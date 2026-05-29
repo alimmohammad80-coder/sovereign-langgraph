@@ -1,5 +1,6 @@
 import os
 import hashlib
+import uuid
 import feedparser
 import requests
 from datetime import datetime, timezone
@@ -36,8 +37,12 @@ def get_supabase():
 
 
 def make_id(title: str, url: str = "") -> str:
+    """
+    Generate deterministic UUID from title + URL so upsert works
+    with Supabase UUID primary key.
+    """
     raw = f"{title}|{url}"
-    return hashlib.sha256(raw.encode()).hexdigest()[:24]
+    return str(uuid.uuid5(uuid.NAMESPACE_URL, raw))
 
 
 def google_news_rss(query: str, limit: int = 10) -> List[Dict[str, Any]]:
