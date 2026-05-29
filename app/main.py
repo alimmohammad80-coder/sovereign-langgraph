@@ -1,3 +1,4 @@
+from app.routes.alert_orchestrator import router as alert_orchestrator_router
 from fastapi import FastAPI
 from app.routers import signals
 from fastapi.middleware.cors import CORSMiddleware
@@ -115,3 +116,6 @@ app.include_router(simulation_lab.router)
 
 # Simulation Lab legacy alias route
 app.include_router(simulation.router)
+
+# Alert Orchestrator
+app.include_router(alert_orchestrator_router)
