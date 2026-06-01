@@ -17,7 +17,7 @@ router = APIRouter(prefix="/api/signals", tags=["Sovereign Signals"])
 class SignalGenerateRequest(BaseModel):
     query: str = Field(..., description="Search query")
     domains: Optional[List[str]] = Field(default=None)
-    limit: int = 25
+    limit: int = 15
     save: bool = True
 
 
@@ -44,7 +44,7 @@ async def generate_signals(payload: SignalGenerateRequest):
 
 
 @router.get("/latest")
-async def latest_signals(limit: int = 25):
+async def latest_signals(limit: int = 15):
     return {
         "status": "success",
         "storage_enabled": storage_enabled(),
@@ -53,7 +53,7 @@ async def latest_signals(limit: int = 25):
 
 
 @router.get("/alerts/latest")
-async def latest_alerts(limit: int = 25):
+async def latest_alerts(limit: int = 15):
     return {
         "status": "success",
         "storage_enabled": storage_enabled(),
