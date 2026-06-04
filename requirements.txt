@@ -6,3 +6,4 @@ pydantic
 supabase
 pandas
 numpy
+feedparser
