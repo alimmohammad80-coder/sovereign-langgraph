@@ -13,6 +13,7 @@ from services.supply_chain_event_analyzer import analyze_supply_chain_events
 from services.supply_chain_ofac import fetch_ofac_sdn_matches
 from services.supply_chain_fusion_reasoner import build_supply_chain_fusion_brief
 from services.supply_chain_article_filter import filter_relevant_articles
+from data.supply_chain_geospatial import SUPPLY_CHAIN_NODES, SUPPLY_CHAIN_ROUTES
 
 
 router = APIRouter(prefix="/api/supply-chain", tags=["Supply Chain Risk"])
@@ -248,26 +249,13 @@ def get_supply_chain_overview():
 
 @router.get("/chokepoints")
 def get_chokepoints():
-
-    result = {
-        "region": "Global maritime chokepoints",
-        "topic": "critical trade and supply chain disruption analysis",
-        "executive_judgment": (
-            "Multiple global maritime chokepoints are experiencing elevated "
-            "geopolitical and supply-chain disruption risks affecting energy, "
-            "shipping, manufacturing, and strategic trade flows."
-        ),
-        "count": len(CHOKEPOINTS),
-        "data": CHOKEPOINTS
-    }
-
-    simulation_questions = generate_simulation_questions(result)
-
     return {
         "status": "success",
-        "count": len(CHOKEPOINTS),
-        "data": CHOKEPOINTS,
-        "simulation_questions": simulation_questions
+        "count": len(SUPPLY_CHAIN_NODES),
+        "data": SUPPLY_CHAIN_NODES,
+        "routes": SUPPLY_CHAIN_ROUTES,
+        "node_types": ["chokepoint", "port", "corridor"],
+        "message": "Expanded global supply chain geospatial network"
     }
 
 @router.get("/indicators")

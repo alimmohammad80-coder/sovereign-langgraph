@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 load_dotenv()
 
-
+from app.routes.intelligence_retrieval import router as intelligence_retrieval_router
 from routers.strategic_knowledge_graph import router as strategic_knowledge_graph_router
 from app.routes import supply_chain
 from app.routers.conflict_forecasting import router as conflict_forecasting_router
@@ -108,6 +108,7 @@ def list_routes():
 
 
 app.include_router(signals.router)
+app.include_router(intelligence_retrieval_router)
 
 # Scenario Simulation Lab
 app.include_router(scenario.router)
