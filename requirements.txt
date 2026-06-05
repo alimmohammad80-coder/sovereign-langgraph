@@ -8,3 +8,5 @@ pandas
 numpy
 feedparser
 openai
+
+google-genai
