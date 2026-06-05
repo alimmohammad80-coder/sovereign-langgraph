@@ -1,3 +1,4 @@
+from routers.country_intelligence import router as country_intelligence_router
 from app.routes.ingestion import router as ingestion_router
 from app.routes.alert_orchestrator import router as alert_orchestrator_router
 from fastapi import FastAPI
@@ -124,3 +125,6 @@ app.include_router(alert_orchestrator_router)
 
 # Live Signal Ingestion
 app.include_router(ingestion_router)
+
+# Country Intelligence
+app.include_router(country_intelligence_router)
