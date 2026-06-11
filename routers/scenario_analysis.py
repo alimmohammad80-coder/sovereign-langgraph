@@ -1,10 +1,11 @@
 from fastapi import APIRouter
 from pydantic import BaseModel
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any
 from datetime import datetime
 from pathlib import Path
 from dotenv import load_dotenv
 from openai import OpenAI
+from supabase import create_client
 import os
 import json
 
@@ -14,71 +15,70 @@ router = APIRouter(prefix="/api/scenario-analysis", tags=["Scenario Analysis"])
 
 NVIDIA_API_KEY = os.getenv("NVIDIA_API_KEY")
 NVIDIA_BASE_URL = os.getenv("NVIDIA_BASE_URL", "https://integrate.api.nvidia.com/v1")
-NVIDIA_MODEL = os.getenv("NVIDIA_ULTRA_MODEL") or os.getenv("NVIDIA_MODEL") or "nvidia/nemotron-3-ultra-550b-a55b"
+NVIDIA_MODEL = os.getenv("NVIDIA_SCENARIO_MODEL") or os.getenv("NVIDIA_ULTRA_MODEL") or os.getenv("NVIDIA_MODEL") or "nvidia/nemotron-3-ultra-550b-a55b"
+
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+OPENAI_SCENARIO_MODEL = os.getenv("OPENAI_SCENARIO_MODEL", "gpt-4.1")
+
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_KEY")
+supabase = create_client(SUPABASE_URL, SUPABASE_KEY) if SUPABASE_URL and SUPABASE_KEY else None
 
 
 class ScenarioAnalysisRequest(BaseModel):
     scenario: str
     country: Optional[str] = None
+    iso3: Optional[str] = None
     region: Optional[str] = None
     time_horizon: str = "30 days"
     source_module: Optional[str] = "manual"
     source_context: Optional[Dict[str, Any]] = None
 
 
-def fallback_scenario(payload: ScenarioAnalysisRequest):
-    return {
-        "executive_summary": f"Scenario analysis for: {payload.scenario}",
-        "risk_level": "Elevated",
-        "confidence": 65,
-        "baseline_conditions": [
-            "Baseline conditions require additional live context.",
-            "Assessment is based on the submitted scenario question."
-        ],
-        "escalation_pathways": [
-            "Gradual escalation through political and economic pressure.",
-            "Rapid escalation if military, financial, or social stability triggers converge.",
-            "De-escalation if diplomatic or market stabilizers intervene."
-        ],
-        "second_order_effects": [
-            "Market volatility",
-            "Policy uncertainty",
-            "Regional spillover risk"
-        ],
-        "decision_options": [
-            "Monitor leading indicators closely.",
-            "Prepare contingency plans.",
-            "Run follow-up scenarios for worst-case and best-case outcomes."
-        ],
-        "timeline": {
-            "7d": "Watch for immediate trigger events.",
-            "30d": "Assess whether signals converge or stabilize.",
-            "90d": "Evaluate structural impact and policy response."
-        },
-        "model_used": "fallback_scenario_analysis"
+def load_latest_country_context(country: Optional[str] = None, iso3: Optional[str] = None):
+    if not supabase:
+        return None
+
+    try:
+        q = (
+            supabase.table("report_context_memory")
+            .select("*")
+            .eq("source_module", "country_intelligence")
+        )
+
+        if iso3:
+            q = q.eq("iso3", iso3.upper())
+        elif country:
+            q = q.eq("country_name", country)
+
+        res = q.order("created_at", desc=True).limit(1).execute()
+        if res.data:
+            return res.data[0].get("context_payload")
+    except Exception:
+        return None
+
+    return None
+
+
+def build_prompt(payload: ScenarioAnalysisRequest):
+    context = payload.source_context or {}
+
+    compact_context = {
+        "country_name": context.get("country_name"),
+        "iso3": context.get("iso3"),
+        "risk_level": context.get("risk_level"),
+        "risk_score": context.get("risk_score"),
+        "executive_judgment": context.get("executive_judgment"),
+        "risk_context": context.get("risk_context"),
+        "forecast": context.get("forecast"),
+        "signal_convergence": context.get("signal_convergence"),
+        "strategic_signals": (context.get("strategic_signals") or [])[:5],
     }
 
+    return f"""
+You are Sovereign Intelligence AI, a strategic foresight engine.
 
-@router.get("/health")
-def health():
-    return {
-        "status": "ok",
-        "module": "scenario_analysis",
-        "nemotron_configured": bool(NVIDIA_API_KEY),
-        "timestamp": datetime.utcnow().isoformat()
-    }
-
-
-@router.post("/run")
-def run_scenario_analysis(payload: ScenarioAnalysisRequest):
-    if not NVIDIA_API_KEY:
-        return {
-            "status": "success",
-            "data": fallback_scenario(payload)
-        }
-
-    prompt = f"""
-You are Sovereign Intelligence AI running a strategic scenario simulation.
+Write a forward-looking scenario analysis for senior decision-makers.
 
 Scenario:
 {payload.scenario}
@@ -86,114 +86,139 @@ Scenario:
 Country:
 {payload.country}
 
-Region:
-{payload.region}
-
-Time Horizon:
+Time horizon:
 {payload.time_horizon}
 
-Source Module:
-{payload.source_module}
+Relevant country intelligence context:
+{json.dumps(compact_context, indent=2, default=str)}
 
-Source Context:
-{json.dumps(payload.source_context or {}, indent=2, default=str)}
-
-Return strict JSON only with this structure:
+Return STRICT JSON only:
 {{
-  "executive_summary": "clear 4-6 sentence scenario assessment",
-  "risk_level": "Low | Guarded | Elevated | High | Critical",
-  "confidence": 0,
-  "baseline_conditions": [
-    "condition 1",
-    "condition 2",
-    "condition 3"
-  ],
-  "escalation_pathways": [
-    "pathway 1",
-    "pathway 2",
-    "pathway 3"
-  ],
-  "second_order_effects": [
-    "effect 1",
-    "effect 2",
-    "effect 3"
-  ],
-  "cross_module_impacts": {{
-    "supply_chain": "...",
-    "financial_risk": "...",
-    "early_warning": "...",
-    "country_intelligence": "..."
-  }},
-  "decision_options": [
-    "action 1",
-    "action 2",
-    "action 3"
-  ],
-  "timeline": {{
-    "7d": "...",
-    "30d": "...",
-    "90d": "..."
-  }},
-  "watch_indicators": [
-    "indicator 1",
-    "indicator 2",
-    "indicator 3"
-  ]
+  "title": "",
+  "executive_judgment": "",
+  "strategic_outlook": "",
+  "watch_indicators": [],
+  "recommended_actions": []
 }}
 
-Do not use markdown.
-Do not invent exact facts not provided in context.
-Be strategic, practical, and decision-support oriented.
+Rules:
+- Total report should be no more than 500 words.
+- No scoring.
+- No risk meters.
+- No dashboard language.
+- Use only 3 main written sections: executive_judgment, strategic_outlook, recommended_actions.
+- executive_judgment: 100-140 words.
+- strategic_outlook: 250-320 words.
+- watch_indicators: 3-5 concise indicators.
+- recommended_actions: 3 concise strategic actions.
+- Write as a serious geopolitical foresight assessment.
+- Do not use numbered lists inside strategic_outlook.
+- strategic_outlook must be one flowing narrative paragraph.
+- Avoid generic phrases like significant risks, far-reaching consequences, or monitor closely.
+- Focus on what happens next, escalation logic, second-order effects, and decision implications.
+- Do not use markdown.
 """
 
-    try:
-        client = OpenAI(
-            base_url=NVIDIA_BASE_URL,
-            api_key=NVIDIA_API_KEY,
-            timeout=45.0
-        )
 
-        response = client.chat.completions.create(
-            model=NVIDIA_MODEL,
-            messages=[
-                {
-                    "role": "system",
-                    "content": "You are a senior geopolitical scenario analyst. Return valid JSON only."
-                },
-                {
-                    "role": "user",
-                    "content": prompt
-                }
-            ],
-            temperature=0.25,
-            max_tokens=1200,
-            extra_body={
-                "chat_template_kwargs": {
-                    "enable_thinking": False
-                }
-            }
-        )
+def fallback_scenario(payload: ScenarioAnalysisRequest):
+    return {
+        "title": f"Scenario Analysis: {payload.country or 'Selected Country'}",
+        "executive_judgment": f"The scenario '{payload.scenario}' requires forward-looking assessment using the latest country intelligence context.",
+        "strategic_outlook": "The scenario presents potential escalation pathways that should be assessed through political, economic, security, and regional spillover dynamics. Immediate attention should focus on whether the triggering condition remains isolated or begins to interact with wider strategic pressures. If multiple domains converge, the scenario could move from a contained disruption to a broader strategic risk environment.",
+        "watch_indicators": [
+            "Leadership statements and red-line signaling",
+            "Military or security force posture changes",
+            "Market or currency stress",
+            "Diplomatic mediation activity"
+        ],
+        "recommended_actions": [
+            "Monitor leading indicators daily.",
+            "Prepare contingency options for escalation and stabilization pathways.",
+            "Run a follow-up scenario if trigger indicators intensify."
+        ],
+        "model_used": "fallback_scenario_analysis",
+        "generated_at": datetime.utcnow().isoformat()
+    }
 
-        content = response.choices[0].message.content
 
+def run_model(payload: ScenarioAnalysisRequest):
+    prompt = build_prompt(payload)
+
+    if OPENAI_API_KEY:
         try:
+            client = OpenAI(api_key=OPENAI_API_KEY, timeout=75.0)
+            response = client.chat.completions.create(
+                model=OPENAI_SCENARIO_MODEL,
+                messages=[
+                    {"role": "system", "content": "Return valid JSON only. You are a strategic foresight analyst."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.5,
+                max_tokens=1400
+            )
+            content = response.choices[0].message.content
             data = json.loads(content)
-        except Exception:
+            data["model_used"] = OPENAI_SCENARIO_MODEL
+            data["provider"] = "openai"
+            data["generated_at"] = datetime.utcnow().isoformat()
+            return data
+        except Exception as e:
+            openai_error = str(e)
+    else:
+        openai_error = "OPENAI_API_KEY not configured"
+
+    if NVIDIA_API_KEY:
+        try:
+            client = OpenAI(base_url=NVIDIA_BASE_URL, api_key=NVIDIA_API_KEY, timeout=75.0)
+            response = client.chat.completions.create(
+                model=NVIDIA_MODEL,
+                messages=[
+                    {"role": "system", "content": "Return valid JSON only. You are a strategic foresight analyst."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.4,
+                max_tokens=900,
+                extra_body={"chat_template_kwargs": {"enable_thinking": False}}
+            )
+            content = response.choices[0].message.content
+            data = json.loads(content)
+            data["model_used"] = NVIDIA_MODEL
+            data["provider"] = "nvidia"
+            data["generated_at"] = datetime.utcnow().isoformat()
+            return data
+        except Exception as e:
             data = fallback_scenario(payload)
-            data["raw_model_output"] = content
+            data["openai_error"] = openai_error
+            data["nvidia_error"] = str(e)
+            return data
 
-        data["model_used"] = NVIDIA_MODEL
-        data["generated_at"] = datetime.utcnow().isoformat()
+    data = fallback_scenario(payload)
+    data["openai_error"] = openai_error
+    return data
 
-        return {
-            "status": "success",
-            "data": data
-        }
 
-    except Exception as e:
-        data = fallback_scenario(payload)
-        data["error"] = str(e)
-        return {
-            "status": "success",
-            "data": data
-        }
+@router.get("/health")
+def health():
+    return {
+        "status": "ok",
+        "module": "scenario_analysis",
+        "openai_configured": bool(OPENAI_API_KEY),
+        "nemotron_configured": bool(NVIDIA_API_KEY),
+        "supabase_configured": bool(supabase),
+        "timestamp": datetime.utcnow().isoformat()
+    }
+
+
+@router.post("/run")
+def run_scenario_analysis(payload: ScenarioAnalysisRequest):
+    if not payload.source_context:
+        latest_context = load_latest_country_context(country=payload.country, iso3=payload.iso3)
+        if latest_context:
+            payload.source_context = latest_context
+
+    data = run_model(payload)
+
+    return {
+        "status": "success",
+        "data": data
+    }

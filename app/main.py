@@ -1,3 +1,4 @@
+from routers.context_memory import router as context_memory_router
 from routers.scenario_analysis import router as scenario_analysis_router
 from routers.country_intelligence import router as country_intelligence_router
 from app.routes.ingestion import router as ingestion_router
@@ -132,3 +133,6 @@ app.include_router(country_intelligence_router)
 
 # Scenario Analysis
 app.include_router(scenario_analysis_router)
+
+# Context Memory
+app.include_router(context_memory_router)
