@@ -267,9 +267,24 @@ def run_country_intelligence(payload: CountryRunInput):
         .execute()
     )
 
-    scores = score_res.data[0] if score_res.data else {}
+    scores = score_res.data[0] if score_res.data else {
+        "overall_score": 50,
+        "risk_level": "Guarded",
+        "political_stability": 50,
+        "military_activity": 50,
+        "economic_stress": 50,
+        "energy_security": 50,
+        "supply_chain_exposure": 50,
+        "cyber_threat": 50,
+        "social_stability": 50,
+        "diplomatic_tensions": 50,
+        "regulatory_risk": 50,
+        "strategic_outlook": 50,
+        "analyst_notes": "Default baseline score used because no analyst score exists yet."
+    }
+
     risk_score = scores.get("overall_score", 50)
-    risk_level = scores.get("risk_level", "Elevated")
+    risk_level = scores.get("risk_level", "Guarded")
 
     live_signals = fetch_country_signals(country_name, limit=8)
     signal_convergence = analyze_signal_convergence(live_signals)
@@ -347,6 +362,35 @@ def run_country_intelligence(payload: CountryRunInput):
     returned = insert_res.data[0] if insert_res.data else report
     returned["signal_count"] = len(live_signals)
     returned["saved_signal_count"] = len(saved_signals)
+
+    # Save report context for cross-module memory and scenario handoff
+    try:
+        memory_payload = {
+            "source_module": "country_intelligence",
+            "target_module": "scenario_analysis",
+            "country_name": country_name,
+            "iso3": iso3,
+            "report_id": returned.get("id"),
+            "selected_question": None,
+            "context_payload": {
+                "country_name": country_name,
+                "iso3": iso3,
+                "risk_score": risk_score,
+                "risk_level": risk_level,
+                "executive_judgment": returned.get("executive_judgment"),
+                "risk_context": returned.get("risk_context"),
+                "strategic_signals": returned.get("strategic_signals", []),
+                "signal_convergence": returned.get("signal_convergence"),
+                "forecast": returned.get("forecast"),
+                "strategic_recommendations": returned.get("decision_support", []),
+                "scenario_questions": returned.get("scenario_questions", []),
+                "created_at": returned.get("created_at")
+            }
+        }
+
+        supabase.table("report_context_memory").insert(memory_payload).execute()
+    except Exception:
+        pass
 
     return {
         "status": "success",
