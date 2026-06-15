@@ -35,6 +35,11 @@ from app.routes import scenario
 from app.routes import simulation_lab
 from app.routes import simulation
 
+
+from routers.personal_agent import router as personal_agent_router
+from routers.module_access import router as module_access_router
+from routers.usage import router as usage_router
+
 app = FastAPI(
     title="Sovereign Intelligence API",
     version="1.0.0",
@@ -136,3 +141,9 @@ app.include_router(scenario_analysis_router)
 
 # Context Memory
 app.include_router(context_memory_router)
+
+
+app.include_router(personal_agent_router, prefix="/api/agent", tags=["Personal Agent"])
+app.include_router(module_access_router, prefix="/api", tags=["Module Access"])
+app.include_router(usage_router, prefix="/api/usage", tags=["Usage"])
+
