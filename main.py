@@ -5,6 +5,11 @@ from routes.corporate_exposure import router as corporate_exposure_router
 from routers.supply_chain import router as supply_chain_router
 from routers.optimization import router as optimization_router
 
+
+from routers.personal_agent import router as personal_agent_router
+from routers.module_access import router as module_access_router
+from routers.usage import router as usage_router
+
 app = FastAPI(
     title="Sovereign Intelligence API",
     version="1.0.0"
@@ -38,3 +43,9 @@ def list_routes():
         }
         for route in app.routes
     ]
+
+
+app.include_router(personal_agent_router, prefix="/api/agent", tags=["Personal Agent"])
+app.include_router(module_access_router, prefix="/api", tags=["Module Access"])
+app.include_router(usage_router, prefix="/api/usage", tags=["Usage"])
+
