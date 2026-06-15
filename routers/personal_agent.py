@@ -36,3 +36,37 @@ def get_agent_recommendations(authorization: str | None = Header(default=None)):
         "access": context.get("access", {}),
         "interests": context.get("interests", {}),
     }
+
+
+@router.get("/context/admin-test")
+def get_agent_context_admin_test(
+    email: str,
+    x_admin_test_key: str | None = Header(default=None, alias="X-Admin-Test-Key")
+):
+    import os
+    from fastapi import HTTPException
+    from services.agent_context_service import table_select, build_user_context
+    from urllib.parse import quote
+
+    expected_key = os.getenv("ADMIN_TEST_KEY")
+
+    if not expected_key:
+        raise HTTPException(status_code=500, detail="ADMIN_TEST_KEY is not configured")
+
+    if not x_admin_test_key or x_admin_test_key != expected_key:
+        raise HTTPException(status_code=403, detail="Invalid admin test key")
+
+    rows = table_select(
+        "profiles",
+        f"select=*&email=eq.{quote(email)}&limit=1"
+    )
+
+    if not rows:
+        raise HTTPException(status_code=404, detail=f"No profile found for email: {email}")
+
+    user_id = rows[0].get("id")
+
+    if not user_id:
+        raise HTTPException(status_code=404, detail="Profile found but user id is missing")
+
+    return build_user_context(user_id)
