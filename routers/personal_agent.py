@@ -173,3 +173,107 @@ def create_agent_memory_admin_test(
         "status": "ok",
         "memory": res.json()
     }
+
+
+class AdminSavedReportPayload(BaseModel):
+    module_key: str
+    title: str
+    report_data: Dict[str, Any]
+    country: str | None = None
+    region: str | None = None
+    sector: str | None = None
+    timeframe: str | None = None
+    summary: str | None = None
+
+
+@router.post("/saved-report/admin-test")
+def create_saved_report_admin_test(
+    payload: AdminSavedReportPayload,
+    email: str,
+    x_admin_test_key: str | None = Header(default=None, alias="X-Admin-Test-Key")
+):
+    import os
+    import requests
+    from fastapi import HTTPException
+    from services.agent_context_service import SUPABASE_URL, _headers, table_select
+    from urllib.parse import quote
+
+    expected_key = os.getenv("ADMIN_TEST_KEY")
+
+    if not expected_key:
+        raise HTTPException(status_code=500, detail="ADMIN_TEST_KEY is not configured")
+
+    if not x_admin_test_key or x_admin_test_key != expected_key:
+        raise HTTPException(status_code=403, detail="Invalid admin test key")
+
+    rows = table_select("profiles", f"select=*&email=eq.{quote(email)}&limit=1")
+
+    if not rows:
+        raise HTTPException(status_code=404, detail=f"No profile found for email: {email}")
+
+    user_id = rows[0].get("id")
+
+    body = {
+        "user_id": user_id,
+        "module_key": payload.module_key,
+        "title": payload.title,
+        "country": payload.country,
+        "region": payload.region,
+        "sector": payload.sector,
+        "timeframe": payload.timeframe,
+        "report_data": payload.report_data,
+        "summary": payload.summary,
+    }
+
+    res = requests.post(
+        f"{SUPABASE_URL}/rest/v1/saved_reports",
+        headers={**_headers(True), "Prefer": "return=representation"},
+        json=body,
+        timeout=20
+    )
+
+    if res.status_code not in (200, 201):
+        raise HTTPException(status_code=500, detail=f"Failed to save report: {res.text}")
+
+    return {
+        "status": "ok",
+        "saved_report": res.json()
+    }
+
+
+@router.get("/saved-reports/admin-test")
+def get_saved_reports_admin_test(
+    email: str,
+    x_admin_test_key: str | None = Header(default=None, alias="X-Admin-Test-Key")
+):
+    import os
+    from fastapi import HTTPException
+    from services.agent_context_service import table_select
+    from urllib.parse import quote
+
+    expected_key = os.getenv("ADMIN_TEST_KEY")
+
+    if not expected_key:
+        raise HTTPException(status_code=500, detail="ADMIN_TEST_KEY is not configured")
+
+    if not x_admin_test_key or x_admin_test_key != expected_key:
+        raise HTTPException(status_code=403, detail="Invalid admin test key")
+
+    rows = table_select("profiles", f"select=*&email=eq.{quote(email)}&limit=1")
+
+    if not rows:
+        raise HTTPException(status_code=404, detail=f"No profile found for email: {email}")
+
+    user_id = rows[0].get("id")
+
+    reports = table_select(
+        "saved_reports",
+        f"select=*&user_id=eq.{quote(user_id)}&order=created_at.desc"
+    )
+
+    return {
+        "status": "ok",
+        "user_id": user_id,
+        "email": email,
+        "saved_reports": reports
+    }
