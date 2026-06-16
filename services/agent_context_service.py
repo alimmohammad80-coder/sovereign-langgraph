@@ -360,3 +360,24 @@ def build_user_context(user_id: str) -> Dict[str, Any]:
 
     context["recommendations"] = build_recommendations(context)
     return context
+
+
+def table_update_by_id(table: str, row_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+    url = f"{SUPABASE_URL}/rest/v1/{table}?id=eq.{quote(row_id)}"
+    res = requests.patch(
+        url,
+        headers={**_headers(True), "Prefer": "return=representation"},
+        json=payload,
+        timeout=20,
+    )
+
+    if res.status_code not in (200, 204):
+        raise HTTPException(status_code=500, detail=f"Failed to update {table}: {res.text}")
+
+    if not res.text:
+        return {}
+
+    data = res.json()
+    if isinstance(data, list) and data:
+        return data[0]
+    return {}

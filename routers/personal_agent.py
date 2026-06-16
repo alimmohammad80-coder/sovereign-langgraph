@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Header, HTTPException
+from fastapi import APIRouter, Header, HTTPException, BackgroundTasks
 
 from services.agent_context_service import build_user_context, verify_supabase_token
 
@@ -441,4 +441,280 @@ Sections: BLUF, Priority Watchlist, Current Intelligence Posture, Relevant Saved
             "memory_count": len(memory),
             "recommendation_count": len(recommendations.get("actions", [])),
         }
+    }
+
+
+class AdminBriefingJobPayload(BaseModel):
+    prompt: str | None = None
+    briefing_type: str = "executive"
+    timeframe: str = "30 days"
+
+
+def _create_backend_fallback_briefing(context: dict, payload: AdminBriefingJobPayload, reason: str, provider_error: str | None = None) -> dict:
+    user = context.get("user", {})
+    interests = context.get("interests", {})
+    memory = context.get("agent_memory", [])
+    saved_reports = context.get("saved_reports", [])
+    recent_activity = context.get("recent_activity", [])
+    recommendations = context.get("recommendations", {})
+
+    saved_report_lines = "\n".join([
+        f"- {r.get('title')} ({r.get('module_key')}) — {r.get('summary')}"
+        for r in saved_reports[:5]
+    ]) or "No saved reports available."
+
+    recent_activity_lines = "\n".join([
+        f"- {a.get('module_key')}: {a.get('action')} — {a.get('country') or a.get('sector') or 'general'}"
+        for a in recent_activity[:5]
+    ]) or "No recent activity available."
+
+    recommendation_lines = "\n".join([
+        f"- {a.get('title')}"
+        for a in recommendations.get("actions", [])
+    ]) or "No recommendations available."
+
+    briefing = f"""
+1. BLUF
+
+The Personal Intelligence Agent generated a backend briefing using the user context packet. Model provider status: {reason}.
+
+2. Priority Watchlist
+
+Countries of interest:
+{", ".join(interests.get("countries_of_interest", [])) or "No countries configured."}
+
+Regions of interest:
+{", ".join(interests.get("regions_of_interest", [])) or "No regions configured."}
+
+Sectors of interest:
+{", ".join(interests.get("sectors_of_interest", [])) or "No sectors configured."}
+
+3. Current Intelligence Posture
+
+The user is configured as {user.get("role")} with plan {user.get("plan")} and subscription status {user.get("subscription_status")}.
+
+Accessible modules:
+{", ".join(context.get("access", {}).get("modules", []))}
+
+4. Relevant Saved Reports
+
+Saved reports available: {len(saved_reports)}.
+
+{saved_report_lines}
+
+5. Recent Activity
+
+Recent activity events available: {len(recent_activity)}.
+
+{recent_activity_lines}
+
+6. Recommended Next Actions
+
+{recommendation_lines}
+
+7. Strategic Guidance
+
+Prioritize the user’s highest-interest countries and sectors, beginning with saved reports, recent activity, and the user’s declared watchlist priorities.
+
+Provider detail:
+{provider_error or "No provider error."}
+"""
+
+    return {
+        "status": "fallback",
+        "reason": reason,
+        "briefing_type": payload.briefing_type,
+        "timeframe": payload.timeframe,
+        "user": user,
+        "briefing": briefing,
+        "context_used": {
+            "saved_reports_count": len(saved_reports),
+            "recent_activity_count": len(recent_activity),
+            "memory_count": len(memory),
+            "recommendation_count": len(recommendations.get("actions", [])),
+        }
+    }
+
+
+def _process_briefing_job(job_id: str, user_id: str, payload_dict: dict):
+    import os
+    import requests
+    from datetime import datetime, timezone
+    from services.agent_context_service import build_user_context, table_update_by_id
+
+    payload = AdminBriefingJobPayload(**payload_dict)
+
+    try:
+        table_update_by_id("agent_jobs", job_id, {
+            "status": "running",
+            "started_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        })
+
+        context = build_user_context(user_id)
+
+        openai_api_key = os.getenv("OPENAI_API_KEY")
+
+        if not openai_api_key:
+            result = _create_backend_fallback_briefing(
+                context,
+                payload,
+                "openai_api_key_missing"
+            )
+        else:
+            system_prompt = """
+You are the Personal Intelligence Agent for Sovereign Intelligence AI.
+Generate a concise executive intelligence briefing using only the provided user context.
+Use BLUF first. Do not invent facts.
+Sections: BLUF, Priority Watchlist, Current Intelligence Posture, Relevant Saved Reports, Recent Activity, Recommended Next Actions, Strategic Guidance.
+"""
+
+            user_prompt = {
+                "briefing_type": payload.briefing_type,
+                "timeframe": payload.timeframe,
+                "user_request": payload.prompt,
+                "context": context,
+            }
+
+            try:
+                res = requests.post(
+                    "https://api.openai.com/v1/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {openai_api_key}",
+                        "Content-Type": "application/json",
+                    },
+                    json={
+                        "model": os.getenv("OPENAI_AGENT_MODEL", "gpt-4o-mini"),
+                        "messages": [
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": str(user_prompt)},
+                        ],
+                        "temperature": 0.2,
+                        "max_tokens": 1200,
+                    },
+                    timeout=20,
+                )
+
+                if res.status_code not in (200, 201):
+                    result = _create_backend_fallback_briefing(
+                        context,
+                        payload,
+                        "model_provider_unavailable",
+                        res.text
+                    )
+                else:
+                    data = res.json()
+                    result = {
+                        "status": "ok",
+                        "briefing_type": payload.briefing_type,
+                        "timeframe": payload.timeframe,
+                        "user": context.get("user", {}),
+                        "briefing": data["choices"][0]["message"]["content"],
+                        "context_used": {
+                            "saved_reports_count": len(context.get("saved_reports", [])),
+                            "recent_activity_count": len(context.get("recent_activity", [])),
+                            "memory_count": len(context.get("agent_memory", [])),
+                            "recommendation_count": len(context.get("recommendations", {}).get("actions", [])),
+                        }
+                    }
+
+            except Exception as e:
+                result = _create_backend_fallback_briefing(
+                    context,
+                    payload,
+                    "model_provider_timeout_or_connection_error",
+                    str(e)
+                )
+
+        table_update_by_id("agent_jobs", job_id, {
+            "status": "completed",
+            "result": result,
+            "completed_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        })
+
+    except Exception as e:
+        table_update_by_id("agent_jobs", job_id, {
+            "status": "failed",
+            "error_message": str(e),
+            "failed_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        })
+
+
+@router.post("/briefing/jobs/admin-test")
+def create_briefing_job_admin_test(
+    payload: AdminBriefingJobPayload,
+    email: str,
+    background_tasks: BackgroundTasks,
+    x_admin_test_key: str | None = Header(default=None, alias="X-Admin-Test-Key")
+):
+    import os
+    from urllib.parse import quote
+    from fastapi import HTTPException
+    from services.agent_context_service import table_select, table_insert
+
+    expected_key = os.getenv("ADMIN_TEST_KEY")
+
+    if not expected_key:
+        raise HTTPException(status_code=500, detail="ADMIN_TEST_KEY is not configured")
+
+    if not x_admin_test_key or x_admin_test_key != expected_key:
+        raise HTTPException(status_code=403, detail="Invalid admin test key")
+
+    rows = table_select("profiles", f"select=*&email=eq.{quote(email)}&limit=1")
+
+    if not rows:
+        raise HTTPException(status_code=404, detail=f"No profile found for email: {email}")
+
+    user_id = rows[0].get("id")
+
+    job = table_insert("agent_jobs", {
+        "user_id": user_id,
+        "job_type": "personal_agent_briefing",
+        "status": "queued",
+        "briefing_type": payload.briefing_type,
+        "timeframe": payload.timeframe,
+        "prompt": payload.prompt,
+        "input_payload": payload.model_dump()
+    })
+
+    job_id = job.get("id")
+
+    background_tasks.add_task(_process_briefing_job, job_id, user_id, payload.model_dump())
+
+    return {
+        "status": "queued",
+        "job_id": job_id,
+        "job_type": "personal_agent_briefing",
+        "message": "Briefing job queued. Poll the job endpoint for status."
+    }
+
+
+@router.get("/jobs/{job_id}/admin-test")
+def get_agent_job_admin_test(
+    job_id: str,
+    x_admin_test_key: str | None = Header(default=None, alias="X-Admin-Test-Key")
+):
+    import os
+    from urllib.parse import quote
+    from fastapi import HTTPException
+    from services.agent_context_service import table_select
+
+    expected_key = os.getenv("ADMIN_TEST_KEY")
+
+    if not expected_key:
+        raise HTTPException(status_code=500, detail="ADMIN_TEST_KEY is not configured")
+
+    if not x_admin_test_key or x_admin_test_key != expected_key:
+        raise HTTPException(status_code=403, detail="Invalid admin test key")
+
+    rows = table_select("agent_jobs", f"select=*&id=eq.{quote(job_id)}&limit=1")
+
+    if not rows:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    return {
+        "status": "ok",
+        "job": rows[0]
     }
