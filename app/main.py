@@ -1,3 +1,5 @@
+
+from app.routes.supply_chain_geo import router as supply_chain_geo_router
 from routers.context_memory import router as context_memory_router
 from routers.scenario_analysis import router as scenario_analysis_router
 from routers.country_intelligence import router as country_intelligence_router
@@ -70,7 +72,7 @@ app.include_router(simulation_lab_router)
 app.include_router(intelligence_pipeline_router)
 app.include_router(conflict_forecasting_router)
 app.include_router(strategic_knowledge_graph_router)
-
+app.include_router(supply_chain_geo_router)
 
 # Supply Chain Risk Engine router
 app.include_router(supply_chain_router)
