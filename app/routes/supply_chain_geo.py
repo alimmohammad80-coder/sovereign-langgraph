@@ -470,3 +470,61 @@ async def get_chokepoint_impact(chokepoint_name: str):
         "commodities": commodities.data or [],
         "trade_flows": trade_flows.data or []
     }
+
+@router.get("/exposure/{company_name}")
+async def get_company_supply_chain_exposure(company_name: str):
+    company_commodities = (
+        supabase
+        .table("sc_commodity_company_exposure")
+        .select("*")
+        .ilike("company_name", company_name)
+        .execute()
+    )
+
+    company_ports = (
+        supabase
+        .table("sc_company_ports")
+        .select("*")
+        .ilike("company_name", company_name)
+        .execute()
+    )
+
+    ports = company_ports.data or []
+    chokepoints = []
+
+    for port in ports:
+        port_chokepoints = (
+            supabase
+            .table("sc_port_chokepoints")
+            .select("*")
+            .ilike("port_name", port["port_name"])
+            .execute()
+        )
+        chokepoints.extend(port_chokepoints.data or [])
+
+    commodity_names = [
+        item["commodity"]
+        for item in (company_commodities.data or [])
+    ]
+
+    alternative_suppliers = []
+
+    for commodity in commodity_names:
+        suppliers = (
+            supabase
+            .table("sc_alternative_suppliers")
+            .select("*")
+            .ilike("commodity", commodity)
+            .order("geopolitical_risk_score", desc=False)
+            .execute()
+        )
+        alternative_suppliers.extend(suppliers.data or [])
+
+    return {
+        "status": "success",
+        "company": company_name,
+        "commodities": company_commodities.data or [],
+        "ports": ports,
+        "chokepoints": chokepoints,
+        "alternative_suppliers": alternative_suppliers
+    }
