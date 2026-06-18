@@ -796,3 +796,54 @@ async def get_live_disruptions_clean(limit: int = 25):
         "count": len(response.data or []),
         "events": response.data or []
     }
+
+@router.get("/pipeline/status")
+async def get_supply_chain_pipeline_status():
+    response = (
+        supabase
+        .table("sc_pipeline_status")
+        .select("*")
+        .order("updated_at", desc=True)
+        .execute()
+    )
+
+    return {
+        "status": "success",
+        "pipelines": response.data or []
+    }
+
+
+@router.post("/pipeline/run-live-ingestion")
+async def run_supply_chain_live_ingestion():
+    from app.ingest.live_supply_chain_signals import run_live_supply_chain_ingestion
+    from datetime import datetime, timezone
+
+    try:
+        result = run_live_supply_chain_ingestion()
+
+        supabase.table("sc_pipeline_status").upsert({
+            "pipeline_name": "live_supply_chain_signals",
+            "status": "completed",
+            "last_run_at": datetime.now(timezone.utc).isoformat(),
+            "records_processed": result.get("records_upserted") or result.get("records_inserted") or 0,
+            "error_message": None,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }, on_conflict="pipeline_name").execute()
+
+        return {
+            "status": "success",
+            "pipeline": "live_supply_chain_signals",
+            "result": result
+        }
+
+    except Exception as e:
+        supabase.table("sc_pipeline_status").upsert({
+            "pipeline_name": "live_supply_chain_signals",
+            "status": "failed",
+            "last_run_at": datetime.now(timezone.utc).isoformat(),
+            "records_processed": 0,
+            "error_message": str(e),
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }, on_conflict="pipeline_name").execute()
+
+        raise HTTPException(status_code=500, detail=str(e))
