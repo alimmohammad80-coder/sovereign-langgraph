@@ -195,3 +195,26 @@ async def get_edges():
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/trade-flows")
+async def get_trade_flows(limit: int = 50):
+    try:
+        response = (
+            supabase
+            .table("sc_raw_trade_flows")
+            .select(
+                "reporter_country,partner_country,reporter_iso3,partner_iso3,commodity_code,commodity_name,trade_flow,trade_value_usd,net_weight_kg,period"
+            )
+            .limit(limit)
+            .execute()
+        )
+
+        return {
+            "status": "success",
+            "count": len(response.data or []),
+            "data": response.data or []
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
