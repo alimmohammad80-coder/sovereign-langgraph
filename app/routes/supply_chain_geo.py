@@ -368,3 +368,19 @@ async def get_scenario(chokepoint_name: str):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/commodities/{chokepoint_name}")
+async def get_commodities(chokepoint_name: str):
+    response = (
+        supabase
+        .table("sc_commodity_exposure")
+        .select("*")
+        .ilike("chokepoint_name", chokepoint_name)
+        .execute()
+    )
+
+    return {
+        "status": "success",
+        "chokepoint": chokepoint_name,
+        "commodities": response.data or []
+    }
