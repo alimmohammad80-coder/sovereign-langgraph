@@ -242,3 +242,22 @@ async def get_trade_exposure(limit: int = 50):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/commodity-risk/{commodity_code}")
+async def get_commodity_risk(commodity_code: str):
+    try:
+        exposure = (
+            supabase
+            .table("sc_chokepoint_commodity_exposure")
+            .select("*")
+            .eq("commodity_code", commodity_code)
+            .execute()
+        )
+
+        return {
+            "commodity_code": commodity_code,
+            "chokepoint_exposure": exposure.data or []
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
