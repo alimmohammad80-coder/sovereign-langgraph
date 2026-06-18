@@ -528,3 +528,48 @@ async def get_company_supply_chain_exposure(company_name: str):
         "chokepoints": chokepoints,
         "alternative_suppliers": alternative_suppliers
     }
+
+@router.get("/briefing/{company_name}")
+async def get_company_briefing(company_name: str):
+    exposure = await get_company_supply_chain_exposure(company_name)
+
+    commodities = exposure.get("commodities", [])
+    ports = exposure.get("ports", [])
+    chokepoints = exposure.get("chokepoints", [])
+    alternatives = exposure.get("alternative_suppliers", [])
+
+    max_score = max([c.get("exposure_score", 0) for c in commodities], default=50)
+
+    if max_score >= 80:
+        risk_level = "High"
+    elif max_score >= 65:
+        risk_level = "Elevated"
+    else:
+        risk_level = "Guarded"
+
+    commodity_names = [c.get("commodity") for c in commodities]
+    port_names = [p.get("port_name") for p in ports]
+    chokepoint_names = [c.get("chokepoint_name") for c in chokepoints]
+    supplier_names = [
+        f"{s.get('supplier_company') or 'Supplier'} in {s.get('supplier_country')}"
+        for s in alternatives
+    ]
+
+    return {
+        "status": "success",
+        "company": company_name,
+        "exposure_score": max_score,
+        "risk_level": risk_level,
+        "bluf": f"{company_name} faces {risk_level.lower()} supply chain exposure driven by dependency on {', '.join(commodity_names) or 'critical inputs'} and transit risk through {', '.join(chokepoint_names) or 'key maritime chokepoints'}.",
+        "critical_commodities": commodity_names,
+        "critical_ports": port_names,
+        "critical_chokepoints": chokepoint_names,
+        "alternative_suppliers": supplier_names,
+        "recommended_actions": [
+            "Reduce single-route and single-supplier concentration.",
+            "Increase inventory buffers for critical inputs.",
+            "Monitor chokepoint disruption signals and export-control developments.",
+            "Evaluate alternative suppliers and rerouting options."
+        ],
+        "raw_exposure": exposure
+    }
