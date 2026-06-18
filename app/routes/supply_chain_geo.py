@@ -261,3 +261,91 @@ async def get_commodity_risk(commodity_code: str):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/company-risk/{company_name}")
+async def get_company_risk(company_name: str):
+    try:
+        company = (
+            supabase
+            .table("sc_company_exposure")
+            .select("*")
+            .ilike("company_name", company_name)
+            .execute()
+        )
+
+        if not company.data:
+            return {
+                "status": "not_found",
+                "company_name": company_name
+            }
+
+        results = []
+
+        for item in company.data:
+            exposure = (
+                supabase
+                .table("sc_chokepoint_commodity_exposure")
+                .select("*")
+                .eq("commodity_code", item["commodity_code"])
+                .execute()
+            )
+
+            results.append({
+                "company": item["company_name"],
+                "commodity": item["commodity_name"],
+                "supplier_country": item["supplier_country"],
+                "dependency_pct": item["dependency_pct"],
+                "criticality": item["criticality"],
+                "chokepoint_exposure": exposure.data or []
+            })
+
+        return {
+            "status": "success",
+            "company_name": company_name,
+            "results": results
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/supplier-alternatives/{commodity_code}")
+async def get_supplier_alternatives(commodity_code: str):
+    try:
+        response = (
+            supabase
+            .table("sc_supplier_alternatives")
+            .select("*")
+            .eq("commodity_code", commodity_code)
+            .order("resilience_score", desc=True)
+            .execute()
+        )
+
+        return {
+            "status": "success",
+            "commodity_code": commodity_code,
+            "alternatives": response.data or []
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/route-alternatives/{chokepoint_name}")
+async def get_route_alternatives(chokepoint_name: str):
+    try:
+        response = (
+            supabase
+            .table("sc_route_alternatives")
+            .select("*")
+            .ilike("chokepoint_name", chokepoint_name)
+            .order("risk_reduction_pct", desc=True)
+            .execute()
+        )
+
+        return {
+            "status": "success",
+            "chokepoint": chokepoint_name,
+            "alternatives": response.data or []
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
