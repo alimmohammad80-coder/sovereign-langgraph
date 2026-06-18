@@ -631,3 +631,118 @@ async def get_company_profile(company_name: str):
         "alternative_suppliers": alternatives,
         "markets": markets.data or []
     }
+
+@router.get("/scenario-impact/{chokepoint_name}")
+async def get_scenario_impact(chokepoint_name: str):
+
+    scenario = (
+        supabase
+        .table("sc_scenarios")
+        .select("*")
+        .ilike("chokepoint_name", chokepoint_name)
+        .execute()
+    )
+
+    affected_ports = (
+        supabase
+        .table("sc_port_chokepoints")
+        .select("*")
+        .ilike("chokepoint_name", chokepoint_name)
+        .execute()
+    )
+
+    port_names = [p.get("port_name") for p in (affected_ports.data or [])]
+
+    affected_companies = []
+    for port_name in port_names:
+        company_ports = (
+            supabase
+            .table("sc_company_ports")
+            .select("*")
+            .ilike("port_name", port_name)
+            .execute()
+        )
+        affected_companies.extend(company_ports.data or [])
+
+    company_names = list({
+        c.get("company_name")
+        for c in affected_companies
+        if c.get("company_name")
+    })
+
+    company_profiles = []
+    affected_commodities = []
+    alternative_suppliers = []
+
+    for company_name in company_names:
+        profile = await get_company_profile(company_name)
+        company_profiles.append(profile)
+        affected_commodities.extend(profile.get("commodities", []))
+        alternative_suppliers.extend(profile.get("alternative_suppliers", []))
+
+    alternative_routes = (
+        supabase
+        .table("sc_route_alternatives")
+        .select("*")
+        .ilike("chokepoint_name", chokepoint_name)
+        .order("risk_reduction_pct", desc=True)
+        .execute()
+    )
+
+    trade_flows = (
+        supabase
+        .table("sc_trade_flows")
+        .select("*")
+        .contains("transit_chokepoints", [chokepoint_name])
+        .order("annual_value_usd", desc=True)
+        .execute()
+    )
+
+    total_trade_value = sum([
+        float(flow.get("annual_value_usd") or 0)
+        for flow in (trade_flows.data or [])
+    ])
+
+    exposure_scores = [
+        profile.get("exposure_score", 0)
+        for profile in company_profiles
+    ]
+
+    scenario_score = max(exposure_scores, default=50)
+
+    if scenario_score >= 80:
+        risk_level = "High"
+    elif scenario_score >= 65:
+        risk_level = "Elevated"
+    else:
+        risk_level = "Guarded"
+
+    return {
+        "status": "success",
+        "chokepoint": chokepoint_name,
+        "risk_level": risk_level,
+        "scenario_score": scenario_score,
+        "summary": {
+            "affected_ports_count": len(port_names),
+            "affected_companies_count": len(company_names),
+            "affected_trade_value_usd": total_trade_value,
+            "affected_commodities_count": len(affected_commodities),
+            "alternative_routes_count": len(alternative_routes.data or []),
+            "alternative_suppliers_count": len(alternative_suppliers)
+        },
+        "scenario": scenario.data or [],
+        "affected_ports": affected_ports.data or [],
+        "affected_companies": affected_companies,
+        "company_profiles": company_profiles,
+        "affected_commodities": affected_commodities,
+        "trade_flows": trade_flows.data or [],
+        "alternative_routes": alternative_routes.data or [],
+        "alternative_suppliers": alternative_suppliers,
+        "recommended_actions": [
+            "Identify companies with high dependency on affected ports and chokepoints.",
+            "Prioritize alternative routing where risk reduction exceeds added cost.",
+            "Increase inventory buffers for commodities tied to high-risk chokepoints.",
+            "Review alternative suppliers in lower-risk jurisdictions.",
+            "Monitor live disruption signals and update scenario assumptions daily."
+        ]
+    }
