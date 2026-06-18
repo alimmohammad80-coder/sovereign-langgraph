@@ -401,3 +401,20 @@ async def get_commodity_companies(commodity: str):
         "commodity": commodity,
         "companies": response.data or []
     }
+
+@router.get("/alternative-suppliers/{commodity}")
+async def get_alternative_suppliers(commodity: str):
+    response = (
+        supabase
+        .table("sc_alternative_suppliers")
+        .select("*")
+        .ilike("commodity", commodity)
+        .order("geopolitical_risk_score", desc=False)
+        .execute()
+    )
+
+    return {
+        "status": "success",
+        "commodity": commodity,
+        "alternative_suppliers": response.data or []
+    }
