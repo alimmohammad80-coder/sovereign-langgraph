@@ -384,3 +384,20 @@ async def get_commodities(chokepoint_name: str):
         "chokepoint": chokepoint_name,
         "commodities": response.data or []
     }
+
+@router.get("/commodity-companies/{commodity}")
+async def get_commodity_companies(commodity: str):
+    response = (
+        supabase
+        .table("sc_commodity_company_exposure")
+        .select("*")
+        .ilike("commodity", commodity)
+        .order("exposure_score", desc=True)
+        .execute()
+    )
+
+    return {
+        "status": "success",
+        "commodity": commodity,
+        "companies": response.data or []
+    }
