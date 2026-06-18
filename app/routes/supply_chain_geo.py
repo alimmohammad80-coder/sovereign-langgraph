@@ -779,3 +779,20 @@ async def get_live_disruptions(limit: int = 25):
         "count": len(response.data or []),
         "events": response.data or []
     }
+
+@router.get("/live-disruptions-clean")
+async def get_live_disruptions_clean(limit: int = 25):
+    response = (
+        supabase
+        .table("sc_live_disruption_events")
+        .select("id,source,title,summary,url,event_type,matched_chokepoint,matched_port,matched_commodity,matched_company,severity_score,confidence_score,published_at,ingested_at")
+        .order("ingested_at", desc=True)
+        .limit(limit)
+        .execute()
+    )
+
+    return {
+        "status": "success",
+        "count": len(response.data or []),
+        "events": response.data or []
+    }
