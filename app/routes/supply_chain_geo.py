@@ -573,3 +573,61 @@ async def get_company_briefing(company_name: str):
         ],
         "raw_exposure": exposure
     }
+
+@router.get("/company-profile/{company_name}")
+async def get_company_profile(company_name: str):
+
+    exposure = await get_company_supply_chain_exposure(company_name)
+
+    suppliers = (
+        supabase
+        .table("sc_company_suppliers")
+        .select("*")
+        .ilike("company_name", company_name)
+        .execute()
+    )
+
+    markets = (
+        supabase
+        .table("sc_company_markets")
+        .select("*")
+        .ilike("company_name", company_name)
+        .execute()
+    )
+
+    commodities = exposure.get("commodities", [])
+    ports = exposure.get("ports", [])
+    chokepoints = exposure.get("chokepoints", [])
+    alternatives = exposure.get("alternative_suppliers", [])
+
+    exposure_score = max(
+        [c.get("exposure_score", 0) for c in commodities],
+        default=50
+    )
+
+    if exposure_score >= 80:
+        risk_level = "High"
+    elif exposure_score >= 65:
+        risk_level = "Elevated"
+    else:
+        risk_level = "Guarded"
+
+    return {
+        "status": "success",
+        "company": company_name,
+        "exposure_score": exposure_score,
+        "risk_level": risk_level,
+        "summary": {
+            "commodities_count": len(commodities),
+            "suppliers_count": len(suppliers.data or []),
+            "ports_count": len(ports),
+            "chokepoints_count": len(chokepoints),
+            "markets_count": len(markets.data or [])
+        },
+        "commodities": commodities,
+        "suppliers": suppliers.data or [],
+        "ports": ports,
+        "chokepoints": chokepoints,
+        "alternative_suppliers": alternatives,
+        "markets": markets.data or []
+    }
