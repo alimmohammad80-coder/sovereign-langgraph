@@ -746,3 +746,19 @@ async def get_scenario_impact(chokepoint_name: str):
             "Monitor live disruption signals and update scenario assumptions daily."
         ]
     }
+
+@router.get("/port-companies/{port_name}")
+async def get_port_companies(port_name: str):
+    response = (
+        supabase
+        .table("sc_company_ports")
+        .select("*")
+        .ilike("port_name", port_name)
+        .execute()
+    )
+
+    return {
+        "status": "success",
+        "port": port_name,
+        "companies": response.data or []
+    }
