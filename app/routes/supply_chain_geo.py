@@ -435,3 +435,38 @@ async def get_trade_flows_by_chokepoint(chokepoint_name: str):
         "chokepoint": chokepoint_name,
         "trade_flows": response.data or []
     }
+
+@router.get("/impact/{chokepoint_name}")
+async def get_chokepoint_impact(chokepoint_name: str):
+
+    scenario = (
+        supabase
+        .table("sc_scenarios")
+        .select("*")
+        .ilike("chokepoint_name", chokepoint_name)
+        .execute()
+    )
+
+    commodities = (
+        supabase
+        .table("sc_commodity_exposure")
+        .select("*")
+        .ilike("chokepoint_name", chokepoint_name)
+        .execute()
+    )
+
+    trade_flows = (
+        supabase
+        .table("sc_trade_flows")
+        .select("*")
+        .contains("transit_chokepoints", [chokepoint_name])
+        .execute()
+    )
+
+    return {
+        "status": "success",
+        "chokepoint": chokepoint_name,
+        "scenario": scenario.data or [],
+        "commodities": commodities.data or [],
+        "trade_flows": trade_flows.data or []
+    }
