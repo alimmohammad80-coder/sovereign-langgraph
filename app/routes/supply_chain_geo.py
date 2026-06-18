@@ -349,3 +349,22 @@ async def get_route_alternatives(chokepoint_name: str):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/scenario/{chokepoint_name}")
+async def get_scenario(chokepoint_name: str):
+    try:
+        response = (
+            supabase
+            .table("sc_scenarios")
+            .select("*")
+            .ilike("chokepoint_name", chokepoint_name)
+            .execute()
+        )
+
+        return {
+            "status": "success",
+            "scenario": response.data or []
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
