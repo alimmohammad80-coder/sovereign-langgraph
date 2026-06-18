@@ -762,3 +762,20 @@ async def get_port_companies(port_name: str):
         "port": port_name,
         "companies": response.data or []
     }
+
+@router.get("/live-disruptions")
+async def get_live_disruptions(limit: int = 25):
+    response = (
+        supabase
+        .table("sc_live_disruption_events")
+        .select("*")
+        .order("ingested_at", desc=True)
+        .limit(limit)
+        .execute()
+    )
+
+    return {
+        "status": "success",
+        "count": len(response.data or []),
+        "events": response.data or []
+    }
