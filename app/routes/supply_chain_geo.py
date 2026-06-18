@@ -418,3 +418,20 @@ async def get_alternative_suppliers(commodity: str):
         "commodity": commodity,
         "alternative_suppliers": response.data or []
     }
+
+@router.get("/trade-flows/{chokepoint_name}")
+async def get_trade_flows_by_chokepoint(chokepoint_name: str):
+    response = (
+        supabase
+        .table("sc_trade_flows")
+        .select("*")
+        .contains("transit_chokepoints", [chokepoint_name])
+        .order("annual_value_usd", desc=True)
+        .execute()
+    )
+
+    return {
+        "status": "success",
+        "chokepoint": chokepoint_name,
+        "trade_flows": response.data or []
+    }
