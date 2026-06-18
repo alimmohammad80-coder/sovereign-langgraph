@@ -218,3 +218,27 @@ async def get_trade_flows(limit: int = 50):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/trade-exposure")
+async def get_trade_exposure(limit: int = 50):
+    try:
+        response = (
+            supabase
+            .table("sc_trade_exposure_summary")
+            .select(
+                "commodity_code,commodity_name,reporter_country,partner_country,reporter_iso3,partner_iso3,trade_flow,total_trade_value_usd,total_weight_kg,period,exposure_score,exposure_level,decision_support"
+            )
+            .order("exposure_score", desc=True)
+            .limit(limit)
+            .execute()
+        )
+
+        return {
+            "status": "success",
+            "count": len(response.data or []),
+            "data": response.data or []
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
