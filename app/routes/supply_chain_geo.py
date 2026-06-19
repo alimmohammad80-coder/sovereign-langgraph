@@ -1000,3 +1000,89 @@ async def investigate_supply_chain_entity(payload: dict):
             ]
         }
     }
+@router.post("/recalculate-port-scores")
+async def recalculate_port_scores():
+    port_links = (
+        supabase
+        .table("sc_port_chokepoints")
+        .select("*")
+        .execute()
+    )
+
+    updated = []
+
+    for link in port_links.data or []:
+        port_name = link.get("port_name")
+        chokepoint_name = link.get("chokepoint_name")
+        dependency_pct = float(link.get("dependency_pct") or 50)
+
+        chokepoint = (
+            supabase
+            .table("sc_chokepoints")
+            .select("risk_score,severity")
+            .ilike("name", chokepoint_name)
+            .limit(1)
+            .execute()
+        )
+
+        port = (
+            supabase
+            .table("sc_ports")
+            .select("baseline_risk_score,risk_score")
+            .ilike("port_name", port_name)
+            .limit(1)
+            .execute()
+        )
+
+        if not chokepoint.data or not port.data:
+            continue
+
+        chokepoint_score = float(chokepoint.data[0].get("risk_score") or 50)
+        baseline_score = float(port.data[0].get("baseline_risk_score") or 50)
+
+        dependency_weight = min(max(dependency_pct / 100, 0), 1)
+
+        new_score = round(
+            (baseline_score * 0.45)
+            + (chokepoint_score * 0.40)
+            + ((dependency_weight * 100) * 0.15),
+            1
+        )
+
+        if new_score >= 80:
+            severity = "Critical"
+        elif new_score >= 70:
+            severity = "High"
+        elif new_score >= 60:
+            severity = "Elevated"
+        else:
+            severity = "Guarded"
+
+        dominant_driver = f"{chokepoint_name} dependency at {dependency_pct:.0f}%"
+
+        (
+            supabase
+            .table("sc_ports")
+            .update({
+                "risk_score": new_score,
+                "severity": severity,
+                "dominant_driver": dominant_driver
+            })
+            .ilike("port_name", port_name)
+            .execute()
+        )
+
+        updated.append({
+            "port": port_name,
+            "linked_chokepoint": chokepoint_name,
+            "dependency_pct": dependency_pct,
+            "chokepoint_score": chokepoint_score,
+            "new_score": new_score,
+            "severity": severity
+        })
+
+    return {
+        "status": "success",
+        "updated_count": len(updated),
+        "updated": updated
+    }
