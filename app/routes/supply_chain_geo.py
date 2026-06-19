@@ -847,3 +847,73 @@ async def run_supply_chain_live_ingestion():
         }, on_conflict="pipeline_name").execute()
 
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/recalculate-scores")
+async def recalculate_supply_chain_scores():
+    events = (
+        supabase
+        .table("sc_live_disruption_events")
+        .select("matched_chokepoint,severity_score")
+        .not_.is_("matched_chokepoint", "null")
+        .execute()
+    )
+
+    grouped = {}
+
+    for event in events.data or []:
+        chokepoint = event.get("matched_chokepoint")
+        severity = float(event.get("severity_score") or 50)
+
+        if chokepoint not in grouped:
+            grouped[chokepoint] = []
+
+        grouped[chokepoint].append(severity)
+
+    updated = []
+
+    for chokepoint, severities in grouped.items():
+        avg_live_severity = sum(severities) / len(severities)
+
+        existing = (
+            supabase
+            .table("sc_chokepoints")
+            .select("risk_score")
+            .ilike("name", chokepoint)
+            .limit(1)
+            .execute()
+        )
+
+        base_score = 50
+        if existing.data:
+            base_score = float(existing.data[0].get("risk_score") or 50)
+
+        new_score = round((base_score * 0.7) + (avg_live_severity * 0.3), 1)
+
+        if new_score >= 80:
+            severity_label = "Critical"
+        elif new_score >= 70:
+            severity_label = "High"
+        elif new_score >= 60:
+            severity_label = "Elevated"
+        else:
+            severity_label = "Guarded"
+
+        supabase.table("sc_chokepoints").update({
+            "risk_score": new_score,
+            "severity": severity_label
+        }).ilike("name", chokepoint).execute()
+
+        updated.append({
+            "chokepoint": chokepoint,
+            "base_score": base_score,
+            "avg_live_severity": round(avg_live_severity, 1),
+            "new_score": new_score,
+            "severity": severity_label,
+            "signals_used": len(severities)
+        })
+
+    return {
+        "status": "success",
+        "updated_count": len(updated),
+        "updated": updated
+    }
