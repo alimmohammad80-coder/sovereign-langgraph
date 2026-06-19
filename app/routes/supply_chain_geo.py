@@ -819,7 +819,7 @@ async def run_supply_chain_live_ingestion():
     from datetime import datetime, timezone
 
     try:
-        result = run_live_supply_chain_ingestion()
+        result = run_live_supply_chain_ingestion() or {}
 
         supabase.table("sc_pipeline_status").upsert({
             "pipeline_name": "live_supply_chain_signals",

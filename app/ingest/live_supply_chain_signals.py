@@ -215,10 +215,12 @@ def run_live_supply_chain_ingestion():
         except Exception as e:
             print({"failed": row.get("title"), "error": str(e)})
 
-    print({
+    result = {
         "status": "success",
         "records_upserted": inserted
-    })
+    }
+    print(result)
+    return result
 
 
 if __name__ == "__main__":
