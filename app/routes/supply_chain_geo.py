@@ -917,3 +917,86 @@ async def recalculate_supply_chain_scores():
         "updated_count": len(updated),
         "updated": updated
     }
+
+@router.post("/investigate")
+async def investigate_supply_chain_entity(payload: dict):
+    entity_type = payload.get("entity_type")
+    entity_name = payload.get("entity_name")
+    question = payload.get("question") or "Assess supply chain disruption risk and decision implications."
+
+    if not entity_type or not entity_name:
+        raise HTTPException(status_code=400, detail="entity_type and entity_name are required")
+
+    context = {}
+
+    if entity_type == "chokepoint":
+        impact = await get_scenario_impact(entity_name)
+        context = impact
+
+    elif entity_type == "company":
+        profile = await get_company_profile(entity_name)
+        context = profile
+
+    elif entity_type == "port":
+        companies = (
+            supabase
+            .table("sc_company_ports")
+            .select("*")
+            .ilike("port_name", entity_name)
+            .execute()
+        )
+        chokepoints = (
+            supabase
+            .table("sc_port_chokepoints")
+            .select("*")
+            .ilike("port_name", entity_name)
+            .execute()
+        )
+        context = {
+            "port": entity_name,
+            "companies": companies.data or [],
+            "chokepoints": chokepoints.data or []
+        }
+
+    elif entity_type == "commodity":
+        companies = (
+            supabase
+            .table("sc_commodity_company_exposure")
+            .select("*")
+            .ilike("commodity", entity_name)
+            .execute()
+        )
+        suppliers = (
+            supabase
+            .table("sc_alternative_suppliers")
+            .select("*")
+            .ilike("commodity", entity_name)
+            .execute()
+        )
+        context = {
+            "commodity": entity_name,
+            "companies": companies.data or [],
+            "alternative_suppliers": suppliers.data or []
+        }
+
+    else:
+        raise HTTPException(status_code=400, detail="Unsupported entity_type")
+
+    return {
+        "status": "success",
+        "entity_type": entity_type,
+        "entity_name": entity_name,
+        "question": question,
+        "context": context,
+        "bluf": f"{entity_name} requires investigation across supply chain exposure, live disruption signals, alternative routes, and downstream company impact.",
+        "simulation": {
+            "time_horizon": "30 days",
+            "assessment": "Simulation scaffold ready. GPT analysis layer will be attached next.",
+            "recommended_actions": [
+                "Review affected companies and commodities.",
+                "Assess alternative suppliers and routes.",
+                "Monitor live disruption signals.",
+                "Update risk score after new signal ingestion."
+            ]
+        }
+    }
