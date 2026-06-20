@@ -1250,18 +1250,26 @@ async def recalculate_company_scores():
     }
 
 
+
 def generate_supply_chain_gpt_analysis(entity_type, entity_name, question, context):
-    api_key = os.getenv("OPENAI_API_KEY")
+    api_key = os.getenv("NVIDIA_API_KEY") or os.getenv("OPENAI_API_KEY")
+
     if not api_key:
         return {
-            "bluf": f"{entity_name} requires further assessment, but GPT analysis is unavailable because OPENAI_API_KEY is not configured.",
+            "bluf": f"{entity_name} requires further assessment, but model analysis is unavailable because no NVIDIA_API_KEY or OPENAI_API_KEY is configured.",
             "simulation_assessment": "Model analysis unavailable.",
             "drivers": [],
             "forecast": {},
             "recommended_actions": []
         }
 
-    client = OpenAI(api_key=api_key)
+    base_url = os.getenv("NVIDIA_BASE_URL", "https://integrate.api.nvidia.com/v1")
+    model = os.getenv("NVIDIA_MODEL", "nvidia/llama-3_1-nemotron-ultra-253b-v1")
+
+    client = OpenAI(
+        api_key=api_key,
+        base_url=base_url
+    )
 
     prompt = f"""
 You are Sovereign Intelligence AI's supply chain risk analyst.
@@ -1275,7 +1283,7 @@ Use this backend context:
 
 Produce a concise executive intelligence assessment.
 
-Return only JSON with:
+Return only valid JSON with:
 bluf: string
 simulation_assessment: string
 drivers: array of strings
@@ -1286,18 +1294,23 @@ confidence: string
 
     try:
         response = client.chat.completions.create(
-            model=os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
+            model=model,
             messages=[{"role": "user", "content": prompt}],
             temperature=0.2,
+            max_tokens=1200,
         )
 
         import json
-        content = response.choices[0].message.content
+        content = response.choices[0].message.content.strip()
+
+        if content.startswith("```"):
+            content = content.replace("```json", "").replace("```", "").strip()
+
         return json.loads(content)
 
     except Exception as e:
         return {
-            "bluf": f"{entity_name} investigation completed using backend context, but GPT generation failed.",
+            "bluf": f"{entity_name} investigation completed using backend context, but model generation failed.",
             "simulation_assessment": str(e),
             "drivers": [],
             "forecast": {},
