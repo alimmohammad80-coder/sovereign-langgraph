@@ -1087,12 +1087,13 @@ async def recalculate_port_scores():
         "updated": updated
     }
 
+
 @router.post("/recalculate-company-scores")
 async def recalculate_company_scores():
     companies = (
         supabase
         .table("sc_companies")
-        .select("company_name,baseline_risk_score")
+        .select("company_name,baseline_risk_score,strategic_importance")
         .execute()
     )
 
@@ -1100,7 +1101,11 @@ async def recalculate_company_scores():
 
     for company in companies.data or []:
         company_name = company.get("company_name")
-        baseline_score = float(company.get("baseline_risk_score") or 50)
+        baseline_score = float(
+            company.get("baseline_risk_score")
+            or company.get("strategic_importance")
+            or 50
+        )
 
         ports = (
             supabase
@@ -1118,12 +1123,13 @@ async def recalculate_company_scores():
             .execute()
         )
 
-        port_scores = []
-        port_drivers = []
+        max_port_score = 50
+        max_port_dependency = 0
+        port_driver = None
 
         for port in ports.data or []:
             port_name = port.get("port_name")
-            dependency_pct = float(port.get("dependency_pct") or 50)
+            dependency_pct = float(port.get("dependency_pct") or 0)
 
             port_score_response = (
                 supabase
@@ -1136,58 +1142,58 @@ async def recalculate_company_scores():
 
             if port_score_response.data:
                 port_score = float(port_score_response.data[0].get("risk_score") or 50)
-                weighted_port_score = port_score * min(max(dependency_pct / 100, 0), 1)
-                port_scores.append(weighted_port_score)
-                port_drivers.append(f"{port_name} dependency at {dependency_pct:.0f}%")
+                if port_score > max_port_score:
+                    max_port_score = port_score
+                    max_port_dependency = dependency_pct
+                    port_driver = f"{port_name} dependency at {dependency_pct:.0f}%"
 
-        supplier_scores = []
-        supplier_drivers = []
+        max_supplier_score = 50
+        max_supplier_dependency = 0
+        supplier_driver = None
 
         for supplier in suppliers.data or []:
-            dependency_pct = float(supplier.get("dependency_pct") or 50)
+            dependency_pct = float(supplier.get("dependency_pct") or 0)
             criticality = (supplier.get("criticality") or "").lower()
 
             if criticality == "critical":
                 criticality_score = 90
             elif criticality == "high":
-                criticality_score = 75
+                criticality_score = 78
             elif criticality == "medium":
-                criticality_score = 60
+                criticality_score = 65
             else:
                 criticality_score = 50
 
-            weighted_supplier_score = criticality_score * min(max(dependency_pct / 100, 0), 1)
-            supplier_scores.append(weighted_supplier_score)
-            supplier_drivers.append(
-                f"{supplier.get('commodity')} supplier dependency at {dependency_pct:.0f}%"
-            )
+            if criticality_score > max_supplier_score:
+                max_supplier_score = criticality_score
+                max_supplier_dependency = dependency_pct
+                supplier_driver = f"{supplier.get('commodity')} dependency at {dependency_pct:.0f}%"
 
-        avg_port_score = sum(port_scores) / len(port_scores) if port_scores else 50
-        avg_supplier_score = sum(supplier_scores) / len(supplier_scores) if supplier_scores else 50
+        dependency_uplift = min(
+            max(max_port_dependency, max_supplier_dependency) * 0.18,
+            10
+        )
 
         new_score = round(
-            (baseline_score * 0.35)
-            + (avg_port_score * 0.35)
-            + (avg_supplier_score * 0.30),
+            (baseline_score * 0.40)
+            + (max_port_score * 0.35)
+            + (max_supplier_score * 0.25)
+            + dependency_uplift,
             1
         )
 
-        if new_score >= 80:
+        new_score = min(new_score, 100)
+
+        if new_score >= 85:
             severity = "Critical"
-        elif new_score >= 70:
+        elif new_score >= 75:
             severity = "High"
         elif new_score >= 60:
             severity = "Elevated"
         else:
             severity = "Guarded"
 
-        dominant_driver = (
-            port_drivers[0]
-            if port_drivers
-            else supplier_drivers[0]
-            if supplier_drivers
-            else "Baseline company exposure"
-        )
+        dominant_driver = port_driver or supplier_driver or "Baseline company exposure"
 
         (
             supabase
@@ -1205,7 +1211,10 @@ async def recalculate_company_scores():
             "company": company_name,
             "new_score": new_score,
             "severity": severity,
-            "dominant_driver": dominant_driver
+            "dominant_driver": dominant_driver,
+            "max_port_score": max_port_score,
+            "max_supplier_score": max_supplier_score,
+            "dependency_uplift": round(dependency_uplift, 1)
         })
 
     return {
