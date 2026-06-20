@@ -1,4 +1,5 @@
 import os
+from openai import OpenAI
 
 from dotenv import load_dotenv
 from fastapi import APIRouter, HTTPException
@@ -1002,22 +1003,27 @@ async def investigate_supply_chain_entity(payload: dict):
     else:
         raise HTTPException(status_code=400, detail="Unsupported entity_type")
 
+    analysis = generate_supply_chain_gpt_analysis(
+        entity_type=entity_type,
+        entity_name=entity_name,
+        question=question,
+        context=context
+    )
+
     return {
         "status": "success",
         "entity_type": entity_type,
         "entity_name": entity_name,
         "question": question,
         "context": context,
-        "bluf": f"{entity_name} requires investigation across supply chain exposure, live disruption signals, alternative routes, and downstream company impact.",
+        "bluf": analysis.get("bluf"),
         "simulation": {
             "time_horizon": "30 days",
-            "assessment": "Simulation scaffold ready. GPT analysis layer will be attached next.",
-            "recommended_actions": [
-                "Review affected companies and commodities.",
-                "Assess alternative suppliers and routes.",
-                "Monitor live disruption signals.",
-                "Update risk score after new signal ingestion."
-            ]
+            "assessment": analysis.get("simulation_assessment"),
+            "drivers": analysis.get("drivers", []),
+            "forecast": analysis.get("forecast", {}),
+            "recommended_actions": analysis.get("recommended_actions", []),
+            "confidence": analysis.get("confidence")
         }
     }
 @router.post("/recalculate-port-scores")
@@ -1242,3 +1248,63 @@ async def recalculate_company_scores():
         "updated_count": len(updated),
         "updated": updated
     }
+
+
+def generate_supply_chain_gpt_analysis(entity_type, entity_name, question, context):
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        return {
+            "bluf": f"{entity_name} requires further assessment, but GPT analysis is unavailable because OPENAI_API_KEY is not configured.",
+            "simulation_assessment": "Model analysis unavailable.",
+            "drivers": [],
+            "forecast": {},
+            "recommended_actions": []
+        }
+
+    client = OpenAI(api_key=api_key)
+
+    prompt = f"""
+You are Sovereign Intelligence AI's supply chain risk analyst.
+
+Entity type: {entity_type}
+Entity name: {entity_name}
+User question: {question}
+
+Use this backend context:
+{context}
+
+Produce a concise executive intelligence assessment.
+
+Return only JSON with:
+bluf: string
+simulation_assessment: string
+drivers: array of strings
+forecast: object with 7_day, 30_day, 90_day
+recommended_actions: array of strings
+confidence: string
+"""
+
+    try:
+        response = client.chat.completions.create(
+            model=os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.2,
+        )
+
+        import json
+        content = response.choices[0].message.content
+        return json.loads(content)
+
+    except Exception as e:
+        return {
+            "bluf": f"{entity_name} investigation completed using backend context, but GPT generation failed.",
+            "simulation_assessment": str(e),
+            "drivers": [],
+            "forecast": {},
+            "recommended_actions": [
+                "Review linked ports, chokepoints, suppliers, and live signals.",
+                "Refresh live ingestion and recalculate scores.",
+                "Run the investigation again after model availability is restored."
+            ],
+            "confidence": "Low"
+        }
