@@ -574,8 +574,18 @@ async def get_company_briefing(company_name: str):
         "raw_exposure": exposure
     }
 
+
 @router.get("/company-profile/{company_name}")
 async def get_company_profile(company_name: str):
+
+    company_record = (
+        supabase
+        .table("sc_companies")
+        .select("company_name,sector,headquarters_country,ticker,risk_score,severity,dominant_driver,baseline_risk_score,strategic_importance")
+        .ilike("company_name", company_name)
+        .limit(1)
+        .execute()
+    )
 
     exposure = await get_company_supply_chain_exposure(company_name)
 
@@ -600,23 +610,33 @@ async def get_company_profile(company_name: str):
     chokepoints = exposure.get("chokepoints", [])
     alternatives = exposure.get("alternative_suppliers", [])
 
-    exposure_score = max(
-        [c.get("exposure_score", 0) for c in commodities],
-        default=50
+    company_data = company_record.data[0] if company_record.data else {}
+
+    exposure_score = (
+        company_data.get("risk_score")
+        or max([c.get("exposure_score", 0) for c in commodities], default=50)
     )
 
-    if exposure_score >= 80:
-        risk_level = "High"
-    elif exposure_score >= 65:
-        risk_level = "Elevated"
-    else:
-        risk_level = "Guarded"
+    risk_level = company_data.get("severity")
+
+    if not risk_level:
+        if exposure_score >= 85:
+            risk_level = "Critical"
+        elif exposure_score >= 75:
+            risk_level = "High"
+        elif exposure_score >= 60:
+            risk_level = "Elevated"
+        else:
+            risk_level = "Guarded"
 
     return {
         "status": "success",
         "company": company_name,
+        "company_record": company_data,
         "exposure_score": exposure_score,
         "risk_level": risk_level,
+        "dominant_driver": company_data.get("dominant_driver"),
+        "score_methodology": "Calculated from baseline company importance, linked port risk, supplier/commodity criticality, and dependency uplift.",
         "summary": {
             "commodities_count": len(commodities),
             "suppliers_count": len(suppliers.data or []),
