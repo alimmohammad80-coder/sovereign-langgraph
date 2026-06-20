@@ -1086,3 +1086,130 @@ async def recalculate_port_scores():
         "updated_count": len(updated),
         "updated": updated
     }
+
+@router.post("/recalculate-company-scores")
+async def recalculate_company_scores():
+    companies = (
+        supabase
+        .table("sc_companies")
+        .select("company_name,baseline_risk_score")
+        .execute()
+    )
+
+    updated = []
+
+    for company in companies.data or []:
+        company_name = company.get("company_name")
+        baseline_score = float(company.get("baseline_risk_score") or 50)
+
+        ports = (
+            supabase
+            .table("sc_company_ports")
+            .select("port_name,dependency_pct")
+            .ilike("company_name", company_name)
+            .execute()
+        )
+
+        suppliers = (
+            supabase
+            .table("sc_company_suppliers")
+            .select("supplier_name,commodity,dependency_pct,criticality")
+            .ilike("company_name", company_name)
+            .execute()
+        )
+
+        port_scores = []
+        port_drivers = []
+
+        for port in ports.data or []:
+            port_name = port.get("port_name")
+            dependency_pct = float(port.get("dependency_pct") or 50)
+
+            port_score_response = (
+                supabase
+                .table("sc_ports")
+                .select("risk_score,severity,dominant_driver")
+                .ilike("port_name", port_name)
+                .limit(1)
+                .execute()
+            )
+
+            if port_score_response.data:
+                port_score = float(port_score_response.data[0].get("risk_score") or 50)
+                weighted_port_score = port_score * min(max(dependency_pct / 100, 0), 1)
+                port_scores.append(weighted_port_score)
+                port_drivers.append(f"{port_name} dependency at {dependency_pct:.0f}%")
+
+        supplier_scores = []
+        supplier_drivers = []
+
+        for supplier in suppliers.data or []:
+            dependency_pct = float(supplier.get("dependency_pct") or 50)
+            criticality = (supplier.get("criticality") or "").lower()
+
+            if criticality == "critical":
+                criticality_score = 90
+            elif criticality == "high":
+                criticality_score = 75
+            elif criticality == "medium":
+                criticality_score = 60
+            else:
+                criticality_score = 50
+
+            weighted_supplier_score = criticality_score * min(max(dependency_pct / 100, 0), 1)
+            supplier_scores.append(weighted_supplier_score)
+            supplier_drivers.append(
+                f"{supplier.get('commodity')} supplier dependency at {dependency_pct:.0f}%"
+            )
+
+        avg_port_score = sum(port_scores) / len(port_scores) if port_scores else 50
+        avg_supplier_score = sum(supplier_scores) / len(supplier_scores) if supplier_scores else 50
+
+        new_score = round(
+            (baseline_score * 0.35)
+            + (avg_port_score * 0.35)
+            + (avg_supplier_score * 0.30),
+            1
+        )
+
+        if new_score >= 80:
+            severity = "Critical"
+        elif new_score >= 70:
+            severity = "High"
+        elif new_score >= 60:
+            severity = "Elevated"
+        else:
+            severity = "Guarded"
+
+        dominant_driver = (
+            port_drivers[0]
+            if port_drivers
+            else supplier_drivers[0]
+            if supplier_drivers
+            else "Baseline company exposure"
+        )
+
+        (
+            supabase
+            .table("sc_companies")
+            .update({
+                "risk_score": new_score,
+                "severity": severity,
+                "dominant_driver": dominant_driver
+            })
+            .ilike("company_name", company_name)
+            .execute()
+        )
+
+        updated.append({
+            "company": company_name,
+            "new_score": new_score,
+            "severity": severity,
+            "dominant_driver": dominant_driver
+        })
+
+    return {
+        "status": "success",
+        "updated_count": len(updated),
+        "updated": updated
+    }
