@@ -1353,3 +1353,36 @@ async def get_supply_chain_context(entity_type: str, entity_name: str):
         "status": "success",
         "context": context
     }
+
+@router.get("/shipping-corridors")
+async def get_shipping_corridors():
+    response = (
+        supabase
+        .table("sc_shipping_corridors")
+        .select("*")
+        .order("risk_score", desc=True)
+        .execute()
+    )
+
+    return {
+        "status": "success",
+        "count": len(response.data or []),
+        "corridors": response.data or []
+    }
+
+
+@router.get("/shipping-corridors/{corridor_name}")
+async def get_shipping_corridor(corridor_name: str):
+    response = (
+        supabase
+        .table("sc_shipping_corridors")
+        .select("*")
+        .ilike("corridor_name", corridor_name)
+        .limit(1)
+        .execute()
+    )
+
+    return {
+        "status": "success",
+        "corridor": response.data[0] if response.data else None
+    }
