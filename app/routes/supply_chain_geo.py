@@ -1321,3 +1321,21 @@ confidence: string
             ],
             "confidence": "Low"
         }
+
+@router.get("/port-dependencies/{port_name}")
+async def get_port_dependencies(port_name: str):
+    response = (
+        supabase
+        .table("sc_port_dependencies")
+        .select("*")
+        .ilike("port_name", port_name)
+        .order("dependency_weight", desc=True)
+        .execute()
+    )
+
+    return {
+        "status": "success",
+        "port": port_name,
+        "count": len(response.data or []),
+        "dependencies": response.data or []
+    }
