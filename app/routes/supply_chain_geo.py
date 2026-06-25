@@ -960,25 +960,11 @@ async def investigate_supply_chain_entity(payload: dict):
         context = profile
 
     elif entity_type == "port":
-        companies = (
-            supabase
-            .table("sc_company_ports")
-            .select("*")
-            .ilike("port_name", entity_name)
-            .execute()
+        context = build_supply_chain_context(
+            supabase=supabase,
+            entity_type="port",
+            entity_name=entity_name
         )
-        chokepoints = (
-            supabase
-            .table("sc_port_chokepoints")
-            .select("*")
-            .ilike("port_name", entity_name)
-            .execute()
-        )
-        context = {
-            "port": entity_name,
-            "companies": companies.data or [],
-            "chokepoints": chokepoints.data or []
-        }
 
     elif entity_type == "commodity":
         companies = (
@@ -1288,7 +1274,7 @@ Return only valid JSON with:
 bluf: string
 simulation_assessment: string
 drivers: array of strings
-forecast: object with 7_day, 30_day, 90_day
+forecast: object with exactly these keys: 7_day, 30_day, 90_day
 recommended_actions: array of strings
 confidence: string
 """
@@ -1298,7 +1284,8 @@ confidence: string
             model=model,
             messages=[{"role": "user", "content": prompt}],
             temperature=0.2,
-            max_tokens=1200,
+            max_tokens=1800,
+            response_format={"type": "json_object"},
         )
 
         import json
@@ -1307,7 +1294,21 @@ confidence: string
         if content.startswith("```"):
             content = content.replace("```json", "").replace("```", "").strip()
 
-        return json.loads(content)
+        try:
+            return json.loads(content)
+        except Exception:
+            return {
+                "bluf": content[:900],
+                "simulation_assessment": content,
+                "drivers": [],
+                "forecast": {},
+                "recommended_actions": [
+                    "Review structured backend context.",
+                    "Validate model output formatting.",
+                    "Re-run investigation if needed."
+                ],
+                "confidence": "Medium"
+            }
 
     except Exception as e:
         return {
