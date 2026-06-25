@@ -1263,20 +1263,31 @@ You are Sovereign Intelligence AI's supply chain risk analyst.
 
 Entity type: {entity_type}
 Entity name: {entity_name}
-User question: {question}
+User scenario question: {question}
 
-Use this backend context:
+Backend context:
 {context}
 
-Produce a concise executive intelligence assessment.
+Return ONLY valid JSON.
+Do not use markdown.
+Do not repeat the backend context.
+Do not write long narrative paragraphs.
+Do not exceed 120 words per field.
+Do not invent figures unless clearly labeled as an estimate.
+Use only these JSON keys:
 
-Return only valid JSON with:
-bluf: string
-simulation_assessment: string
-drivers: array of strings
-forecast: object with exactly these keys: 7_day, 30_day, 90_day
-recommended_actions: array of strings
-confidence: string
+{{
+  "bluf": "one concise executive judgment",
+  "simulation_assessment": "concise scenario assessment",
+  "drivers": ["driver 1", "driver 2", "driver 3", "driver 4", "driver 5"],
+  "forecast": {{
+    "7_day": "concise forecast",
+    "30_day": "concise forecast",
+    "90_day": "concise forecast"
+  }},
+  "recommended_actions": ["action 1", "action 2", "action 3", "action 4", "action 5"],
+  "confidence": "Low, Medium, or High with one sentence explanation"
+}}
 """
 
     try:
@@ -1284,7 +1295,7 @@ confidence: string
             model=model,
             messages=[{"role": "user", "content": prompt}],
             temperature=0.2,
-            max_tokens=1800,
+            max_tokens=900,
             response_format={"type": "json_object"},
         )
 
@@ -1386,4 +1397,140 @@ async def get_shipping_corridor(corridor_name: str):
     return {
         "status": "success",
         "corridor": response.data[0] if response.data else None
+    }
+
+@router.post("/run-investigation")
+async def run_supply_chain_investigation(payload: dict):
+    selected_entities = payload.get("selected_entities") or {}
+    scenario_question = payload.get("scenario_question") or "Assess selected supply chain dependencies, shipping corridor exposure, live signals, and 30-day disruption impact."
+
+    contexts = {
+        "ports": [],
+        "companies": [],
+        "chokepoints": [],
+        "commodities": [],
+        "countries": [],
+        "shipping_corridors": []
+    }
+
+    for port in selected_entities.get("ports", []):
+        contexts["ports"].append(
+            build_supply_chain_context(
+                supabase=supabase,
+                entity_type="port",
+                entity_name=port
+            )
+        )
+
+    for company in selected_entities.get("companies", []):
+        contexts["companies"].append(
+            build_supply_chain_context(
+                supabase=supabase,
+                entity_type="company",
+                entity_name=company
+            )
+        )
+
+    for chokepoint in selected_entities.get("chokepoints", []):
+        contexts["chokepoints"].append(
+            build_supply_chain_context(
+                supabase=supabase,
+                entity_type="chokepoint",
+                entity_name=chokepoint
+            )
+        )
+
+    for commodity in selected_entities.get("commodities", []):
+        commodity_context = (
+            supabase
+            .table("sc_commodity_company_exposure")
+            .select("*")
+            .ilike("commodity", commodity)
+            .execute()
+        )
+
+        alternative_suppliers = (
+            supabase
+            .table("sc_alternative_suppliers")
+            .select("*")
+            .ilike("commodity", commodity)
+            .execute()
+        )
+
+        contexts["commodities"].append({
+            "entity_type": "commodity",
+            "entity_name": commodity,
+            "company_exposure": commodity_context.data or [],
+            "alternative_suppliers": alternative_suppliers.data or []
+        })
+
+    for country in selected_entities.get("countries", []):
+        ports = (
+            supabase
+            .table("sc_master_ports")
+            .select("*")
+            .ilike("country", country)
+            .execute()
+        )
+
+        companies = (
+            supabase
+            .table("sc_companies")
+            .select("*")
+            .ilike("headquarters_country", country)
+            .execute()
+        )
+
+        contexts["countries"].append({
+            "entity_type": "country",
+            "entity_name": country,
+            "ports": ports.data or [],
+            "companies": companies.data or []
+        })
+
+    for corridor in selected_entities.get("shipping_corridors", []):
+        corridor_response = (
+            supabase
+            .table("sc_shipping_corridors")
+            .select("*")
+            .ilike("corridor_name", corridor)
+            .limit(1)
+            .execute()
+        )
+
+        contexts["shipping_corridors"].append({
+            "entity_type": "shipping_corridor",
+            "entity_name": corridor,
+            "profile": corridor_response.data[0] if corridor_response.data else None
+        })
+
+    selected_count = sum(
+        len(v) for v in selected_entities.values()
+        if isinstance(v, list)
+    )
+
+    if selected_count == 0:
+        raise HTTPException(status_code=400, detail="At least one selected entity is required")
+
+    analysis = generate_supply_chain_gpt_analysis(
+        entity_type="multi_entity_investigation",
+        entity_name="Selected Supply Chain Entities",
+        question=scenario_question,
+        context=contexts
+    )
+
+    return {
+        "status": "success",
+        "scenario_question": scenario_question,
+        "selected_entities": selected_entities,
+        "context": contexts,
+        "bluf": analysis.get("bluf"),
+        "simulation": {
+            "time_horizon": "30 days",
+            "assessment": analysis.get("simulation_assessment"),
+            "drivers": analysis.get("drivers", []),
+            "forecast": analysis.get("forecast", {}),
+            "recommended_actions": analysis.get("recommended_actions", []),
+            "confidence": analysis.get("confidence")
+        }
     }
