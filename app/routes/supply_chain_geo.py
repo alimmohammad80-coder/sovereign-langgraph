@@ -2,6 +2,7 @@ import os
 from openai import OpenAI
 
 from dotenv import load_dotenv
+from app.services.intelligence_context_builder import build_supply_chain_context
 from fastapi import APIRouter, HTTPException
 from supabase import create_client
 
@@ -1338,4 +1339,17 @@ async def get_port_dependencies(port_name: str):
         "port": port_name,
         "count": len(response.data or []),
         "dependencies": response.data or []
+    }
+
+@router.get("/context/{entity_type}/{entity_name}")
+async def get_supply_chain_context(entity_type: str, entity_name: str):
+    context = build_supply_chain_context(
+        supabase=supabase,
+        entity_type=entity_type,
+        entity_name=entity_name
+    )
+
+    return {
+        "status": "success",
+        "context": context
     }
