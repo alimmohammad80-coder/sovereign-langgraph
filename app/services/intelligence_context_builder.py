@@ -29,10 +29,18 @@ def build_port_context(supabase, port_name: str):
         .execute()
     )
 
+    corridors = (
+        supabase.table("sc_shipping_corridors")
+        .select("*")
+        .or_(f"primary_origin_ports.cs.{{{port_name}}},primary_destination_ports.cs.{{{port_name}}}")
+        .order("risk_score", desc=True)
+        .execute()
+    )
+
     live_signals = (
         supabase.table("sc_live_disruption_events")
         .select("source,title,summary,url,event_type,matched_port,matched_chokepoint,matched_commodity,matched_company,severity_score,confidence_score,published_at,ingested_at")
-        .or_(f"matched_port.ilike.{port_name},matched_chokepoint.in.({','.join([d.get('dependency_name') for d in dependencies.data or [] if d.get('dependency_type') == 'chokepoint'])})")
+        .ilike("matched_port", port_name)
         .order("ingested_at", desc=True)
         .limit(10)
         .execute()
@@ -45,11 +53,13 @@ def build_port_context(supabase, port_name: str):
         "dependencies": dependencies.data or [],
         "linked_companies": companies.data or [],
         "linked_chokepoints": chokepoints.data or [],
+        "shipping_corridors": corridors.data or [],
         "live_signals": live_signals.data or [],
         "context_quality": {
             "has_port_profile": bool(port_profile.data),
             "dependencies_count": len(dependencies.data or []),
             "companies_count": len(companies.data or []),
+            "corridors_count": len(corridors.data or []),
             "live_signals_count": len(live_signals.data or [])
         }
     }
