@@ -1534,3 +1534,45 @@ async def run_supply_chain_investigation(payload: dict):
             "confidence": analysis.get("confidence")
         }
     }
+
+@router.get("/toolbox/{category}")
+async def get_supply_chain_toolbox(category: str):
+    category = category.lower()
+
+    if category == "ports":
+        r = supabase.table("sc_master_ports").select("port_name,country,region,risk_score,severity,strategic_importance").order("strategic_importance", desc=True).execute()
+        return {"status": "success", "category": category, "count": len(r.data or []), "items": r.data or []}
+
+    if category == "chokepoints":
+        r = supabase.table("sc_chokepoints").select("name,region,risk_score,severity,traffic_pct").order("risk_score", desc=True).execute()
+        return {"status": "success", "category": category, "count": len(r.data or []), "items": r.data or []}
+
+    if category == "countries":
+        ports = supabase.table("sc_master_ports").select("country,iso3,region").execute()
+        seen = {}
+        for row in ports.data or []:
+            name = row.get("country")
+            if name and name not in seen:
+                seen[name] = row
+        items = sorted(seen.values(), key=lambda x: x.get("country") or "")
+        return {"status": "success", "category": category, "count": len(items), "items": items}
+
+    if category == "commodities":
+        r = supabase.table("sc_commodity_company_exposure").select("commodity,sector,exposure_score").execute()
+        seen = {}
+        for row in r.data or []:
+            name = row.get("commodity")
+            if name and name not in seen:
+                seen[name] = row
+        items = sorted(seen.values(), key=lambda x: x.get("commodity") or "")
+        return {"status": "success", "category": category, "count": len(items), "items": items}
+
+    if category == "companies":
+        r = supabase.table("sc_companies").select("company_name,sector,headquarters_country,ticker,risk_score,severity,strategic_importance").order("strategic_importance", desc=True).execute()
+        return {"status": "success", "category": category, "count": len(r.data or []), "items": r.data or []}
+
+    if category in ["shipping-corridors", "shipping_corridors", "corridors"]:
+        r = supabase.table("sc_shipping_corridors").select("corridor_name,origin_region,destination_region,risk_score,severity,primary_commodities,transit_chokepoints").order("risk_score", desc=True).execute()
+        return {"status": "success", "category": "shipping-corridors", "count": len(r.data or []), "items": r.data or []}
+
+    raise HTTPException(status_code=404, detail="Unsupported toolbox category")
