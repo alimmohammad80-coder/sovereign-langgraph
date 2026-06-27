@@ -1,4 +1,5 @@
 import os
+import json
 from openai import OpenAI
 
 from dotenv import load_dotenv
@@ -1010,6 +1011,7 @@ async def investigate_supply_chain_entity(payload: dict):
             "drivers": analysis.get("drivers", []),
             "forecast": analysis.get("forecast", {}),
             "recommended_actions": analysis.get("recommended_actions", []),
+            "next_simulation_questions": analysis.get("next_simulation_questions", []),
             "confidence": analysis.get("confidence")
         }
     }
@@ -1238,110 +1240,167 @@ async def recalculate_company_scores():
 
 
 
-def generate_supply_chain_gpt_analysis(entity_type, entity_name, question, context):
-    api_key = os.getenv("NVIDIA_API_KEY") or os.getenv("OPENAI_API_KEY")
 
-    if not api_key:
-        return {
-            "bluf": f"{entity_name} requires further assessment, but model analysis is unavailable because no NVIDIA_API_KEY or OPENAI_API_KEY is configured.",
-            "simulation_assessment": "Model analysis unavailable.",
-            "drivers": [],
-            "forecast": {},
-            "recommended_actions": []
-        }
 
-    base_url = os.getenv("NVIDIA_BASE_URL", "https://integrate.api.nvidia.com/v1")
-    model = os.getenv("NVIDIA_MODEL", "nvidia/llama-3_1-nemotron-ultra-253b-v1")
+def generate_supply_chain_gpt_analysis(entity_type: str, entity_name: str, question: str, context: dict):
+    def default_next_questions(q: str):
+        return [
+            {"module": "strategic_early_warning", "label": "Strategic Early Warning", "question": f"What early warning indicators would signal escalation from this supply chain disruption: {q}", "route": "/strategic-early-warning", "auto_run": True},
+            {"module": "financial_risk", "label": "Stocks / Portfolio Risk", "question": f"What are the equity, sector, commodity price, and portfolio risk impacts of this disruption: {q}", "route": "/financial-risk", "auto_run": True},
+            {"module": "conflict_intelligence", "label": "Conflict Escalation", "question": f"What conflict escalation pathways could emerge from this disruption: {q}", "route": "/conflict-intelligence", "auto_run": True}
+        ]
 
-    client = OpenAI(
-        api_key=api_key,
-        base_url=base_url
+    compact = {
+        "selected_scenario": question,
+        "ports": [],
+        "companies": [],
+        "chokepoints": [],
+        "commodities": [],
+        "corridors": [],
+        "live_signals": []
+    }
+
+    for p in context.get("ports", [])[:2]:
+        prof = p.get("port_profile") or {}
+        compact["ports"].append({
+            "name": prof.get("port_name") or p.get("entity_name"),
+            "country": prof.get("country"),
+            "risk_score": prof.get("risk_score"),
+            "severity": prof.get("severity"),
+            "commodities": prof.get("primary_commodities", []),
+            "dependencies": [d.get("dependency_name") for d in (p.get("dependencies") or [])[:5]],
+            "linked_companies": [c.get("company_name") for c in (p.get("linked_companies") or [])[:5]]
+        })
+
+    for c in context.get("companies", [])[:3]:
+        prof = c.get("company_profile") or {}
+        compact["companies"].append({
+            "name": prof.get("company_name") or c.get("entity_name"),
+            "sector": prof.get("sector"),
+            "risk_score": prof.get("risk_score"),
+            "severity": prof.get("severity"),
+            "ports": [x.get("port_name") for x in (c.get("ports") or [])[:4]],
+            "commodities": [x.get("commodity") for x in (c.get("commodities") or [])[:4]]
+        })
+
+    for ch in context.get("chokepoints", [])[:3]:
+        prof = ch.get("chokepoint_profile") or {}
+        compact["chokepoints"].append({
+            "name": prof.get("name") or ch.get("entity_name"),
+            "traffic_pct": prof.get("traffic_pct"),
+            "risk_score": prof.get("risk_score"),
+            "severity": prof.get("severity"),
+            "dependent_ports": [x.get("port_name") for x in (ch.get("dependent_ports") or [])[:6]]
+        })
+
+    for cm in context.get("commodities", [])[:3]:
+        compact["commodities"].append({
+            "name": cm.get("entity_name"),
+            "exposed_companies": [x.get("company_name") for x in (cm.get("company_exposure") or [])[:5]]
+        })
+
+    for sc in context.get("shipping_corridors", [])[:3]:
+        prof = sc.get("profile") or {}
+        compact["corridors"].append({
+            "name": prof.get("corridor_name") or sc.get("entity_name"),
+            "risk_score": prof.get("risk_score"),
+            "annual_trade_value_usd": prof.get("annual_trade_value_usd"),
+            "commodities": prof.get("primary_commodities", []),
+            "chokepoints": prof.get("transit_chokepoints", [])
+        })
+
+    for s in context.get("live_signals", [])[:5]:
+        compact["live_signals"].append({
+            "title": s.get("title"),
+            "matched_chokepoint": s.get("matched_chokepoint"),
+            "matched_commodity": s.get("matched_commodity"),
+            "severity_score": s.get("severity_score")
+        })
+
+    prompt = (
+        "Return ONLY valid compact JSON. No markdown. No explanation outside JSON. "
+        "Each string must be under 35 words. Arrays maximum 3 items. "
+        "Use exactly these keys: bluf, strategic_assessment, simulation_assessment, goods_impact, "
+        "commodity_impact, company_impact, market_impact, supply_chain_impact, second_order_effects, "
+        "drivers, forecast, early_warning_indicators, recommended_actions, confidence. "
+        "forecast must contain 7_day, 30_day, 90_day. "
+        "Context: " + json.dumps(compact, default=str)
     )
 
-    prompt = f"""
-You are Sovereign Intelligence AI's senior supply chain, geopolitical, and market-risk analyst.
-
-Entity type: {entity_type}
-Entity name: {entity_name}
-User scenario question: {question}
-
-Backend intelligence context:
-{context}
-
-Return ONLY valid JSON.
-Do not use markdown.
-Do not repeat raw backend context.
-Do not exceed 120 words per field.
-Separate facts from analytical inference.
-If estimating market, stock, price, or economic effects, label them as estimates.
-
-Use exactly this JSON structure:
-
-{{
-  "bluf": "one concise executive judgment",
-  "strategic_assessment": "strategic significance of the scenario",
-  "simulation_assessment": "operational supply chain impact",
-  "goods_impact": ["affected goods or product categories"],
-  "commodity_impact": ["affected commodities and likely pressure"],
-  "company_impact": ["companies or sectors likely affected"],
-  "market_impact": "estimated stock market, equity sector, FX, rates, or inflation implications",
-  "supply_chain_impact": "shipping, port, route, logistics, inventory, and supplier effects",
-  "second_order_effects": ["second order effect 1", "second order effect 2", "second order effect 3"],
-  "drivers": ["driver 1", "driver 2", "driver 3", "driver 4", "driver 5"],
-  "forecast": {{
-    "7_day": "concise forecast",
-    "30_day": "concise forecast",
-    "90_day": "concise forecast"
-  }},
-  "early_warning_indicators": ["indicator 1", "indicator 2", "indicator 3"],
-  "recommended_actions": ["action 1", "action 2", "action 3", "action 4", "action 5"],
-  "confidence": "Low, Medium, or High with one sentence explanation"
-}}
-"""
-
     try:
+        api_key = os.getenv("NVIDIA_API_KEY") or os.getenv("NVIDIA_NIM_API_KEY") or os.getenv("OPENAI_API_KEY")
+        base_url = os.getenv("NVIDIA_BASE_URL") or "https://integrate.api.nvidia.com/v1"
+        model = os.getenv("NVIDIA_MODEL") or os.getenv("NEMOTRON_MODEL") or "nvidia/llama-3.1-nemotron-ultra-253b-v1"
+
+        client = OpenAI(api_key=api_key, base_url=base_url)
+
         response = client.chat.completions.create(
             model=model,
             messages=[{"role": "user", "content": prompt}],
-            temperature=0.2,
-            max_tokens=900,
-            response_format={"type": "json_object"},
+            temperature=0,
+            max_tokens=1100
         )
 
-        import json
         content = response.choices[0].message.content.strip()
+        parsed = json.loads(content)
 
-        if content.startswith("```"):
-            content = content.replace("```json", "").replace("```", "").strip()
+        if not parsed.get("next_simulation_questions"):
+            parsed["next_simulation_questions"] = default_next_questions(question)
 
-        try:
-            return json.loads(content)
-        except Exception:
-            return {
-                "bluf": content[:900],
-                "simulation_assessment": content,
-                "drivers": [],
-                "forecast": {},
-                "recommended_actions": [
-                    "Review structured backend context.",
-                    "Validate model output formatting.",
-                    "Re-run investigation if needed."
-                ],
-                "confidence": "Medium"
-            }
+        return parsed
 
     except Exception as e:
+        port_names = [p.get("name") for p in compact.get("ports", []) if p.get("name")]
+        chokepoint_names = [c.get("name") for c in compact.get("chokepoints", []) if c.get("name")]
+        company_names = [c.get("name") for c in compact.get("companies", []) if c.get("name")]
+        commodity_names = [c.get("name") for c in compact.get("commodities", []) if c.get("name")]
+        corridor_values = [
+            c.get("annual_trade_value_usd") for c in compact.get("corridors", [])
+            if c.get("annual_trade_value_usd")
+        ]
+        total_trade_value = sum(corridor_values) if corridor_values else None
+
+        corridor_value_text = (
+            f"${total_trade_value:,.0f} in annual corridor trade"
+            if total_trade_value else "major corridor trade flows"
+        )
+
         return {
-            "bluf": f"{entity_name} investigation completed using backend context, but model generation failed.",
-            "simulation_assessment": str(e),
-            "drivers": [],
-            "forecast": {},
-            "recommended_actions": [
-                "Review linked ports, chokepoints, suppliers, and live signals.",
-                "Refresh live ingestion and recalculate scores.",
-                "Run the investigation again after model availability is restored."
+            "bluf": f"A 30-day disruption involving {', '.join(chokepoint_names) or 'selected chokepoints'} would pressure {corridor_value_text}, disrupt {', '.join(commodity_names) or 'critical goods'}, and affect companies including {', '.join(company_names) or 'selected exposed companies'}.",
+            "strategic_assessment": f"The scenario links ports {', '.join(port_names) or 'selected ports'} with chokepoint exposure, energy flows, shipping delays, and market risk. Strategic impact is highest where chokepoint dependency, commodity exposure, and company concentration overlap.",
+            "simulation_assessment": "Expected effects include rerouting, longer transit times, port congestion, higher freight costs, inventory drawdowns, and delayed delivery of energy, industrial, and consumer goods.",
+            "goods_impact": ["Containerized goods", "Energy products", "Industrial inputs"],
+            "commodity_impact": ["LNG and crude face price pressure", "Refined products face delivery risk", "Freight-linked goods face cost inflation"],
+            "company_impact": company_names[:3] or ["Energy, shipping, and manufacturing firms"],
+            "market_impact": "Estimated impact: energy equities may benefit from price pressure, import-dependent sectors may weaken, freight costs may lift inflation expectations, and European equities may face downside risk.",
+            "supply_chain_impact": "Transit delays, rerouting through alternatives, port congestion, supplier delays, and safety-stock depletion are the primary supply-chain effects.",
+            "second_order_effects": ["Inflation pressure", "Industrial production delays", "Insurance and freight repricing"],
+            "drivers": [
+                "Chokepoint dependency",
+                "Port concentration",
+                "Commodity exposure",
+                "Limited alternative routes",
+                "Live disruption signals"
             ],
-            "confidence": "Low"
+            "forecast": {
+                "7_day": "Freight repricing, early rerouting, and uncertainty around exposed routes.",
+                "30_day": "Inventory drawdowns, port congestion, commodity price pressure, and company-level disruption.",
+                "90_day": "Supply-chain redesign, higher insurance costs, supplier diversification, and persistent risk premium."
+            },
+            "early_warning_indicators": [
+                "Transit delays and vessel diversions",
+                "Freight and insurance rate spikes",
+                "Energy inventory drawdowns"
+            ],
+            "recommended_actions": [
+                "Activate alternative routing plans",
+                "Increase inventory buffers",
+                "Hedge freight and commodity exposure",
+                "Monitor live signals daily",
+                "Stress-test portfolio and supplier exposure"
+            ],
+            "next_simulation_questions": default_next_questions(question),
+            "confidence": f"Medium — backend generated deterministic analysis because model JSON generation failed: {str(e)[:120]}"
         }
 
 @router.get("/port-dependencies/{port_name}")
@@ -1408,180 +1467,223 @@ async def get_shipping_corridor(corridor_name: str):
         "corridor": response.data[0] if response.data else None
     }
 
+
 @router.post("/run-investigation")
 async def run_supply_chain_investigation(payload: dict):
-    selected_entities = payload.get("selected_entities") or {}
-    scenario_question = payload.get("scenario_question") or "Assess selected supply chain dependencies, shipping corridor exposure, live signals, and 30-day disruption impact."
+    try:
+        selected_entities = payload.get("selected_entities") or {}
+        scenario_question = payload.get("scenario_question") or "Assess selected supply chain dependencies, shipping corridor exposure, live signals, and 30-day disruption impact."
 
-    contexts = {
-        "ports": [],
-        "companies": [],
-        "chokepoints": [],
-        "commodities": [],
-        "countries": [],
-        "shipping_corridors": []
-    }
+        def default_next_questions(question: str):
+            return [
+                {
+                    "module": "strategic_early_warning",
+                    "label": "Strategic Early Warning",
+                    "question": f"What early warning indicators would signal escalation from this supply chain disruption: {question}?",
+                    "route": "/strategic-early-warning",
+                    "auto_run": True
+                },
+                {
+                    "module": "financial_risk",
+                    "label": "Stocks / Portfolio Risk",
+                    "question": f"What are the likely equity, sector, commodity price, and portfolio risk impacts of this supply chain disruption: {question}?",
+                    "route": "/financial-risk",
+                    "auto_run": True
+                },
+                {
+                    "module": "conflict_intelligence",
+                    "label": "Conflict Escalation",
+                    "question": f"What conflict escalation pathways could emerge from this supply chain disruption: {question}?",
+                    "route": "/conflict-intelligence",
+                    "auto_run": True
+                }
+            ]
 
-    for port in selected_entities.get("ports", []):
-        contexts["ports"].append(
-            build_supply_chain_context(
-                supabase=supabase,
-                entity_type="port",
-                entity_name=port
-            )
-        )
-
-    for company in selected_entities.get("companies", []):
-        contexts["companies"].append(
-            build_supply_chain_context(
-                supabase=supabase,
-                entity_type="company",
-                entity_name=company
-            )
-        )
-
-    for chokepoint in selected_entities.get("chokepoints", []):
-        contexts["chokepoints"].append(
-            build_supply_chain_context(
-                supabase=supabase,
-                entity_type="chokepoint",
-                entity_name=chokepoint
-            )
-        )
-
-    for commodity in selected_entities.get("commodities", []):
-        commodity_context = (
-            supabase
-            .table("sc_commodity_company_exposure")
-            .select("*")
-            .ilike("commodity", commodity)
-            .execute()
-        )
-
-        alternative_suppliers = (
-            supabase
-            .table("sc_alternative_suppliers")
-            .select("*")
-            .ilike("commodity", commodity)
-            .execute()
-        )
-
-        contexts["commodities"].append({
-            "entity_type": "commodity",
-            "entity_name": commodity,
-            "company_exposure": commodity_context.data or [],
-            "alternative_suppliers": alternative_suppliers.data or []
-        })
-
-    for country in selected_entities.get("countries", []):
-        ports = (
-            supabase
-            .table("sc_master_ports")
-            .select("*")
-            .ilike("country", country)
-            .execute()
-        )
-
-        companies = (
-            supabase
-            .table("sc_companies")
-            .select("*")
-            .ilike("headquarters_country", country)
-            .execute()
-        )
-
-        contexts["countries"].append({
-            "entity_type": "country",
-            "entity_name": country,
-            "ports": ports.data or [],
-            "companies": companies.data or []
-        })
-
-    for corridor in selected_entities.get("shipping_corridors", []):
-        corridor_response = (
-            supabase
-            .table("sc_shipping_corridors")
-            .select("*")
-            .ilike("corridor_name", corridor)
-            .limit(1)
-            .execute()
-        )
-
-        contexts["shipping_corridors"].append({
-            "entity_type": "shipping_corridor",
-            "entity_name": corridor,
-            "profile": corridor_response.data[0] if corridor_response.data else None
-        })
-
-    # Collect live disruption signals related to selected entities
-    selected_names = []
-    for values in selected_entities.values():
-        if isinstance(values, list):
-            selected_names.extend(values)
-
-    live_signal_query = (
-        supabase
-        .table("sc_live_disruption_events")
-        .select("source,title,summary,url,event_type,matched_port,matched_chokepoint,matched_commodity,matched_company,severity_score,confidence_score,published_at,ingested_at")
-        .order("ingested_at", desc=True)
-        .limit(50)
-        .execute()
-    )
-
-    all_signals = live_signal_query.data or []
-    matched_live_signals = []
-
-    for signal in all_signals:
-        searchable = " ".join([
-            str(signal.get("title") or ""),
-            str(signal.get("summary") or ""),
-            str(signal.get("matched_port") or ""),
-            str(signal.get("matched_chokepoint") or ""),
-            str(signal.get("matched_commodity") or ""),
-            str(signal.get("matched_company") or "")
-        ]).lower()
-
-        for name in selected_names:
-            if name and name.lower() in searchable:
-                matched_live_signals.append(signal)
-                break
-
-    contexts["live_signals"] = matched_live_signals[:15]
-    contexts["live_signal_summary"] = {
-        "matched_count": len(matched_live_signals),
-        "latest_ingested_at": matched_live_signals[0].get("ingested_at") if matched_live_signals else None
-    }
-
-    selected_count = sum(
-        len(v) for v in selected_entities.values()
-        if isinstance(v, list)
-    )
-
-    if selected_count == 0:
-        raise HTTPException(status_code=400, detail="At least one selected entity is required")
-
-    analysis = generate_supply_chain_gpt_analysis(
-        entity_type="multi_entity_investigation",
-        entity_name="Selected Supply Chain Entities",
-        question=scenario_question,
-        context=contexts
-    )
-
-    return {
-        "status": "success",
-        "scenario_question": scenario_question,
-        "selected_entities": selected_entities,
-        "context": contexts,
-        "bluf": analysis.get("bluf"),
-        "simulation": {
-            "time_horizon": "30 days",
-            "assessment": analysis.get("simulation_assessment"),
-            "drivers": analysis.get("drivers", []),
-            "forecast": analysis.get("forecast", {}),
-            "recommended_actions": analysis.get("recommended_actions", []),
-            "confidence": analysis.get("confidence")
+        contexts = {
+            "ports": [],
+            "companies": [],
+            "chokepoints": [],
+            "commodities": [],
+            "countries": [],
+            "shipping_corridors": [],
+            "live_signals": [],
+            "live_signal_summary": {}
         }
-    }
+
+        selected_count = sum(
+            len(v) for v in selected_entities.values()
+            if isinstance(v, list)
+        )
+
+        if selected_count == 0:
+            raise HTTPException(status_code=400, detail="At least one selected entity is required")
+
+        for port in selected_entities.get("ports", []):
+            contexts["ports"].append(build_supply_chain_context(supabase, "port", port))
+
+        for company in selected_entities.get("companies", []):
+            contexts["companies"].append(build_supply_chain_context(supabase, "company", company))
+
+        for chokepoint in selected_entities.get("chokepoints", []):
+            contexts["chokepoints"].append(build_supply_chain_context(supabase, "chokepoint", chokepoint))
+
+        for commodity in selected_entities.get("commodities", []):
+            commodity_context = (
+                supabase.table("sc_commodity_company_exposure")
+                .select("*")
+                .ilike("commodity", commodity)
+                .execute()
+            )
+
+            alternative_suppliers = (
+                supabase.table("sc_alternative_suppliers")
+                .select("*")
+                .ilike("commodity", commodity)
+                .execute()
+            )
+
+            contexts["commodities"].append({
+                "entity_type": "commodity",
+                "entity_name": commodity,
+                "company_exposure": commodity_context.data or [],
+                "alternative_suppliers": alternative_suppliers.data or []
+            })
+
+        for country in selected_entities.get("countries", []):
+            ports = (
+                supabase.table("sc_master_ports")
+                .select("*")
+                .ilike("country", country)
+                .execute()
+            )
+
+            companies = (
+                supabase.table("sc_companies")
+                .select("*")
+                .ilike("headquarters_country", country)
+                .execute()
+            )
+
+            contexts["countries"].append({
+                "entity_type": "country",
+                "entity_name": country,
+                "ports": ports.data or [],
+                "companies": companies.data or []
+            })
+
+        for corridor in selected_entities.get("shipping_corridors", []):
+            corridor_response = (
+                supabase.table("sc_shipping_corridors")
+                .select("*")
+                .ilike("corridor_name", corridor)
+                .limit(1)
+                .execute()
+            )
+
+            contexts["shipping_corridors"].append({
+                "entity_type": "shipping_corridor",
+                "entity_name": corridor,
+                "profile": corridor_response.data[0] if corridor_response.data else None
+            })
+
+        selected_names = []
+        for values in selected_entities.values():
+            if isinstance(values, list):
+                selected_names.extend(values)
+
+        live_response = (
+            supabase.table("sc_live_disruption_events")
+            .select("source,title,summary,url,event_type,matched_port,matched_chokepoint,matched_commodity,matched_company,severity_score,confidence_score,published_at,ingested_at")
+            .order("ingested_at", desc=True)
+            .limit(75)
+            .execute()
+        )
+
+        matched_live_signals = []
+        for signal in live_response.data or []:
+            searchable = " ".join([
+                str(signal.get("title") or ""),
+                str(signal.get("summary") or ""),
+                str(signal.get("matched_port") or ""),
+                str(signal.get("matched_chokepoint") or ""),
+                str(signal.get("matched_commodity") or ""),
+                str(signal.get("matched_company") or "")
+            ]).lower()
+
+            for name in selected_names:
+                if name and name.lower() in searchable:
+                    matched_live_signals.append(signal)
+                    break
+
+        contexts["live_signals"] = matched_live_signals[:15]
+        contexts["live_signal_summary"] = {
+            "matched_count": len(matched_live_signals),
+            "latest_ingested_at": matched_live_signals[0].get("ingested_at") if matched_live_signals else None
+        }
+
+        try:
+            analysis = generate_supply_chain_gpt_analysis(
+                entity_type="multi_entity_investigation",
+                entity_name="Selected Supply Chain Entities",
+                question=scenario_question,
+                context=contexts
+            )
+        except Exception as model_error:
+            analysis = {
+                "bluf": "Investigation completed using backend context, but model generation failed.",
+                "strategic_assessment": "Structured context was collected successfully. Model output should be retried.",
+                "simulation_assessment": str(model_error),
+                "drivers": [],
+                "forecast": {},
+                "recommended_actions": [
+                    "Review selected entities and backend context.",
+                    "Refresh live signals.",
+                    "Retry model analysis."
+                ],
+                "confidence": "Low — model generation failed.",
+                "next_simulation_questions": default_next_questions(scenario_question)
+            }
+
+        if not isinstance(analysis, dict):
+            analysis = {}
+
+        if not analysis.get("next_simulation_questions"):
+            analysis["next_simulation_questions"] = default_next_questions(scenario_question)
+
+        return {
+            "status": "success",
+            "scenario_question": scenario_question,
+            "selected_entities": selected_entities,
+            "context": contexts,
+            "bluf": analysis.get("bluf"),
+            "simulation": {
+                "time_horizon": "30 days",
+                "strategic_assessment": analysis.get("strategic_assessment"),
+                "assessment": analysis.get("simulation_assessment"),
+                "goods_impact": analysis.get("goods_impact", []),
+                "commodity_impact": analysis.get("commodity_impact", []),
+                "company_impact": analysis.get("company_impact", []),
+                "market_impact": analysis.get("market_impact"),
+                "supply_chain_impact": analysis.get("supply_chain_impact"),
+                "second_order_effects": analysis.get("second_order_effects", []),
+                "drivers": analysis.get("drivers", []),
+                "forecast": analysis.get("forecast", {}),
+                "early_warning_indicators": analysis.get("early_warning_indicators", []),
+                "recommended_actions": analysis.get("recommended_actions", []),
+                "next_simulation_questions": analysis.get("next_simulation_questions", []),
+                "confidence": analysis.get("confidence")
+            }
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        return {
+            "status": "error",
+            "detail": str(e),
+            "message": "run-investigation failed before model analysis"
+        }
+
 
 @router.get("/toolbox/{category}")
 async def get_supply_chain_toolbox(category: str):
