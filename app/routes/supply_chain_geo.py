@@ -1259,32 +1259,41 @@ def generate_supply_chain_gpt_analysis(entity_type, entity_name, question, conte
     )
 
     prompt = f"""
-You are Sovereign Intelligence AI's supply chain risk analyst.
+You are Sovereign Intelligence AI's senior supply chain, geopolitical, and market-risk analyst.
 
 Entity type: {entity_type}
 Entity name: {entity_name}
 User scenario question: {question}
 
-Backend context:
+Backend intelligence context:
 {context}
 
 Return ONLY valid JSON.
 Do not use markdown.
-Do not repeat the backend context.
-Do not write long narrative paragraphs.
+Do not repeat raw backend context.
 Do not exceed 120 words per field.
-Do not invent figures unless clearly labeled as an estimate.
-Use only these JSON keys:
+Separate facts from analytical inference.
+If estimating market, stock, price, or economic effects, label them as estimates.
+
+Use exactly this JSON structure:
 
 {{
   "bluf": "one concise executive judgment",
-  "simulation_assessment": "concise scenario assessment",
+  "strategic_assessment": "strategic significance of the scenario",
+  "simulation_assessment": "operational supply chain impact",
+  "goods_impact": ["affected goods or product categories"],
+  "commodity_impact": ["affected commodities and likely pressure"],
+  "company_impact": ["companies or sectors likely affected"],
+  "market_impact": "estimated stock market, equity sector, FX, rates, or inflation implications",
+  "supply_chain_impact": "shipping, port, route, logistics, inventory, and supplier effects",
+  "second_order_effects": ["second order effect 1", "second order effect 2", "second order effect 3"],
   "drivers": ["driver 1", "driver 2", "driver 3", "driver 4", "driver 5"],
   "forecast": {{
     "7_day": "concise forecast",
     "30_day": "concise forecast",
     "90_day": "concise forecast"
   }},
+  "early_warning_indicators": ["indicator 1", "indicator 2", "indicator 3"],
   "recommended_actions": ["action 1", "action 2", "action 3", "action 4", "action 5"],
   "confidence": "Low, Medium, or High with one sentence explanation"
 }}
@@ -1503,6 +1512,45 @@ async def run_supply_chain_investigation(payload: dict):
             "entity_name": corridor,
             "profile": corridor_response.data[0] if corridor_response.data else None
         })
+
+    # Collect live disruption signals related to selected entities
+    selected_names = []
+    for values in selected_entities.values():
+        if isinstance(values, list):
+            selected_names.extend(values)
+
+    live_signal_query = (
+        supabase
+        .table("sc_live_disruption_events")
+        .select("source,title,summary,url,event_type,matched_port,matched_chokepoint,matched_commodity,matched_company,severity_score,confidence_score,published_at,ingested_at")
+        .order("ingested_at", desc=True)
+        .limit(50)
+        .execute()
+    )
+
+    all_signals = live_signal_query.data or []
+    matched_live_signals = []
+
+    for signal in all_signals:
+        searchable = " ".join([
+            str(signal.get("title") or ""),
+            str(signal.get("summary") or ""),
+            str(signal.get("matched_port") or ""),
+            str(signal.get("matched_chokepoint") or ""),
+            str(signal.get("matched_commodity") or ""),
+            str(signal.get("matched_company") or "")
+        ]).lower()
+
+        for name in selected_names:
+            if name and name.lower() in searchable:
+                matched_live_signals.append(signal)
+                break
+
+    contexts["live_signals"] = matched_live_signals[:15]
+    contexts["live_signal_summary"] = {
+        "matched_count": len(matched_live_signals),
+        "latest_ingested_at": matched_live_signals[0].get("ingested_at") if matched_live_signals else None
+    }
 
     selected_count = sum(
         len(v) for v in selected_entities.values()
