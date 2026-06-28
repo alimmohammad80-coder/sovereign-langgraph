@@ -33,17 +33,19 @@ def get_summary():
 
 @router.get("/countries/{iso3}")
 def get_country_by_iso3(iso3: str):
+    iso3 = iso3.upper().strip()
     data = get_global_risk_countries()
-    iso3 = iso3.upper()
 
-    for country in data:
-        if country.get("iso3") == iso3:
-            return {
-                "status": "success",
-                "data": country,
-            }
+    country = next((c for c in data if c.get("iso3") == iso3), None)
+
+    if not country:
+        return {
+            "status": "error",
+            "message": f"Country {iso3} not found",
+            "data": None,
+        }
 
     return {
-        "status": "error",
-        "message": f"Country {iso3} not found",
+        "status": "success",
+        "data": country,
     }
