@@ -1,5 +1,8 @@
-from fastapi import APIRouter
-from app.services.global_risk_engine import get_global_risk_countries
+from fastapi import APIRouter, HTTPException
+from app.services.global_risk_engine import (
+    get_global_risk_countries,
+    get_global_risk_country_detail,
+)
 
 router = APIRouter(
     prefix="/api/global-risk",
@@ -17,6 +20,19 @@ def get_countries():
     }
 
 
+@router.get("/countries/{iso3}")
+def get_country_detail(iso3: str):
+    data = get_global_risk_country_detail(iso3.upper().strip())
+
+    if not data:
+        raise HTTPException(status_code=404, detail=f"Country {iso3} not found")
+
+    return {
+        "status": "success",
+        "data": data,
+    }
+
+
 @router.get("/summary")
 def get_summary():
     data = get_global_risk_countries()
@@ -28,24 +44,4 @@ def get_summary():
         "elevated": len([c for c in data if c.get("risk_level") == "Elevated"]),
         "guarded": len([c for c in data if c.get("risk_level") == "Guarded"]),
         "low": len([c for c in data if c.get("risk_level") == "Low"]),
-    }
-
-
-@router.get("/countries/{iso3}")
-def get_country_by_iso3(iso3: str):
-    iso3 = iso3.upper().strip()
-    data = get_global_risk_countries()
-
-    country = next((c for c in data if c.get("iso3") == iso3), None)
-
-    if not country:
-        return {
-            "status": "error",
-            "message": f"Country {iso3} not found",
-            "data": None,
-        }
-
-    return {
-        "status": "success",
-        "data": country,
     }
