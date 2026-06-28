@@ -29,3 +29,21 @@ def get_summary():
         "guarded": len([c for c in data if c.get("risk_level") == "Guarded"]),
         "low": len([c for c in data if c.get("risk_level") == "Low"]),
     }
+
+
+@router.get("/countries/{iso3}")
+def get_country_by_iso3(iso3: str):
+    data = get_global_risk_countries()
+    iso3 = iso3.upper()
+
+    for country in data:
+        if country.get("iso3") == iso3:
+            return {
+                "status": "success",
+                "data": country,
+            }
+
+    return {
+        "status": "error",
+        "message": f"Country {iso3} not found",
+    }
