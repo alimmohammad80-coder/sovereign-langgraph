@@ -54,6 +54,7 @@ from app.routes import simulation_lab
 from app.routes import global_risk
 from app.routes import simulation
 from app.routes import global_risk
+from app.routes.strategic_agents import router as strategic_agents_router
 
 
 from routers.personal_agent import router as personal_agent_router
@@ -169,3 +170,4 @@ app.include_router(usage_router, prefix="/api/usage", tags=["Usage"])
 
 
 app.include_router(global_risk.router)
+app.include_router(strategic_agents_router)
