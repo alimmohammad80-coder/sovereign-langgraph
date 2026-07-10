@@ -248,9 +248,25 @@ async def get_latest_agent_output(
             ),
         )
 
+    output = dict(result.data[0])
+    presentation = output.get("presentation_payload") or {}
+
+    for field_name in (
+        "assessment_generated_at",
+        "latest_evidence_at",
+        "oldest_material_evidence_at",
+        "freshness_status",
+        "evidence_composition",
+        "source_freshness",
+    ):
+        if field_name not in output:
+            output[field_name] = presentation.get(
+                field_name
+            )
+
     return {
         "status": "success",
-        "data": result.data[0],
+        "data": output,
     }
 
 

@@ -33,6 +33,14 @@ class AgentSignal:
     source_key: str | None = None
     evidence_url: str | None = None
 
+    source_published_at: str | None = None
+    source_retrieved_at: str | None = None
+    observation_date: str | None = None
+    freshness_type: str | None = None
+    source_category: str | None = None
+    is_structural: bool = False
+    is_live: bool = False
+
     entities: list[dict[str, Any]] = field(default_factory=list)
     indicators: list[dict[str, Any]] = field(default_factory=list)
     tags: list[str] = field(default_factory=list)
@@ -64,6 +72,17 @@ class AgentAssessment:
 
     generated_at: str = field(default_factory=utc_now_iso)
 
+    assessment_generated_at: str | None = None
+    latest_evidence_at: str | None = None
+    oldest_material_evidence_at: str | None = None
+    freshness_status: str = "unknown"
+    evidence_composition: dict[str, int] = field(
+        default_factory=dict
+    )
+    source_freshness: list[dict[str, Any]] = field(
+        default_factory=list
+    )
+
 
 class BaseStrategicAgent(ABC):
     agent_key: str
@@ -91,7 +110,218 @@ class BaseStrategicAgent(ABC):
     ) -> AgentAssessment:
         safe_context = context or {}
         signals = await self.collect_signals(safe_context)
-        return await self.analyze(signals, safe_context)
+        assessment = await self.analyze(signals, safe_context)
+
+        metadata = self.build_freshness_metadata(
+            signals=signals,
+            assessment=assessment,
+            context=safe_context,
+        )
+
+        assessment.assessment_generated_at = (
+            assessment.generated_at
+        )
+        assessment.latest_evidence_at = metadata[
+            "latest_evidence_at"
+        ]
+        assessment.oldest_material_evidence_at = metadata[
+            "oldest_material_evidence_at"
+        ]
+        assessment.freshness_status = metadata[
+            "freshness_status"
+        ]
+        assessment.evidence_composition = metadata[
+            "evidence_composition"
+        ]
+        assessment.source_freshness = metadata[
+            "source_freshness"
+        ]
+
+        return assessment
+
+    @staticmethod
+    def _parse_datetime(
+        value: str | None,
+    ) -> datetime | None:
+        if not value:
+            return None
+
+        try:
+            normalized = str(value).strip()
+
+            if normalized.endswith("Z"):
+                normalized = normalized[:-1] + "+00:00"
+
+            parsed = datetime.fromisoformat(normalized)
+
+            if parsed.tzinfo is None:
+                parsed = parsed.replace(tzinfo=timezone.utc)
+
+            return parsed.astimezone(timezone.utc)
+        except (TypeError, ValueError):
+            return None
+
+    def build_freshness_metadata(
+        self,
+        *,
+        signals: list[AgentSignal],
+        assessment: AgentAssessment,
+        context: dict[str, Any],
+    ) -> dict[str, Any]:
+        now = datetime.now(timezone.utc)
+
+        live_count = 0
+        recent_count = 0
+        structural_count = 0
+        unknown_count = 0
+
+        evidence_times: list[datetime] = []
+        source_rows: list[dict[str, Any]] = []
+
+        structural_sources = {
+            "world bank",
+            "imf",
+            "fred",
+            "eia baseline",
+        }
+
+        for signal in signals:
+            source_name = str(
+                signal.source_key or "Unknown source"
+            ).strip()
+
+            event_value = (
+                signal.source_published_at
+                or signal.observation_date
+                or signal.event_time
+            )
+
+            evidence_time = self._parse_datetime(
+                event_value
+            )
+
+            if evidence_time:
+                evidence_times.append(evidence_time)
+
+            source_lower = source_name.lower()
+
+            is_structural = bool(
+                signal.is_structural
+                or signal.freshness_type == "structural"
+                or source_lower in structural_sources
+                or source_lower.startswith("world bank")
+            )
+
+            is_live = bool(
+                signal.is_live
+                or signal.freshness_type == "live"
+            )
+
+            if is_structural:
+                freshness_type = "structural"
+                structural_count += 1
+            elif is_live:
+                freshness_type = "live"
+                live_count += 1
+            elif evidence_time:
+                age_hours = max(
+                    0.0,
+                    (now - evidence_time).total_seconds()
+                    / 3600,
+                )
+
+                if age_hours <= 24:
+                    freshness_type = "live"
+                    live_count += 1
+                elif age_hours <= 720:
+                    freshness_type = "recent"
+                    recent_count += 1
+                else:
+                    freshness_type = "structural"
+                    structural_count += 1
+            else:
+                freshness_type = "unknown"
+                unknown_count += 1
+
+            source_rows.append(
+                {
+                    "source_name": source_name,
+                    "source_category": (
+                        signal.source_category
+                        or signal.signal_type
+                    ),
+                    "latest_observation_at": event_value,
+                    "retrieved_at": (
+                        signal.source_retrieved_at
+                    ),
+                    "freshness_type": freshness_type,
+                    "is_structural": is_structural,
+                    "is_live": is_live,
+                }
+            )
+
+        latest_evidence = (
+            max(evidence_times).isoformat()
+            if evidence_times
+            else None
+        )
+
+        oldest_evidence = (
+            min(evidence_times).isoformat()
+            if evidence_times
+            else None
+        )
+
+        insufficient_evidence = (
+            assessment.risk_score == 0
+            and assessment.confidence <= 30
+            and not assessment.key_drivers
+        )
+
+        if insufficient_evidence:
+            freshness_status = "insufficient_evidence"
+        elif not signals:
+            freshness_status = "unknown"
+        elif structural_count == len(signals):
+            freshness_status = "structural_baseline"
+        elif structural_count > 0:
+            freshness_status = "partially_current"
+        elif latest_evidence:
+            latest_dt = self._parse_datetime(
+                latest_evidence
+            )
+            threshold_hours = float(
+                context.get(
+                    "freshness_threshold_hours",
+                    24,
+                )
+            )
+
+            if (
+                latest_dt
+                and (now - latest_dt).total_seconds()
+                / 3600
+                <= threshold_hours
+            ):
+                freshness_status = "current"
+            else:
+                freshness_status = "stale"
+        else:
+            freshness_status = "unknown"
+
+        return {
+            "latest_evidence_at": latest_evidence,
+            "oldest_material_evidence_at": oldest_evidence,
+            "freshness_status": freshness_status,
+            "evidence_composition": {
+                "live_signals": live_count,
+                "recent_indicators": recent_count,
+                "structural_indicators": structural_count,
+                "unknown_evidence": unknown_count,
+                "total_evidence": len(signals),
+            },
+            "source_freshness": source_rows,
+        }
 
     @staticmethod
     def clamp_score(value: float) -> float:
