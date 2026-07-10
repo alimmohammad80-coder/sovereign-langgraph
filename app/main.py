@@ -171,3 +171,19 @@ app.include_router(usage_router, prefix="/api/usage", tags=["Usage"])
 
 app.include_router(global_risk.router)
 app.include_router(strategic_agents_router)
+
+
+# Strategic AI Agent background scheduler
+from app.services.strategic_agents.scheduled_runner import (
+    strategic_agent_scheduled_runner,
+)
+
+
+@app.on_event("startup")
+async def start_strategic_agent_scheduler() -> None:
+    await strategic_agent_scheduled_runner.start()
+
+
+@app.on_event("shutdown")
+async def stop_strategic_agent_scheduler() -> None:
+    await strategic_agent_scheduled_runner.stop()
