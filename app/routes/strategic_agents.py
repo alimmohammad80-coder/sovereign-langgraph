@@ -165,6 +165,8 @@ async def run_agent(
 @router.get("/{agent_key}/latest")
 async def get_latest_agent_output(
     agent_key: str,
+    country_iso3: str | None = None,
+    region: str | None = None,
 ) -> dict[str, Any]:
     try:
         get_agent_definition(agent_key)
@@ -182,19 +184,56 @@ async def get_latest_agent_output(
             detail="Supabase is not configured.",
         )
 
-    result = (
+    query = (
         client.table("strategic_agent_outputs")
         .select("*")
         .eq("agent_key", agent_key)
+    )
+
+    if country_iso3:
+        query = query.eq(
+            "country_iso3",
+            country_iso3.strip().upper(),
+        )
+
+    if region:
+        query = query.eq(
+            "region",
+            region.strip(),
+        )
+
+    result = (
+        query
         .order("created_at", desc=True)
         .limit(1)
         .execute()
     )
 
     if not result.data:
+        scope_parts = []
+
+        if country_iso3:
+            scope_parts.append(
+                f"country_iso3={country_iso3.strip().upper()}"
+            )
+
+        if region:
+            scope_parts.append(
+                f"region={region.strip()}"
+            )
+
+        scope_text = (
+            f" for {', '.join(scope_parts)}"
+            if scope_parts
+            else ""
+        )
+
         raise HTTPException(
             status_code=404,
-            detail=f"No stored output found for agent '{agent_key}'.",
+            detail=(
+                f"No stored output found for agent "
+                f"'{agent_key}'{scope_text}."
+            ),
         )
 
     return {
