@@ -13,6 +13,10 @@ from app.services.strategic_agents.agent_orchestrator import (
 from app.services.strategic_agents.agent_registry import (
     AGENT_REGISTRY,
 )
+from app.services.strategic_agents.material_change import (
+    detect_material_change,
+    load_latest_assessment,
+)
 
 
 DOMAIN_AGENTS = (
@@ -97,6 +101,7 @@ class StrategicAgentScheduledRunner:
             "last_cycle_at": None,
             "last_error": None,
             "active_jobs": [],
+            "last_material_changes": {},
         }
 
     def status(self) -> dict[str, Any]:
@@ -212,7 +217,12 @@ class StrategicAgentScheduledRunner:
 
                 self._last_run_monotonic[job_key] = loop.time()
 
-                if result.get("status") == "success":
+                if (
+                    result.get("status") == "success"
+                    and result.get("material_change", {}).get(
+                        "material_change"
+                    )
+                ):
                     changed_domains.append(agent_key)
 
             # Executive Briefing runs after one or more domain agents
@@ -253,6 +263,14 @@ class StrategicAgentScheduledRunner:
                     job_key,
                 )
 
+                previous = load_latest_assessment(
+                    agent_key=agent_key,
+                    country_iso3=scope.get(
+                        "country_iso3"
+                    ),
+                    region=scope.get("region"),
+                )
+
                 context = {
                     "country_iso3": scope["country_iso3"],
                     "country_name": scope["country_name"],
@@ -270,10 +288,43 @@ class StrategicAgentScheduledRunner:
                     )
                 )
 
+                change_result = {
+                    "material_change": False,
+                    "reasons": [],
+                }
+
+                if result.get("status") == "success":
+                    current = (
+                        result.get("assessment")
+                        or {}
+                    )
+
+                    change_result = detect_material_change(
+                        previous=previous,
+                        current=current,
+                    )
+
+                    result["material_change"] = (
+                        change_result
+                    )
+
+                    self._state[
+                        "last_material_changes"
+                    ][job_key] = {
+                        **change_result,
+                        "checked_at": utc_now_iso(),
+                    }
+
                 print(
                     "[StrategicAgentScheduler] Completed:",
                     job_key,
                     result.get("status"),
+                    "material_change=",
+                    change_result.get(
+                        "material_change"
+                    ),
+                    "reasons=",
+                    change_result.get("reasons"),
                 )
 
                 return result
