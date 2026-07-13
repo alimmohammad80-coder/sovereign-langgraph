@@ -23,7 +23,7 @@ def fetch_gdelt_news(query="China Taiwan", max_records=10):
     response = requests.get(
         GDELT_DOC_API,
         params=params,
-        timeout=30
+        timeout=(4, 8)
     )
 
     if response.status_code != 200:

@@ -16,6 +16,9 @@ from app.services.strategic_agents.nemotron_client import (
 from app.services.strategic_agents.live_conflict_collector import (
     collect_live_conflict_signals,
 )
+from app.services.strategic_agents.gdelt_signal_collector import (
+    collect_gdelt_conflict_signals,
+)
 
 
 class ConflictMonitoringAgent(BaseStrategicAgent):
@@ -29,12 +32,58 @@ class ConflictMonitoringAgent(BaseStrategicAgent):
         supplied_signals = context.get("signals", [])
 
         if not supplied_signals:
-            return await collect_live_conflict_signals(
-                country_name=context.get("country_name"),
-                country_iso3=context.get("country_iso3"),
-                region=context.get("region"),
-                limit=int(context.get("signal_limit", 25)),
+            signal_limit = int(
+                context.get("signal_limit", 25)
             )
+
+            live_signals = (
+                await collect_live_conflict_signals(
+                    country_name=context.get(
+                        "country_name"
+                    ),
+                    country_iso3=context.get(
+                        "country_iso3"
+                    ),
+                    region=context.get("region"),
+                    limit=signal_limit,
+                )
+            )
+
+            gdelt_signals = (
+                await collect_gdelt_conflict_signals(
+                    country_name=context.get(
+                        "country_name"
+                    ),
+                    country_iso3=context.get(
+                        "country_iso3"
+                    ),
+                    region=context.get("region"),
+                    limit=min(5, signal_limit),
+                )
+            )
+
+            combined = [
+                *live_signals,
+                *gdelt_signals,
+            ]
+
+            deduplicated: list[AgentSignal] = []
+            seen: set[str] = set()
+
+            for signal in combined:
+                identity = (
+                    signal.evidence_url
+                    or signal.headline
+                    or signal.signal_id
+                ).strip().lower()
+
+                if identity in seen:
+                    continue
+
+                seen.add(identity)
+                deduplicated.append(signal)
+
+            return deduplicated[:signal_limit]
 
         normalized: list[AgentSignal] = []
 
