@@ -50,6 +50,7 @@ from app.agents.base_agent import AgentSignal
 from app.services.worldbank_service import get_country_macro_snapshot
 from app.services.fred_service import get_fred_market_snapshot
 from app.services.eia_service import get_eia_energy_snapshot
+from app.services.imf_service import get_imf_country_snapshot
 
 
 INTERNAL_API_BASE_URL = os.getenv(
@@ -547,6 +548,212 @@ def _eia_context_signals(
     return signals
 
 
+def _imf_country_signals(
+    snapshot: dict[str, Any],
+    *,
+    country_name: str,
+    country_iso3: str,
+    region: str | None,
+) -> list[AgentSignal]:
+    signals: list[AgentSignal] = []
+
+    included_series = {
+        "government_debt_pct_gdp",
+        "fiscal_balance_pct_gdp",
+        "current_account_pct_gdp",
+    }
+
+    for indicator_key, payload in (
+        snapshot.get("series") or {}
+    ).items():
+        if indicator_key not in included_series:
+            continue
+
+        if payload.get("status") != "success":
+            continue
+
+        observations = payload.get("observations") or []
+
+        estimate = next(
+            (
+                row
+                for row in observations
+                if row.get("status") == "estimate"
+            ),
+            None,
+        )
+
+        historical = next(
+            (
+                row
+                for row in observations
+                if row.get("status") == "historical"
+            ),
+            None,
+        )
+
+        forecast = next(
+            (
+                row
+                for row in sorted(
+                    observations,
+                    key=lambda item: item["year"],
+                )
+                if row.get("status") == "forecast"
+            ),
+            None,
+        )
+
+        latest = estimate or historical
+
+        if not latest:
+            continue
+
+        value = float(latest["value"])
+        year = int(latest["year"])
+
+        previous_value = (
+            float(historical["value"])
+            if historical
+            else None
+        )
+
+        forecast_value = (
+            float(forecast["value"])
+            if forecast
+            else None
+        )
+
+        severity = 30.0
+        direction = "neutral"
+
+        if indicator_key == "government_debt_pct_gdp":
+            if value >= 100:
+                severity = 80.0
+                direction = "deteriorating"
+            elif value >= 70:
+                severity = 65.0
+                direction = "deteriorating"
+            elif value >= 50:
+                severity = 50.0
+                direction = "deteriorating"
+            elif (
+                previous_value is not None
+                and value - previous_value >= 5
+            ):
+                severity = 45.0
+                direction = "deteriorating"
+            else:
+                severity = 30.0
+
+        elif indicator_key == "fiscal_balance_pct_gdp":
+            if value <= -10:
+                severity = 80.0
+                direction = "deteriorating"
+            elif value <= -7:
+                severity = 65.0
+                direction = "deteriorating"
+            elif value <= -4:
+                severity = 55.0
+                direction = "deteriorating"
+            elif value < 0:
+                severity = 40.0
+                direction = "deteriorating"
+            else:
+                severity = 25.0
+                direction = "improving"
+
+        elif indicator_key == "current_account_pct_gdp":
+            if value <= -10:
+                severity = 75.0
+                direction = "deteriorating"
+            elif value <= -5:
+                severity = 60.0
+                direction = "deteriorating"
+            elif value < 0:
+                severity = 45.0
+                direction = "deteriorating"
+            elif value >= 5:
+                severity = 20.0
+                direction = "improving"
+            else:
+                severity = 30.0
+                direction = "neutral"
+
+        forecast_text = ""
+
+        if forecast is not None:
+            forecast_text = (
+                f" IMF forecast for {forecast['year']}: "
+                f"{forecast_value:.2f}%."
+            )
+
+        signals.append(
+            AgentSignal(
+                signal_id=(
+                    f"imf-{country_iso3}-"
+                    f"{indicator_key}-{year}"
+                ),
+                domain="economic",
+                signal_type=f"imf_{indicator_key}",
+                headline=(
+                    f"{country_name} IMF "
+                    f"{indicator_key.replace('_', ' ')} "
+                    f"estimate: {value:.2f}%"
+                ),
+                summary=(
+                    f"IMF {latest['status']} for {country_name}: "
+                    f"{indicator_key} was {value:.2f}% in {year}."
+                    f"{forecast_text}"
+                ),
+                country_iso3=country_iso3,
+                country_name=country_name,
+                region=region,
+                severity=severity,
+                relevance=92.0,
+                confidence=90.0,
+                source_reliability=95.0,
+                materiality_score=round(
+                    severity * 0.45
+                    + 92 * 0.20
+                    + 90 * 0.15
+                    + 95 * 0.20,
+                    2,
+                ),
+                direction=direction,
+                event_time=f"{year}-01-01T00:00:00Z",
+                observation_date=f"{year}-01-01T00:00:00Z",
+                source_key="IMF",
+                source_category=f"imf_{indicator_key}",
+                freshness_type="structural",
+                is_structural=True,
+                is_live=False,
+                indicators=[
+                    {
+                        "name": indicator_key,
+                        "value": value,
+                        "year": year,
+                        "value_status": latest["status"],
+                        "next_forecast_year": (
+                            forecast.get("year")
+                            if forecast
+                            else None
+                        ),
+                        "next_forecast_value": forecast_value,
+                    }
+                ],
+                tags=[
+                    "macro",
+                    "sovereign_finance",
+                    "imf",
+                    indicator_key,
+                ],
+            )
+        )
+
+    return signals
+
+
 def _contains_economic_language(text: str) -> bool:
     normalized = re.sub(r"\s+", " ", text.lower()).strip()
     return any(re.search(pattern, normalized) for pattern in ECONOMIC_PATTERNS)
@@ -587,6 +794,18 @@ async def collect_live_economic_signals(
     signals.extend(
         _eia_context_signals(
             eia_snapshot,
+            country_name=country_name,
+            country_iso3=country_iso3,
+            region=region,
+        )
+    )
+
+    imf_snapshot = await get_imf_country_snapshot(
+        country_iso3
+    )
+    signals.extend(
+        _imf_country_signals(
+            imf_snapshot,
             country_name=country_name,
             country_iso3=country_iso3,
             region=region,
@@ -740,6 +959,7 @@ async def collect_live_economic_signals(
             "World Bank",
             "FRED",
             "EIA",
+            "IMF",
         }:
             filtered.append(signal)
             continue
