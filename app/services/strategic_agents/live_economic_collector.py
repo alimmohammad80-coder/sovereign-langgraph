@@ -48,6 +48,7 @@ import httpx
 
 from app.agents.base_agent import AgentSignal
 from app.services.worldbank_service import get_country_macro_snapshot
+from app.services.fred_service import get_fred_market_snapshot
 
 
 INTERNAL_API_BASE_URL = os.getenv(
@@ -227,6 +228,160 @@ def _macro_signals(
     return signals
 
 
+def _fred_context_signals(
+    snapshot: dict[str, Any],
+    *,
+    country_name: str,
+    country_iso3: str,
+    region: str | None,
+) -> list[AgentSignal]:
+    signals: list[AgentSignal] = []
+
+    for series_key, payload in (
+        snapshot.get("series") or {}
+    ).items():
+        observations = payload.get("observations") or []
+
+        if payload.get("status") != "success":
+            continue
+
+        if not observations:
+            continue
+
+        latest = observations[0]
+        previous = (
+            observations[1]
+            if len(observations) > 1
+            else None
+        )
+
+        value = float(latest["value"])
+        prior_value = (
+            float(previous["value"])
+            if previous
+            else None
+        )
+
+        severity = 30.0
+        direction = "neutral"
+
+        if series_key == "vix_index":
+            if value >= 40:
+                severity = 85.0
+                direction = "deteriorating"
+            elif value >= 30:
+                severity = 70.0
+                direction = "deteriorating"
+            elif value >= 22:
+                severity = 55.0
+                direction = "deteriorating"
+            else:
+                severity = 25.0
+
+        elif series_key in {
+            "wti_crude_usd",
+            "brent_crude_usd",
+        }:
+            if prior_value and prior_value > 0:
+                change_pct = (
+                    (value - prior_value)
+                    / prior_value
+                    * 100
+                )
+
+                if abs(change_pct) >= 8:
+                    severity = 65.0
+                    direction = (
+                        "deteriorating"
+                        if change_pct > 0
+                        else "improving"
+                    )
+                elif abs(change_pct) >= 4:
+                    severity = 50.0
+                    direction = (
+                        "deteriorating"
+                        if change_pct > 0
+                        else "improving"
+                    )
+
+        elif series_key == "broad_usd_index":
+            if prior_value and prior_value > 0:
+                change_pct = (
+                    (value - prior_value)
+                    / prior_value
+                    * 100
+                )
+
+                if change_pct >= 2:
+                    severity = 55.0
+                    direction = "deteriorating"
+                elif change_pct <= -2:
+                    severity = 30.0
+                    direction = "improving"
+
+        elif series_key == "federal_funds_rate":
+            if value >= 6:
+                severity = 60.0
+                direction = "deteriorating"
+            elif value >= 4:
+                severity = 45.0
+                direction = "neutral"
+            else:
+                severity = 30.0
+
+        signals.append(
+            AgentSignal(
+                signal_id=(
+                    f"fred-{series_key}-"
+                    f"{latest['date']}"
+                ),
+                domain="economic",
+                signal_type=f"fred_{series_key}",
+                headline=(
+                    f"FRED {series_key.replace('_', ' ')} "
+                    f"latest value: {value:.2f}"
+                ),
+                summary=(
+                    f"Global market-context indicator from FRED. "
+                    f"Latest observation {value:.2f} on "
+                    f"{latest['date']}."
+                ),
+                country_iso3=country_iso3,
+                country_name=country_name,
+                region=region,
+                severity=severity,
+                relevance=55.0,
+                confidence=90.0,
+                source_reliability=95.0,
+                materiality_score=round(
+                    severity * 0.35
+                    + 55 * 0.20
+                    + 90 * 0.20
+                    + 95 * 0.25,
+                    2,
+                ),
+                direction=direction,
+                event_time=f"{latest['date']}T00:00:00Z",
+                source_key="FRED",
+                indicators=[
+                    {
+                        "name": series_key,
+                        "value": value,
+                        "date": latest["date"],
+                    }
+                ],
+                tags=[
+                    "macro",
+                    "market_context",
+                    "fred",
+                    series_key,
+                ],
+            )
+        )
+
+    return signals
+
+
 def _contains_economic_language(text: str) -> bool:
     normalized = re.sub(r"\s+", " ", text.lower()).strip()
     return any(re.search(pattern, normalized) for pattern in ECONOMIC_PATTERNS)
@@ -247,6 +402,16 @@ async def collect_live_economic_signals(
     signals.extend(
         _macro_signals(
             snapshot,
+            country_name=country_name,
+            country_iso3=country_iso3,
+            region=region,
+        )
+    )
+
+    fred_snapshot = await get_fred_market_snapshot()
+    signals.extend(
+        _fred_context_signals(
+            fred_snapshot,
             country_name=country_name,
             country_iso3=country_iso3,
             region=region,
@@ -396,7 +561,10 @@ async def collect_live_economic_signals(
     for signal in deduplicated.values():
         # World Bank observations are already requested using
         # the selected country's ISO code and remain authoritative.
-        if signal.source_key == "World Bank":
+        if signal.source_key in {
+            "World Bank",
+            "FRED",
+        }:
             filtered.append(signal)
             continue
 
