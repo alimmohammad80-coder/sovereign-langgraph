@@ -181,7 +181,6 @@ class BaseStrategicAgent(ABC):
         structural_sources = {
             "world bank",
             "imf",
-            "fred",
             "eia baseline",
         }
 

@@ -362,7 +362,14 @@ def _fred_context_signals(
                 ),
                 direction=direction,
                 event_time=f"{latest['date']}T00:00:00Z",
+                observation_date=(
+                    f"{latest['date']}T00:00:00Z"
+                ),
                 source_key="FRED",
+                source_category=f"fred_{series_key}",
+                freshness_type="recent",
+                is_structural=False,
+                is_live=False,
                 indicators=[
                     {
                         "name": series_key,
