@@ -222,31 +222,53 @@ async def get_latest_agent_output(
     )
 
     if not result.data:
-        scope_parts = []
+        run_query = (
+            client.table("strategic_agent_runs")
+            .select(
+                "id,status,trigger_type,started_at,completed_at,"
+                "risk_score,confidence,error_code,error_message,"
+                "country_iso3,country_name,region,created_at"
+            )
+            .eq("agent_key", agent_key)
+        )
 
         if country_iso3:
-            scope_parts.append(
-                f"country_iso3={country_iso3.strip().upper()}"
+            run_query = run_query.eq(
+                "country_iso3",
+                country_iso3.strip().upper(),
+            )
+        elif region:
+            run_query = run_query.eq(
+                "region",
+                region.strip(),
             )
 
-        if region:
-            scope_parts.append(
-                f"region={region.strip()}"
-            )
-
-        scope_text = (
-            f" for {', '.join(scope_parts)}"
-            if scope_parts
-            else ""
+        latest_run_result = (
+            run_query
+            .order("created_at", desc=True)
+            .limit(1)
+            .execute()
         )
 
-        raise HTTPException(
-            status_code=404,
-            detail=(
-                f"No stored output found for agent "
-                f"'{agent_key}'{scope_text}."
-            ),
+        latest_run = (
+            dict(latest_run_result.data[0])
+            if latest_run_result.data
+            else None
         )
+
+        return {
+            "status": "success",
+            "data": {
+                "assessment": None,
+                "assessment_status": "unavailable",
+                "authoritative_run_id": None,
+                "latest_run": latest_run,
+                "newer_run_not_promoted": bool(
+                    latest_run
+                ),
+                "preserved_previous_assessment": False,
+            },
+        }
 
     output = dict(result.data[0])
     presentation = output.get("presentation_payload") or {}
@@ -264,9 +286,66 @@ async def get_latest_agent_output(
                 field_name
             )
 
+    run_query = (
+        client.table("strategic_agent_runs")
+        .select(
+            "id,status,trigger_type,started_at,completed_at,"
+            "risk_score,confidence,error_code,error_message,"
+            "assessment_promoted,quality_status,persistence_reason,"
+            "preserved_previous_assessment,"
+            "country_iso3,country_name,region,created_at"
+        )
+        .eq("agent_key", agent_key)
+    )
+
+    if country_iso3:
+        run_query = run_query.eq(
+            "country_iso3",
+            country_iso3.strip().upper(),
+        )
+    elif region:
+        run_query = run_query.eq(
+            "region",
+            region.strip(),
+        )
+
+    latest_run_result = (
+        run_query
+        .order("created_at", desc=True)
+        .limit(1)
+        .execute()
+    )
+
+    latest_run = (
+        dict(latest_run_result.data[0])
+        if latest_run_result.data
+        else None
+    )
+
+    authoritative_run_id = output.get("run_id")
+
+    newer_run_not_promoted = bool(
+        latest_run
+        and latest_run.get("id")
+        != authoritative_run_id
+    )
+
     return {
         "status": "success",
-        "data": output,
+        "data": {
+            "assessment": output,
+            "assessment_status": "authoritative",
+            "authoritative_run_id": (
+                authoritative_run_id
+            ),
+            "latest_run": latest_run,
+            "newer_run_not_promoted": (
+                newer_run_not_promoted
+            ),
+            "preserved_previous_assessment": (
+                newer_run_not_promoted
+            ),
+        },
     }
 
 

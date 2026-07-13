@@ -268,7 +268,11 @@ class StrategicAgentScheduledRunner:
                     country_iso3=scope.get(
                         "country_iso3"
                     ),
-                    region=scope.get("region"),
+                    region=(
+                        None
+                        if scope.get("country_iso3")
+                        else scope.get("region")
+                    ),
                 )
 
                 context = {
@@ -299,21 +303,157 @@ class StrategicAgentScheduledRunner:
                         or {}
                     )
 
-                    change_result = detect_material_change(
-                        previous=previous,
-                        current=current,
+                    assessment_promoted = bool(
+                        (
+                            result.get("run")
+                            or {}
+                        ).get(
+                            "assessment_promoted",
+                            True,
+                        )
                     )
+
+                    current_drivers = (
+                        current.get("key_drivers") or []
+                    )
+
+                    current_is_insufficient = (
+                        float(
+                            current.get("risk_score") or 0
+                        ) == 0
+                        and float(
+                            current.get("confidence") or 0
+                        ) <= 30
+                        and not current_drivers
+                    )
+
+                    previous_was_assessed = bool(
+                        previous
+                        and float(
+                            previous.get("risk_score") or 0
+                        ) > 0
+                        and float(
+                            previous.get("confidence") or 0
+                        ) > 30
+                    )
+
+                    if not assessment_promoted:
+                        change_result = {
+                            "material_change": False,
+                            "reasons": [
+                                (
+                                    result.get("run")
+                                    or {}
+                                ).get(
+                                    "persistence_reason",
+                                    "assessment_not_promoted",
+                                )
+                            ],
+                            "score_delta": 0.0,
+                            "confidence_delta": 0.0,
+                            "previous_risk_level": (
+                                previous.get("risk_level")
+                                if previous
+                                else None
+                            ),
+                            "current_risk_level": (
+                                previous.get("risk_level")
+                                if previous
+                                else None
+                            ),
+                            "previous_direction": "preserved",
+                            "current_direction": "preserved",
+                            "new_critical_drivers": [],
+                            "preserved_previous_assessment": True,
+                        }
+
+                        result["material_change"] = change_result
+
+                        print(
+                            "[StrategicAgentScheduler] "
+                            "Skipping material-change detection "
+                            "because assessment was not promoted:",
+                            job_key,
+                        )
+
+                    elif (
+                        current_is_insufficient
+                        and previous_was_assessed
+                    ):
+                        change_result = {
+                            "material_change": False,
+                            "reasons": [
+                                "evidence_collection_degraded"
+                            ],
+                            "score_delta": 0.0,
+                            "confidence_delta": 0.0,
+                            "previous_risk_level": (
+                                previous.get("risk_level")
+                            ),
+                            "current_risk_level": (
+                                previous.get("risk_level")
+                            ),
+                            "previous_direction": (
+                                "preserved"
+                            ),
+                            "current_direction": (
+                                "preserved"
+                            ),
+                            "previous_freshness": (
+                                previous.get(
+                                    "freshness_status"
+                                )
+                                or (
+                                    previous.get(
+                                        "presentation_payload"
+                                    )
+                                    or {}
+                                ).get(
+                                    "freshness_status"
+                                )
+                                or "unknown"
+                            ),
+                            "current_freshness": (
+                                "data_degraded"
+                            ),
+                            "new_critical_drivers": [],
+                            "preserved_previous_assessment": True,
+                        }
+
+                        result[
+                            "material_change"
+                        ] = change_result
+
+                        print(
+                            "[StrategicAgentScheduler] "
+                            "Preserving previous assessment "
+                            "because evidence collection "
+                            "degraded:",
+                            job_key,
+                        )
+                    else:
+                        change_result = detect_material_change(
+                            previous=previous,
+                            current=current,
+                        )
 
                     result["material_change"] = (
                         change_result
                     )
 
-                    self._state[
-                        "last_material_changes"
-                    ][job_key] = {
-                        **change_result,
-                        "checked_at": utc_now_iso(),
-                    }
+                    if change_result.get(
+                        "material_change"
+                    ):
+                        self._state[
+                            "last_material_changes"
+                        ][job_key] = {
+                            **change_result,
+                            "checked_at": utc_now_iso(),
+                        }
+                    else:
+                        self._state[
+                            "last_material_changes"
+                        ].pop(job_key, None)
 
                 print(
                     "[StrategicAgentScheduler] Completed:",

@@ -67,13 +67,22 @@ class StrategicAgentOrchestrator:
                 trigger_type=trigger_type,
                 started_at=started_at,
                 scoring_version=agent.scoring_version,
-                input_signal_count=len(safe_context.get("signals", [])),
+                input_signal_count=len(
+                    safe_context.get("signals", [])
+                ),
+                country_iso3=safe_context.get(
+                    "country_iso3"
+                ),
+                country_name=safe_context.get(
+                    "country_name"
+                ),
+                region=safe_context.get("region"),
             )
 
             assessment = await agent.run(context=safe_context)
             completed_at = utc_now_iso()
 
-            complete_agent_run(
+            persistence = complete_agent_run(
                 run_id=run_id,
                 assessment=assessment,
                 completed_at=completed_at,
@@ -92,13 +101,44 @@ class StrategicAgentOrchestrator:
                     "started_at": started_at,
                     "completed_at": completed_at,
                     "scoring_version": agent.scoring_version,
-                    "persisted": True,
+                    "persisted": persistence.get(
+                        "run_persisted",
+                        False,
+                    ),
+                    "output_persisted": persistence.get(
+                        "output_persisted",
+                        False,
+                    ),
+                    "assessment_promoted": persistence.get(
+                        "assessment_promoted",
+                        False,
+                    ),
+                    "quality_status": persistence.get(
+                        "quality_status",
+                    ),
+                    "persistence_reason": persistence.get(
+                        "persistence_reason",
+                    ),
+                    "preserved_previous_assessment": (
+                        persistence.get(
+                            "preserved_previous_assessment",
+                            False,
+                        )
+                    ),
                 },
                 "assessment": asdict(assessment),
             }
 
         except Exception as exc:
             completed_at = utc_now_iso()
+
+            print(
+                "[StrategicAgentOrchestrator] Run failed:",
+                agent_key,
+                run_id,
+                type(exc).__name__,
+                str(exc),
+            )
 
             try:
                 fail_agent_run(
