@@ -51,6 +51,9 @@ from app.services.worldbank_service import get_country_macro_snapshot
 from app.services.fred_service import get_fred_market_snapshot
 from app.services.eia_service import get_eia_energy_snapshot
 from app.services.imf_service import get_imf_country_snapshot
+from app.services.un_comtrade_service import (
+    get_comtrade_country_snapshot,
+)
 
 
 INTERNAL_API_BASE_URL = os.getenv(
@@ -754,6 +757,233 @@ def _imf_country_signals(
     return signals
 
 
+def _comtrade_country_signals(
+    snapshot: dict[str, Any],
+    *,
+    country_name: str,
+    country_iso3: str,
+    region: str | None,
+) -> list[AgentSignal]:
+    signals: list[AgentSignal] = []
+
+    export_result = snapshot.get("exports") or {}
+    import_result = snapshot.get("imports") or {}
+
+    export_observation = export_result.get("observation")
+    import_observation = import_result.get("observation")
+
+    if (
+        export_result.get("status") != "success"
+        or import_result.get("status") != "success"
+        or not export_observation
+        or not import_observation
+    ):
+        return signals
+
+    exports_usd = float(export_observation["value_usd"])
+    imports_usd = float(import_observation["value_usd"])
+
+    export_year = int(export_observation["year"])
+    import_year = int(import_observation["year"])
+
+    observation_year = min(export_year, import_year)
+    trade_balance_usd = exports_usd - imports_usd
+
+    total_trade_usd = exports_usd + imports_usd
+
+    import_share = (
+        imports_usd / total_trade_usd * 100
+        if total_trade_usd > 0
+        else 0.0
+    )
+
+    balance_ratio = (
+        trade_balance_usd / total_trade_usd * 100
+        if total_trade_usd > 0
+        else 0.0
+    )
+
+    export_severity = 25.0
+    export_direction = "neutral"
+
+    if exports_usd < 10_000_000_000:
+        export_severity = 50.0
+        export_direction = "deteriorating"
+    elif exports_usd < 30_000_000_000:
+        export_severity = 40.0
+        export_direction = "neutral"
+
+    import_severity = 30.0
+    import_direction = "neutral"
+
+    if import_share >= 65:
+        import_severity = 60.0
+        import_direction = "deteriorating"
+    elif import_share >= 55:
+        import_severity = 45.0
+        import_direction = "deteriorating"
+
+    balance_severity = 25.0
+    balance_direction = "neutral"
+
+    if balance_ratio <= -20:
+        balance_severity = 65.0
+        balance_direction = "deteriorating"
+    elif balance_ratio < 0:
+        balance_severity = 50.0
+        balance_direction = "deteriorating"
+    elif balance_ratio >= 20:
+        balance_severity = 20.0
+        balance_direction = "improving"
+
+    common_fields = {
+        "domain": "economic",
+        "country_iso3": country_iso3,
+        "country_name": country_name,
+        "region": region,
+        "confidence": 88.0,
+        "source_reliability": 92.0,
+        "event_time": f"{observation_year}-12-31T00:00:00Z",
+        "observation_date": (
+            f"{observation_year}-12-31T00:00:00Z"
+        ),
+        "source_key": "UN Comtrade",
+        "freshness_type": "structural",
+        "is_structural": True,
+        "is_live": False,
+        "tags": [
+            "trade",
+            "structural",
+            "un_comtrade",
+        ],
+    }
+
+    signals.append(
+        AgentSignal(
+            signal_id=(
+                f"comtrade-{country_iso3}-"
+                f"exports-{observation_year}"
+            ),
+            signal_type="comtrade_total_exports",
+            headline=(
+                f"{country_name} total merchandise exports: "
+                f"${exports_usd / 1_000_000_000:.2f}B"
+            ),
+            summary=(
+                f"UN Comtrade reports total merchandise exports "
+                f"of ${exports_usd:,.0f} in {observation_year}."
+            ),
+            severity=export_severity,
+            relevance=78.0,
+            materiality_score=round(
+                export_severity * 0.40
+                + 78 * 0.20
+                + 88 * 0.15
+                + 92 * 0.25,
+                2,
+            ),
+            direction=export_direction,
+            source_category="comtrade_total_exports",
+            indicators=[
+                {
+                    "name": "total_exports_usd",
+                    "value": exports_usd,
+                    "year": observation_year,
+                }
+            ],
+            **common_fields,
+        )
+    )
+
+    signals.append(
+        AgentSignal(
+            signal_id=(
+                f"comtrade-{country_iso3}-"
+                f"imports-{observation_year}"
+            ),
+            signal_type="comtrade_import_share",
+            headline=(
+                f"{country_name} imports represent "
+                f"{import_share:.1f}% of total merchandise trade"
+            ),
+            summary=(
+                f"UN Comtrade reports imports of "
+                f"${imports_usd:,.0f} in {observation_year}. "
+                f"Imports represented {import_share:.1f}% of "
+                f"combined merchandise trade."
+            ),
+            severity=import_severity,
+            relevance=82.0,
+            materiality_score=round(
+                import_severity * 0.40
+                + 82 * 0.20
+                + 88 * 0.15
+                + 92 * 0.25,
+                2,
+            ),
+            direction=import_direction,
+            source_category="comtrade_import_share",
+            indicators=[
+                {
+                    "name": "imports_usd",
+                    "value": imports_usd,
+                    "year": observation_year,
+                },
+                {
+                    "name": "import_share_total_trade_pct",
+                    "value": round(import_share, 2),
+                },
+            ],
+            **common_fields,
+        )
+    )
+
+    signals.append(
+        AgentSignal(
+            signal_id=(
+                f"comtrade-{country_iso3}-"
+                f"trade-balance-{observation_year}"
+            ),
+            signal_type="comtrade_trade_balance",
+            headline=(
+                f"{country_name} merchandise trade balance: "
+                f"${trade_balance_usd / 1_000_000_000:.2f}B"
+            ),
+            summary=(
+                f"Exports exceeded imports by "
+                f"${trade_balance_usd:,.0f} in {observation_year}. "
+                f"The balance equalled {balance_ratio:.1f}% of "
+                f"total merchandise trade."
+            ),
+            severity=balance_severity,
+            relevance=88.0,
+            materiality_score=round(
+                balance_severity * 0.40
+                + 88 * 0.20
+                + 88 * 0.15
+                + 92 * 0.25,
+                2,
+            ),
+            direction=balance_direction,
+            source_category="comtrade_trade_balance",
+            indicators=[
+                {
+                    "name": "trade_balance_usd",
+                    "value": trade_balance_usd,
+                    "year": observation_year,
+                },
+                {
+                    "name": "trade_balance_ratio_pct",
+                    "value": round(balance_ratio, 2),
+                },
+            ],
+            **common_fields,
+        )
+    )
+
+    return signals
+
+
 def _contains_economic_language(text: str) -> bool:
     normalized = re.sub(r"\s+", " ", text.lower()).strip()
     return any(re.search(pattern, normalized) for pattern in ECONOMIC_PATTERNS)
@@ -806,6 +1036,18 @@ async def collect_live_economic_signals(
     signals.extend(
         _imf_country_signals(
             imf_snapshot,
+            country_name=country_name,
+            country_iso3=country_iso3,
+            region=region,
+        )
+    )
+
+    comtrade_snapshot = await get_comtrade_country_snapshot(
+        country_iso3
+    )
+    signals.extend(
+        _comtrade_country_signals(
+            comtrade_snapshot,
             country_name=country_name,
             country_iso3=country_iso3,
             region=region,
@@ -960,6 +1202,7 @@ async def collect_live_economic_signals(
             "FRED",
             "EIA",
             "IMF",
+            "UN Comtrade",
         }:
             filtered.append(signal)
             continue
