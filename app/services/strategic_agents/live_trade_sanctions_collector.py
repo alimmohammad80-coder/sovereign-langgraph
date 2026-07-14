@@ -307,6 +307,11 @@ def _ofac_signals(
             ),
             direction="neutral",
             source_key="OFAC SDN List",
+            source_retrieved_at=result.get("checked_at"),
+            source_category="country_sanctions_exposure",
+            freshness_type="structural",
+            is_structural=True,
+            is_live=False,
             indicators=[
                 {
                     "name": "ofac_match_count",
