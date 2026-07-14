@@ -256,12 +256,16 @@ def _ofac_signals(
     match_count = len(matches)
 
     # This represents sanctions exposure, not a new sanctions event.
+    # Country-name screening indicates structural sanctions
+    # exposure, not a confirmed blocked counterparty or transaction.
+    # Keep this below Critical unless a separate direct-match signal
+    # establishes entity, ownership, vessel, bank, or transaction risk.
     severity = min(
-        85.0,
+        70.0,
         45.0
-        + min(20.0, match_count * 1.5)
-        + min(10.0, financial_count * 2.0)
-        + min(10.0, defense_count * 1.5),
+        + min(15.0, match_count * 1.0)
+        + min(5.0, financial_count * 1.0)
+        + min(5.0, defense_count * 0.75),
     )
 
     top_entities = [
