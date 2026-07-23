@@ -3,6 +3,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 from typing import Any
 
 
@@ -143,23 +144,36 @@ class BaseStrategicAgent(ABC):
     def _parse_datetime(
         value: str | None,
     ) -> datetime | None:
+        """
+        Parse evidence timestamps into timezone-aware UTC datetimes.
+
+        Supports both ISO-8601 timestamps used by internal services and
+        RFC 2822 / HTTP-style timestamps commonly returned by RSS and
+        news feeds.
+        """
         if not value:
             return None
 
-        try:
-            normalized = str(value).strip()
+        normalized = str(value).strip()
 
-            if normalized.endswith("Z"):
-                normalized = normalized[:-1] + "+00:00"
-
-            parsed = datetime.fromisoformat(normalized)
-
-            if parsed.tzinfo is None:
-                parsed = parsed.replace(tzinfo=timezone.utc)
-
-            return parsed.astimezone(timezone.utc)
-        except (TypeError, ValueError):
+        if not normalized:
             return None
+
+        if normalized.endswith("Z"):
+            normalized = normalized[:-1] + "+00:00"
+
+        try:
+            parsed = datetime.fromisoformat(normalized)
+        except (TypeError, ValueError):
+            try:
+                parsed = parsedate_to_datetime(normalized)
+            except (TypeError, ValueError, OverflowError):
+                return None
+
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=timezone.utc)
+
+        return parsed.astimezone(timezone.utc)
 
     def build_freshness_metadata(
         self,
