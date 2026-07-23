@@ -55,6 +55,8 @@ from app.routes import global_risk
 from app.routes import simulation
 from app.routes import global_risk
 from app.routes.strategic_agents import router as strategic_agents_router
+from app.routes.strategic_reports import router as strategic_reports_router
+from app.routes.siam import router as siam_router
 
 
 from routers.personal_agent import router as personal_agent_router
@@ -171,6 +173,8 @@ app.include_router(usage_router, prefix="/api/usage", tags=["Usage"])
 
 app.include_router(global_risk.router)
 app.include_router(strategic_agents_router)
+app.include_router(strategic_reports_router)
+app.include_router(siam_router)
 
 
 # Strategic AI Agent background scheduler
