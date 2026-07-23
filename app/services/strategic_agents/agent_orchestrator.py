@@ -104,38 +104,68 @@ class StrategicAgentOrchestrator:
 
         collected = []
 
-        for country in countries:
-            country_context = {
+        # Energy Security relies primarily on shared regional/global
+        # sources such as chokepoints, EIA observations, marine weather,
+        # and sanctions exposure. Fetch those sources once per region
+        # rather than repeating the same heavy requests for every country.
+        if agent.agent_key == "energy_security":
+            regional_collection_context = {
                 **context,
-                "country_iso3": country.get(
-                    "country_iso3"
-                ),
-                "country_name": country.get(
-                    "country_name"
-                ),
+                "country_iso3": None,
+                "country_name": None,
                 "region": region,
                 "signals": [],
-                "signal_limit": per_country_limit,
+                "signal_limit": regional_limit,
             }
 
             try:
-                country_signals = (
-                    await agent.collect_signals(
-                        country_context
-                    )
-                )
                 collected.extend(
-                    country_signals
+                    await agent.collect_signals(
+                        regional_collection_context
+                    )
                 )
             except Exception as exc:
                 print(
                     "[StrategicAgentOrchestrator] "
-                    "Regional country collection failed:",
-                    agent.agent_key,
-                    country.get("country_iso3"),
+                    "Regional energy collection failed:",
+                    region,
                     type(exc).__name__,
                     str(exc),
                 )
+
+        else:
+            for country in countries:
+                country_context = {
+                    **context,
+                    "country_iso3": country.get(
+                        "country_iso3"
+                    ),
+                    "country_name": country.get(
+                        "country_name"
+                    ),
+                    "region": region,
+                    "signals": [],
+                    "signal_limit": per_country_limit,
+                }
+
+                try:
+                    country_signals = (
+                        await agent.collect_signals(
+                            country_context
+                        )
+                    )
+                    collected.extend(
+                        country_signals
+                    )
+                except Exception as exc:
+                    print(
+                        "[StrategicAgentOrchestrator] "
+                        "Regional country collection failed:",
+                        agent.agent_key,
+                        country.get("country_iso3"),
+                        type(exc).__name__,
+                        str(exc),
+                    )
 
         processed_signals = REPPEvidencePipeline.run(
             collected,
