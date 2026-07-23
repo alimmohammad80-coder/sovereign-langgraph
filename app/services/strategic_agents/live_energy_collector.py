@@ -223,12 +223,19 @@ def _chokepoint_signals(
         if not energy_relevant:
             continue
 
-        if not _country_matches(countries, country_name):
-            continue
-
-        if not _region_matches_chokepoint(
-            row,
-            region,
+        # Regional assessments treat strategic infrastructure as
+        # region-level evidence. A chokepoint does not need to be
+        # physically located inside one of the region's countries if
+        # it is explicitly mapped as strategically relevant.
+        if region:
+            if not _region_matches_chokepoint(
+                row,
+                region,
+            ):
+                continue
+        elif not _country_matches(
+            countries,
+            country_name,
         ):
             continue
 
@@ -255,9 +262,17 @@ def _chokepoint_signals(
                     f"Affected commodities: {', '.join(commodities)}. "
                     f"Primary drivers: {', '.join(drivers)}."
                 ),
-                country_iso3=country_iso3,
-                country_name=country_name,
-                region=str(row.get("region") or region or ""),
+                country_iso3=(
+                    None if region else country_iso3
+                ),
+                country_name=(
+                    None if region else country_name
+                ),
+                region=(
+                    region
+                    if region
+                    else str(row.get("region") or "")
+                ),
                 severity=score,
                 relevance=95,
                 confidence=confidence,
@@ -273,6 +288,8 @@ def _chokepoint_signals(
                 # prove that conditions are currently deteriorating.
                 direction="neutral",
                 source_key="Sovereign Supply Chain Risk Engine",
+                is_structural=True,
+                freshness_type="structural",
                 indicators=[
                     {
                         "name": "chokepoint_risk_score",
