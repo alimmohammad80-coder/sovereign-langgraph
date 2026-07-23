@@ -140,6 +140,16 @@ REGIONAL_ENERGY_RELEVANCE: dict[str, set[str]] = {
         "port-colombo",
         "malacca",
     },
+    "eurasia": {
+        "bosporus",
+    },
+    "central asia": set(),
+    "sub-saharan africa": {
+        "bab-el-mandeb",
+    },
+    "latin america and caribbean": {
+        "panama-canal",
+    },
 }
 
 
@@ -154,8 +164,8 @@ def _region_matches_chokepoint(
         region.strip().lower()
     )
 
-    if not allowed:
-        return True
+    if allowed is None:
+        return False
 
     row_id = str(row.get("id") or "").strip().lower()
 
