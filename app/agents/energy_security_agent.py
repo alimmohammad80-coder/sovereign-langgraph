@@ -10,6 +10,9 @@ from app.agents.base_agent import (
 from app.services.strategic_agents.live_energy_collector import (
     collect_live_energy_signals,
 )
+from app.services.strategic_agents.regional_energy_baselines import (
+    collect_regional_energy_baselines,
+)
 from app.services.strategic_agents.nemotron_client import (
     nemotron_configured,
     run_nemotron_analysis,
@@ -67,12 +70,43 @@ class EnergySecurityAgent(BaseStrategicAgent):
                 for index, item in enumerate(supplied)
             ]
 
-        return await collect_live_energy_signals(
+        live_signals = await collect_live_energy_signals(
             country_name=context.get("country_name"),
             country_iso3=context.get("country_iso3"),
             region=context.get("region"),
             limit=int(context.get("signal_limit", 25)),
         )
+
+        regional_baselines = collect_regional_energy_baselines(
+            context.get("region")
+        )
+
+        combined = [
+            *live_signals,
+            *regional_baselines,
+        ]
+
+        deduplicated: dict[str, AgentSignal] = {}
+
+        for signal in combined:
+            current = deduplicated.get(signal.signal_id)
+
+            if (
+                current is None
+                or signal.materiality_score
+                > current.materiality_score
+            ):
+                deduplicated[signal.signal_id] = signal
+
+        return sorted(
+            deduplicated.values(),
+            key=lambda item: (
+                item.materiality_score,
+                item.severity,
+                item.confidence,
+            ),
+            reverse=True,
+        )[: int(context.get("signal_limit", 25))]
 
     async def analyze(
         self,
