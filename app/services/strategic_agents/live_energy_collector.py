@@ -109,6 +109,79 @@ def _country_matches(
     return any(str(country).strip().lower() == normalized for country in countries)
 
 
+REGIONAL_ENERGY_RELEVANCE: dict[str, set[str]] = {
+    "middle east": {
+        "hormuz",
+        "bab-el-mandeb",
+        "suez",
+        "port-jebel-ali",
+    },
+    "europe": {
+        "bosporus",
+        "gibraltar",
+        "port-rotterdam",
+        "suez",
+    },
+    "east asia": {
+        "taiwan-strait",
+        "port-shanghai",
+        "port-busan",
+    },
+    "southeast asia": {
+        "malacca",
+        "port-singapore",
+    },
+    "north america": {
+        "port-la-longbeach",
+        "port-houston",
+        "panama-canal",
+    },
+    "south asia": {
+        "port-colombo",
+        "malacca",
+    },
+}
+
+
+def _region_matches_chokepoint(
+    row: dict[str, Any],
+    region: str | None,
+) -> bool:
+    if not region:
+        return True
+
+    allowed = REGIONAL_ENERGY_RELEVANCE.get(
+        region.strip().lower()
+    )
+
+    if not allowed:
+        return True
+
+    row_id = str(row.get("id") or "").strip().lower()
+
+    return row_id in allowed
+
+
+def _marine_weather_relevant(
+    payload: dict[str, Any],
+    region: str | None,
+) -> bool:
+    if not region:
+        return True
+
+    location = str(
+        (payload.get("data") or {}).get("location_name")
+        or ""
+    ).strip().lower()
+
+    normalized_region = region.strip().lower()
+
+    if "hormuz" in location:
+        return normalized_region == "middle east"
+
+    return True
+
+
 def _chokepoint_signals(
     rows: list[dict[str, Any]],
     *,
@@ -141,6 +214,12 @@ def _chokepoint_signals(
             continue
 
         if not _country_matches(countries, country_name):
+            continue
+
+        if not _region_matches_chokepoint(
+            row,
+            region,
+        ):
             continue
 
         score = float(row.get("risk_score") or 0)
@@ -479,12 +558,19 @@ async def collect_live_energy_signals(
         )
     )
 
-    weather = _marine_weather_signal(
+    weather = None
+
+    if _marine_weather_relevant(
         marine_payload,
-        country_name=country_name,
-        country_iso3=country_iso3,
-        region=region,
-    )
+        region,
+    ):
+        weather = _marine_weather_signal(
+            marine_payload,
+            country_name=country_name,
+            country_iso3=country_iso3,
+            region=region,
+        )
+
     if weather:
         signals.append(weather)
 
