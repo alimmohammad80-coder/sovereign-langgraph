@@ -10,6 +10,9 @@ from pydantic import BaseModel, Field
 from app.services.strategic_agents.agent_orchestrator import (
     strategic_agent_orchestrator,
 )
+from app.services.strategic_agents.regional_scopes import (
+    build_region_scope,
+)
 from app.services.strategic_agents.agent_registry import (
     get_agent_definition,
     list_agent_definitions,
@@ -147,6 +150,22 @@ async def run_agent(
         "region": request.region,
         "signals": request.signals,
     }
+
+    # A region-only manual run must use the same canonical regional
+    # scope as the scheduler so the orchestrator collects evidence
+    # across all countries in that region.
+    if request.region and not request.country_iso3:
+        try:
+            regional_scope = build_region_scope(
+                request.region
+            )
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=400,
+                detail=str(exc),
+            ) from exc
+
+        context.update(regional_scope)
 
     result = await strategic_agent_orchestrator.run_agent(
         agent_key=agent_key,
