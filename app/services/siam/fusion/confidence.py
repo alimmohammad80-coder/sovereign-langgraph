@@ -81,10 +81,17 @@ class ConfidenceCalibrator:
             "fresh": 1.0,
             "current": 1.0,
             "recent": 0.9,
-            "mixed": 0.8,
+
+            # Agent-native freshness states.
+            "partially_current": 0.85,
+            "structural_baseline": 0.80,
+            "insufficient_evidence": 0.40,
+
+            # Compatibility states.
+            "mixed": 0.80,
             "stale": 0.65,
-            "expired": 0.4,
-            "unknown": 0.7,
+            "expired": 0.40,
+            "unknown": 0.70,
         }
 
         return weights.get(status, 0.7)
