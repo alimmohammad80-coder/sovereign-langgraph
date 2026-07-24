@@ -9,9 +9,17 @@ from typing import Any
 
 POLITICAL_STABILITY_TERMS = (
     "protest",
+    "protests",
+    "protester",
+    "protesters",
+    "protesting",
+    "protested",
     "demonstration",
+    "demonstrations",
     "civil unrest",
     "riot",
+    "riots",
+    "rioting",
     "labor strike",
     "workers strike",
     "general strike",
@@ -27,9 +35,16 @@ POLITICAL_STABILITY_TERMS = (
     "constitutional crisis",
     "impeachment",
     "election",
+    "elections",
     "vote",
+    "votes",
+    "voted",
+    "voting",
     "opposition",
+    "opposition leader",
+    "opposition leaders",
     "dissident",
+    "dissidents",
     "repression",
     "arrested opposition",
     "state legitimacy",
@@ -60,16 +75,37 @@ CONFLICT_ONLY_TERMS = (
 )
 
 
+def _phrase_matches(
+    text: str,
+    term: str,
+) -> bool:
+    """
+    Match complete words/phrases rather than arbitrary substrings.
+
+    This prevents false positives such as:
+        "vote" matching "devotees"
+    """
+    pattern = (
+        r"(?<![a-z0-9])"
+        + re.escape(term.lower())
+        + r"(?![a-z0-9])"
+    )
+
+    return bool(re.search(pattern, text))
+
+
 def _is_political_stability_relevant(text: str) -> bool:
-    normalized = " ".join(str(text or "").lower().split())
+    normalized = " ".join(
+        str(text or "").lower().split()
+    )
 
     political_match = any(
-        term in normalized
+        _phrase_matches(normalized, term)
         for term in POLITICAL_STABILITY_TERMS
     )
 
     conflict_only_match = any(
-        term in normalized
+        _phrase_matches(normalized, term)
         for term in CONFLICT_ONLY_TERMS
     )
 

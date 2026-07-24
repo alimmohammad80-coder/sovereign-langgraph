@@ -16,9 +16,6 @@ from app.services.strategic_agents.nemotron_client import (
 from app.services.strategic_agents.live_conflict_collector import (
     collect_live_conflict_signals,
 )
-from app.services.strategic_agents.gdelt_signal_collector import (
-    collect_gdelt_conflict_signals,
-)
 
 
 class ConflictMonitoringAgent(BaseStrategicAgent):
@@ -49,23 +46,7 @@ class ConflictMonitoringAgent(BaseStrategicAgent):
                 )
             )
 
-            gdelt_signals = (
-                await collect_gdelt_conflict_signals(
-                    country_name=context.get(
-                        "country_name"
-                    ),
-                    country_iso3=context.get(
-                        "country_iso3"
-                    ),
-                    region=context.get("region"),
-                    limit=min(5, signal_limit),
-                )
-            )
-
-            combined = [
-                *live_signals,
-                *gdelt_signals,
-            ]
+            combined = list(live_signals)
 
             deduplicated: list[AgentSignal] = []
             seen: set[str] = set()

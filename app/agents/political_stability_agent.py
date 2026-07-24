@@ -10,9 +10,6 @@ from app.agents.base_agent import (
 from app.services.strategic_agents.live_political_collector import (
     collect_live_political_signals,
 )
-from app.services.strategic_agents.gdelt_signal_collector import (
-    collect_gdelt_political_signals,
-)
 from app.services.strategic_agents.nemotron_client import (
     nemotron_configured,
     run_nemotron_analysis,
@@ -47,23 +44,7 @@ class PoliticalStabilityAgent(BaseStrategicAgent):
                 )
             )
 
-            gdelt_signals = (
-                await collect_gdelt_political_signals(
-                    country_name=context.get(
-                        "country_name"
-                    ),
-                    country_iso3=context.get(
-                        "country_iso3"
-                    ),
-                    region=context.get("region"),
-                    limit=min(5, signal_limit),
-                )
-            )
-
-            combined = [
-                *live_signals,
-                *gdelt_signals,
-            ]
+            combined = list(live_signals)
 
             deduplicated: list[AgentSignal] = []
             seen: set[str] = set()

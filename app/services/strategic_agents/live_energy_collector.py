@@ -131,6 +131,13 @@ REGIONAL_ENERGY_RELEVANCE: dict[str, set[str]] = {
         "malacca",
         "port-singapore",
     },
+    "indo-pacific": {
+        "taiwan-strait",
+        "malacca",
+        "port-singapore",
+        "port-shanghai",
+        "port-busan",
+    },
     "north america": {
         "port-la-longbeach",
         "port-houston",
