@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import os
 import re
 from typing import Any
@@ -998,9 +999,26 @@ async def collect_live_economic_signals(
 ) -> list[AgentSignal]:
     signals: list[AgentSignal] = []
 
-    snapshot = await get_country_macro_snapshot(
-        country_code=country_iso3,
+    (
+        snapshot,
+        fred_snapshot,
+        eia_snapshot,
+        imf_snapshot,
+        comtrade_snapshot,
+    ) = await asyncio.gather(
+        get_country_macro_snapshot(
+            country_code=country_iso3,
+        ),
+        get_fred_market_snapshot(),
+        get_eia_energy_snapshot(),
+        get_imf_country_snapshot(
+            country_iso3,
+        ),
+        get_comtrade_country_snapshot(
+            country_iso3,
+        ),
     )
+
     signals.extend(
         _macro_signals(
             snapshot,
@@ -1010,7 +1028,6 @@ async def collect_live_economic_signals(
         )
     )
 
-    fred_snapshot = await get_fred_market_snapshot()
     signals.extend(
         _fred_context_signals(
             fred_snapshot,
@@ -1020,7 +1037,6 @@ async def collect_live_economic_signals(
         )
     )
 
-    eia_snapshot = await get_eia_energy_snapshot()
     signals.extend(
         _eia_context_signals(
             eia_snapshot,
@@ -1030,9 +1046,6 @@ async def collect_live_economic_signals(
         )
     )
 
-    imf_snapshot = await get_imf_country_snapshot(
-        country_iso3
-    )
     signals.extend(
         _imf_country_signals(
             imf_snapshot,
@@ -1042,9 +1055,6 @@ async def collect_live_economic_signals(
         )
     )
 
-    comtrade_snapshot = await get_comtrade_country_snapshot(
-        country_iso3
-    )
     signals.extend(
         _comtrade_country_signals(
             comtrade_snapshot,

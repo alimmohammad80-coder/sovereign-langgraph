@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+
 from dataclasses import asdict
 from datetime import datetime, timezone
 from typing import Any
@@ -134,7 +136,26 @@ class StrategicAgentOrchestrator:
                 )
 
         else:
-            for country in countries:
+            # Process regional countries concurrently, but cap concurrency
+            # to avoid overwhelming upstream providers such as IMF,
+            # World Bank, UN Comtrade, and internal services.
+            concurrency = max(
+                1,
+                int(
+                    context.get(
+                        "regional_collection_concurrency",
+                        4,
+                    )
+                ),
+            )
+
+            semaphore = asyncio.Semaphore(
+                concurrency
+            )
+
+            async def collect_country(
+                country: dict[str, Any],
+            ) -> list:
                 country_context = {
                     **context,
                     "country_iso3": country.get(
@@ -148,24 +169,33 @@ class StrategicAgentOrchestrator:
                     "signal_limit": per_country_limit,
                 }
 
-                try:
-                    country_signals = (
-                        await agent.collect_signals(
+                async with semaphore:
+                    try:
+                        return await agent.collect_signals(
                             country_context
                         )
-                    )
-                    collected.extend(
-                        country_signals
-                    )
-                except Exception as exc:
-                    print(
-                        "[StrategicAgentOrchestrator] "
-                        "Regional country collection failed:",
-                        agent.agent_key,
-                        country.get("country_iso3"),
-                        type(exc).__name__,
-                        str(exc),
-                    )
+                    except Exception as exc:
+                        print(
+                            "[StrategicAgentOrchestrator] "
+                            "Regional country collection failed:",
+                            agent.agent_key,
+                            country.get("country_iso3"),
+                            type(exc).__name__,
+                            str(exc),
+                        )
+                        return []
+
+            batches = await asyncio.gather(
+                *(
+                    collect_country(country)
+                    for country in countries
+                )
+            )
+
+            for country_signals in batches:
+                collected.extend(
+                    country_signals
+                )
 
         processed_signals = REPPEvidencePipeline.run(
             collected,
