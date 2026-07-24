@@ -9,7 +9,7 @@ from app.agents.base_agent import AgentSignal
 from app.services.gdelt_service import fetch_gdelt_news
 
 
-GDELT_FAILURE_COOLDOWN_SECONDS = 600
+GDELT_FAILURE_COOLDOWN_SECONDS = 60
 _gdelt_unavailable_until = 0.0
 
 
@@ -19,6 +19,7 @@ def _gdelt_available() -> bool:
 
 def _mark_gdelt_unavailable() -> None:
     global _gdelt_unavailable_until
+
     _gdelt_unavailable_until = (
         time.monotonic()
         + GDELT_FAILURE_COOLDOWN_SECONDS

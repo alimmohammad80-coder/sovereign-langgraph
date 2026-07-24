@@ -170,11 +170,12 @@ class PoliticalStabilityAgent(BaseStrategicAgent):
                 region=context.get("region"),
             )
 
+        # Political risk magnitude should be driven primarily by
+        # observed severity. Evidence quality affects trust and
+        # materiality, but should not independently manufacture risk.
         weighted_scores = [
-            signal.severity * 0.40
-            + signal.relevance * 0.20
-            + signal.confidence * 0.20
-            + signal.source_reliability * 0.20
+            signal.severity * 0.65
+            + signal.materiality_score * 0.35
             for signal in signals
         ]
 
@@ -330,6 +331,45 @@ class PoliticalStabilityAgent(BaseStrategicAgent):
 
             except Exception:
                 pass
+
+        # Deterministic directional guardrail.
+        #
+        # Narrative generation may not infer a regional trajectory when
+        # the underlying evidence contains no improving or deteriorating
+        # directional support. This enforcement happens after model
+        # generation so it cannot be overridden by the LLM.
+        directional_values = {
+            str(signal.direction or "").strip().lower()
+            for signal in signals
+        }
+
+        has_deteriorating_support = (
+            "deteriorating" in directional_values
+        )
+        has_improving_support = (
+            "improving" in directional_values
+        )
+
+        if (
+            not has_deteriorating_support
+            and not has_improving_support
+        ):
+            risk_label = self.risk_level(risk_score)
+
+            if len(signals) == 1:
+                bluf = (
+                    f"Political stability risk is assessed as "
+                    f"{risk_label.lower()} at {risk_score:.1f}/100. "
+                    "The available evidence is sparse and stable, and "
+                    "does not support a broader regional directional trend."
+                )
+            else:
+                bluf = (
+                    f"Political stability risk is assessed as "
+                    f"{risk_label.lower()} at {risk_score:.1f}/100. "
+                    "Available evidence does not support a clear "
+                    "improving or deteriorating regional trend."
+                )
 
         return AgentAssessment(
             agent_key=self.agent_key,

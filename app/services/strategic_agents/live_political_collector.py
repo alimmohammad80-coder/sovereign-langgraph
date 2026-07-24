@@ -188,8 +188,13 @@ KNOWN_PUBLISHERS = tuple(
 
 
 def _contains_political_language(text: str) -> bool:
-    normalized = re.sub(r"\s+", " ", text.lower()).strip()
-    return any(re.search(pattern, normalized) for pattern in POLITICAL_PATTERNS)
+    """
+    Use the canonical political-stability relevance taxonomy.
+
+    This prevents the normalization gate and final relevance filter
+    from using different political vocabularies.
+    """
+    return _is_political_stability_relevant(text)
 
 
 def _infer_direction(text: str) -> str:
@@ -341,7 +346,20 @@ def _normalize_signal(
     if not _contains_political_language(combined_text):
         return None
 
-    if not _country_matches(item, country_name, country_iso3):
+    # Country-intelligence results are already scoped by the
+    # requested country endpoint. Requiring the article text to repeat
+    # the country name incorrectly rejects valid country-specific news.
+    #
+    # Global/internal signal-store results still require an explicit
+    # country match to prevent cross-country contamination.
+    if (
+        source_mode != "country_intelligence"
+        and not _country_matches(
+            item,
+            country_name,
+            country_iso3,
+        )
+    ):
         return None
 
     event_time = (
