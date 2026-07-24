@@ -69,10 +69,14 @@ class ContradictionAnalyzer:
                 }
             )
 
-            if (
-                risk_delta >= self.RISK_DELTA
-                or direction_conflict
-            ):
+            # Different domains can legitimately carry very
+            # different risk scores. Low political instability alongside
+            # high conflict, economic, energy, or sanctions risk is not
+            # inherently contradictory.
+            #
+            # Cross-domain contradiction therefore requires an explicit
+            # directional conflict rather than a simple risk-score gap.
+            if direction_conflict:
                 contradictions.append(
                     {
                         "domains": [
@@ -83,7 +87,7 @@ class ContradictionAnalyzer:
                             risk_delta,
                             1,
                         ),
-                        "direction_conflict": direction_conflict,
+                        "direction_conflict": True,
                     }
                 )
 
