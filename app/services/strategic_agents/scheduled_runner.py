@@ -17,6 +17,9 @@ from app.services.strategic_agents.material_change import (
     detect_material_change,
     load_latest_assessment,
 )
+from app.services.strategic_agents.regional_scopes import (
+    build_region_scope,
+)
 
 
 DOMAIN_AGENTS = (
@@ -39,53 +42,61 @@ def scheduler_enabled() -> bool:
     ).lower() in {"1", "true", "yes", "on"}
 
 
-def load_scopes() -> list[dict[str, str]]:
-    raw_json = os.getenv("STRATEGIC_AGENT_SCOPES_JSON", "").strip()
+def load_scopes() -> list[dict[str, Any]]:
+    raw_json = os.getenv(
+        "STRATEGIC_AGENT_REGIONS_JSON",
+        "",
+    ).strip()
+
+    requested_regions: list[str] = []
 
     if raw_json:
         try:
             parsed = json.loads(raw_json)
 
             if isinstance(parsed, list):
-                return [
-                    {
-                        "country_iso3": str(item["country_iso3"]),
-                        "country_name": str(item["country_name"]),
-                        "region": str(item.get("region") or ""),
-                    }
-                    for item in parsed
-                    if isinstance(item, dict)
-                    and item.get("country_iso3")
-                    and item.get("country_name")
-                ]
+                for item in parsed:
+                    if isinstance(item, str):
+                        requested_regions.append(item)
+                    elif (
+                        isinstance(item, dict)
+                        and item.get("region")
+                    ):
+                        requested_regions.append(
+                            str(item["region"])
+                        )
         except Exception as exc:
             print(
                 "[StrategicAgentScheduler] Invalid "
-                f"STRATEGIC_AGENT_SCOPES_JSON: {exc}"
+                f"STRATEGIC_AGENT_REGIONS_JSON: {exc}"
             )
 
-    countries = [
-        value.strip().upper()
-        for value in os.getenv(
-            "STRATEGIC_AGENT_DEFAULT_COUNTRIES",
-            "IRN",
-        ).split(",")
-        if value.strip()
-    ]
+    if not requested_regions:
+        requested_regions = [
+            value.strip()
+            for value in os.getenv(
+                "STRATEGIC_AGENT_DEFAULT_REGIONS",
+                "Middle East",
+            ).split(",")
+            if value.strip()
+        ]
 
-    known_scopes = {
-        "IRN": {
-            "country_iso3": "IRN",
-            "country_name": "Iran",
-            "region": "Middle East",
-        },
-    }
+    scopes = []
 
-    return [
-        known_scopes[iso3]
-        for iso3 in countries
-        if iso3 in known_scopes
-    ]
+    for region in requested_regions:
+        try:
+            scopes.append(
+                build_region_scope(region)
+            )
+        except ValueError as exc:
+            print(
+                "[StrategicAgentScheduler] "
+                "Skipping regional scope:",
+                str(exc),
+            )
+
+    return scopes
+
 
 
 class StrategicAgentScheduledRunner:
@@ -184,7 +195,7 @@ class StrategicAgentScheduledRunner:
         if not scopes:
             print(
                 "[StrategicAgentScheduler] "
-                "No configured country scopes."
+                "No configured regional scopes."
             )
             return
 
@@ -199,7 +210,7 @@ class StrategicAgentScheduledRunner:
 
                 job_key = (
                     f"{agent_key}:"
-                    f"{scope['country_iso3']}"
+                    f"{scope['region']}"
                 )
 
                 last_run = self._last_run_monotonic.get(job_key)
@@ -238,7 +249,7 @@ class StrategicAgentScheduledRunner:
         agent_key: str,
         scope: dict[str, str],
     ) -> dict[str, Any]:
-        job_key = f"{agent_key}:{scope['country_iso3']}"
+        job_key = f"{agent_key}:{scope['region']}"
         lock = self._locks.setdefault(job_key, asyncio.Lock())
 
         if lock.locked():
@@ -265,22 +276,21 @@ class StrategicAgentScheduledRunner:
 
                 previous = load_latest_assessment(
                     agent_key=agent_key,
-                    country_iso3=scope.get(
-                        "country_iso3"
-                    ),
-                    region=(
-                        None
-                        if scope.get("country_iso3")
-                        else scope.get("region")
-                    ),
+                    country_iso3=None,
+                    region=scope.get("region"),
                 )
 
                 context = {
-                    "country_iso3": scope["country_iso3"],
-                    "country_name": scope["country_name"],
+                    "country_iso3": None,
+                    "country_name": None,
                     "region": scope.get("region"),
+                    "regional_countries": scope.get(
+                        "regional_countries",
+                        [],
+                    ),
                     "signals": [],
-                    "signal_limit": 20,
+                    "regional_country_signal_limit": 6,
+                    "regional_signal_limit": 60,
                     "timeframe": "180 days",
                 }
 
