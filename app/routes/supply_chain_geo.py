@@ -5,6 +5,19 @@ from openai import OpenAI
 from dotenv import load_dotenv
 from app.services.intelligence_context_builder import build_supply_chain_context
 from fastapi import APIRouter, HTTPException
+from app.services.supply_chain_risk_history import (
+    build_risk_snapshot,
+    calculate_confidence,
+)
+from app.services.maritime_risk_engine import (
+    calculate_all_maritime_nodes,
+)
+from app.services.company_supply_chain_risk_engine import (
+    calculate_all_companies,
+)
+from app.services.commodity_risk_engine import (
+    calculate_all_commodities,
+)
 from supabase import create_client
 
 load_dotenv()
@@ -900,17 +913,54 @@ async def recalculate_supply_chain_scores():
         existing = (
             supabase
             .table("sc_chokepoints")
-            .select("risk_score")
+            .select("risk_score,baseline_risk_score")
             .ilike("name", chokepoint)
             .limit(1)
             .execute()
         )
 
-        base_score = 50
-        if existing.data:
-            base_score = float(existing.data[0].get("risk_score") or 50)
+        baseline_score = 50.0
+        previous_score = None
 
-        new_score = round((base_score * 0.7) + (avg_live_severity * 0.3), 1)
+        if existing.data:
+            row = existing.data[0]
+
+            baseline_score = float(
+                row.get("baseline_risk_score")
+                or row.get("risk_score")
+                or 50
+            )
+
+            previous_score = float(
+                row.get("risk_score")
+                or baseline_score
+            )
+
+        signal_score = round(avg_live_severity, 1)
+
+        dependency_score = baseline_score
+        impact_score = baseline_score
+
+        confidence_score = calculate_confidence(
+            source_count=len(severities),
+            fresh_source_count=len(severities),
+            independent_source_count=min(len(severities), 5),
+            relationship_coverage=70,
+            source_reliability=70,
+        )
+
+        snapshot = build_risk_snapshot(
+            entity_type="chokepoint",
+            entity_name=chokepoint,
+            baseline_risk_score=baseline_score,
+            previous_risk_score=previous_score,
+            signal_score=signal_score,
+            dependency_score=dependency_score,
+            impact_score=impact_score,
+            confidence_score=confidence_score,
+        )
+
+        new_score = snapshot["current_risk_score"]
 
         if new_score >= 80:
             severity_label = "Critical"
@@ -921,24 +971,36 @@ async def recalculate_supply_chain_scores():
         else:
             severity_label = "Guarded"
 
-        supabase.table("sc_chokepoints").update({
-            "risk_score": new_score,
-            "severity": severity_label
-        }).ilike("name", chokepoint).execute()
+        (
+            supabase
+            .table("sc_chokepoints")
+            .update({
+                "risk_score": new_score,
+                "severity": severity_label,
+            })
+            .ilike("name", chokepoint)
+            .execute()
+        )
+
+        supabase.table("sc_risk_history").insert(snapshot).execute()
 
         updated.append({
             "chokepoint": chokepoint,
-            "base_score": base_score,
-            "avg_live_severity": round(avg_live_severity, 1),
+            "baseline_score": baseline_score,
+            "previous_score": previous_score,
+            "signal_score": signal_score,
             "new_score": new_score,
+            "score_delta": snapshot["score_delta"],
+            "direction": snapshot["direction"],
+            "confidence_score": snapshot["confidence_score"],
             "severity": severity_label,
-            "signals_used": len(severities)
+            "signals_used": len(severities),
         })
 
     return {
         "status": "success",
         "updated_count": len(updated),
-        "updated": updated
+        "updated": updated,
     }
 
 @router.post("/investigate")
@@ -1017,52 +1079,343 @@ async def investigate_supply_chain_entity(payload: dict):
     }
 @router.post("/recalculate-port-scores")
 async def recalculate_port_scores():
-    port_links = (
+    """
+    Recalculate risk across the global master-port registry.
+
+    Authoritative tables:
+    - sc_master_ports
+    - sc_port_dependencies
+    - sc_maritime_nodes
+    - sc_live_disruption_events
+    - sc_risk_history
+
+    Port baseline risk remains structural.
+    Current risk incorporates chokepoint dependency and live port signals.
+    """
+
+    ports_response = (
         supabase
-        .table("sc_port_chokepoints")
-        .select("*")
+        .table("sc_master_ports")
+        .select(
+            "port_name,country,region,baseline_risk_score,"
+            "risk_score,strategic_importance,severity"
+        )
         .execute()
     )
 
-    updated = []
-
-    for link in port_links.data or []:
-        port_name = link.get("port_name")
-        chokepoint_name = link.get("chokepoint_name")
-        dependency_pct = float(link.get("dependency_pct") or 50)
-
-        chokepoint = (
-            supabase
-            .table("sc_chokepoints")
-            .select("risk_score,severity")
-            .ilike("name", chokepoint_name)
-            .limit(1)
-            .execute()
+    dependencies_response = (
+        supabase
+        .table("sc_port_dependencies")
+        .select(
+            "port_name,dependency_type,dependency_name,"
+            "dependency_weight,category,notes"
         )
+        .execute()
+    )
 
-        port = (
-            supabase
-            .table("sc_ports")
-            .select("baseline_risk_score,risk_score")
-            .ilike("port_name", port_name)
-            .limit(1)
-            .execute()
+    maritime_nodes_response = (
+        supabase
+        .table("sc_maritime_nodes")
+        .select(
+            "name,canonical_name,node_type,region,"
+            "risk_score,baseline_risk_score,severity,"
+            "strategic_importance"
         )
+        .eq("is_active", True)
+        .execute()
+    )
 
-        if not chokepoint.data or not port.data:
+    live_events_response = (
+        supabase
+        .table("sc_live_disruption_events")
+        .select(
+            "matched_port,severity_score,confidence_score,"
+            "published_at,source"
+        )
+        .not_.is_("matched_port", "null")
+        .execute()
+    )
+
+    ports = ports_response.data or []
+    dependencies = dependencies_response.data or []
+    maritime_nodes = maritime_nodes_response.data or []
+    live_events = live_events_response.data or []
+
+    maritime_node_lookup = {}
+
+    for row in maritime_nodes:
+        name = str(row.get("name") or "").strip()
+        canonical_name = str(
+            row.get("canonical_name") or name
+        ).strip()
+
+        if name:
+            maritime_node_lookup[name.lower()] = row
+
+        if canonical_name:
+            maritime_node_lookup[canonical_name.lower()] = row
+
+    dependency_lookup = {}
+
+    for row in dependencies:
+        port_name = row.get("port_name")
+        if not port_name:
             continue
 
-        chokepoint_score = float(chokepoint.data[0].get("risk_score") or 50)
-        baseline_score = float(port.data[0].get("baseline_risk_score") or 50)
+        dependency_lookup.setdefault(
+            str(port_name).strip().lower(),
+            []
+        ).append(row)
 
-        dependency_weight = min(max(dependency_pct / 100, 0), 1)
+    live_event_lookup = {}
 
-        new_score = round(
-            (baseline_score * 0.45)
-            + (chokepoint_score * 0.40)
-            + ((dependency_weight * 100) * 0.15),
-            1
+    for event in live_events:
+        port_name = event.get("matched_port")
+        if not port_name:
+            continue
+
+        live_event_lookup.setdefault(
+            str(port_name).strip().lower(),
+            []
+        ).append(event)
+
+    updated = []
+
+    for port in ports:
+        port_name = port.get("port_name")
+
+        if not port_name:
+            continue
+
+        port_key = str(port_name).strip().lower()
+
+        baseline_score = float(
+            port.get("baseline_risk_score")
+            or port.get("risk_score")
+            or 50
         )
+
+        previous_score = float(
+            port.get("risk_score")
+            or baseline_score
+        )
+
+        port_dependencies = dependency_lookup.get(port_key, [])
+
+        weighted_dependency_scores = []
+        dominant_driver = None
+        dominant_driver_value = -1.0
+        matched_dependencies = []
+
+        for dependency in port_dependencies:
+            dependency_type = str(
+                dependency.get("dependency_type") or ""
+            ).strip().lower()
+
+            dependency_name = str(
+                dependency.get("dependency_name") or ""
+            ).strip()
+
+            dependency_weight_pct = float(
+                dependency.get("dependency_weight") or 0
+            )
+
+            if (
+                dependency_type == "chokepoint"
+                and dependency_name
+            ):
+                maritime_node = maritime_node_lookup.get(
+                    dependency_name.lower()
+                )
+
+                if not maritime_node:
+                    continue
+
+                node_score = maritime_node.get("risk_score")
+
+                if node_score is None:
+                    node_score = maritime_node.get(
+                        "baseline_risk_score"
+                    )
+
+                # Do not invent a maritime risk score.
+                # If the node exists but is not yet scored,
+                # retain the relationship but exclude it from
+                # numerical propagation.
+                if node_score is None:
+                    matched_dependencies.append(
+                        dependency_name
+                    )
+                    continue
+
+                chokepoint_score = float(node_score)
+
+                normalized_weight = min(
+                    max(dependency_weight_pct / 100.0, 0.0),
+                    1.0,
+                )
+
+                weighted_score = (
+                    chokepoint_score * normalized_weight
+                )
+
+                weighted_dependency_scores.append({
+                    "dependency_name": dependency_name,
+                    "dependency_weight": dependency_weight_pct,
+                    "chokepoint_score": chokepoint_score,
+                    "weighted_score": weighted_score,
+                })
+
+                driver_strength = (
+                    chokepoint_score * normalized_weight
+                )
+
+                if driver_strength > dominant_driver_value:
+                    dominant_driver_value = driver_strength
+                    dominant_driver = (
+                        f"{dependency_name} dependency at "
+                        f"{dependency_weight_pct:.0f}%"
+                    )
+
+                matched_dependencies.append(
+                    dependency_name
+                )
+
+        if weighted_dependency_scores:
+            total_weight = sum(
+                min(
+                    max(
+                        item["dependency_weight"] / 100.0,
+                        0.0,
+                    ),
+                    1.0,
+                )
+                for item in weighted_dependency_scores
+            )
+
+            if total_weight > 0:
+                dependency_risk_score = sum(
+                    item["chokepoint_score"]
+                    * min(
+                        max(
+                            item["dependency_weight"] / 100.0,
+                            0.0,
+                        ),
+                        1.0,
+                    )
+                    for item in weighted_dependency_scores
+                ) / total_weight
+            else:
+                dependency_risk_score = baseline_score
+
+            dependency_intensity = min(
+                max(
+                    max(
+                        item["dependency_weight"]
+                        for item in weighted_dependency_scores
+                    ),
+                    0,
+                ),
+                100,
+            )
+        else:
+            dependency_risk_score = baseline_score
+            dependency_intensity = 0.0
+
+        port_events = live_event_lookup.get(port_key, [])
+
+        if port_events:
+            event_severities = [
+                float(event.get("severity_score") or 50)
+                for event in port_events
+            ]
+
+            signal_score = round(
+                sum(event_severities) / len(event_severities),
+                1,
+            )
+
+            event_confidences = [
+                float(event.get("confidence_score") or 60)
+                for event in port_events
+            ]
+
+            avg_event_confidence = round(
+                sum(event_confidences)
+                / len(event_confidences),
+                1,
+            )
+
+            distinct_sources = len({
+                str(event.get("source") or "").strip().lower()
+                for event in port_events
+                if event.get("source")
+            })
+        else:
+            signal_score = baseline_score
+            avg_event_confidence = 60.0
+            distinct_sources = 0
+
+        # Dependency risk combines the risk of connected chokepoints
+        # with how dependent the port is on those routes.
+        dependency_score = round(
+            (
+                dependency_risk_score * 0.75
+                + dependency_intensity * 0.25
+            ),
+            1,
+        )
+
+        # First-generation impact proxy.
+        # Strategic importance is used until throughput, trade-value,
+        # commodity concentration, and substitution data are integrated.
+        impact_score = float(
+            port.get("strategic_importance")
+            or baseline_score
+        )
+
+        relationship_coverage = min(
+            100.0,
+            40.0 + len(matched_dependencies) * 20.0
+        )
+
+        confidence_score = calculate_confidence(
+            source_count=len(port_events),
+            fresh_source_count=len(port_events),
+            independent_source_count=min(
+                distinct_sources,
+                5,
+            ),
+            relationship_coverage=relationship_coverage,
+            source_reliability=avg_event_confidence,
+        )
+
+        # If there are no live port events, preserve some baseline
+        # evidence confidence from structural and dependency coverage.
+        if not port_events:
+            confidence_score = calculate_confidence(
+                source_count=len(matched_dependencies),
+                fresh_source_count=0,
+                independent_source_count=min(
+                    len(matched_dependencies),
+                    5,
+                ),
+                relationship_coverage=relationship_coverage,
+                source_reliability=70,
+            )
+
+        snapshot = build_risk_snapshot(
+            entity_type="port",
+            entity_name=port_name,
+            baseline_risk_score=baseline_score,
+            previous_risk_score=previous_score,
+            signal_score=signal_score,
+            dependency_score=dependency_score,
+            impact_score=impact_score,
+            confidence_score=confidence_score,
+        )
+
+        new_score = snapshot["current_risk_score"]
 
         if new_score >= 80:
             severity = "Critical"
@@ -1070,36 +1423,61 @@ async def recalculate_port_scores():
             severity = "High"
         elif new_score >= 60:
             severity = "Elevated"
-        else:
+        elif new_score >= 40:
             severity = "Guarded"
+        else:
+            severity = "Low"
 
-        dominant_driver = f"{chokepoint_name} dependency at {dependency_pct:.0f}%"
+        if not dominant_driver:
+            if port_events:
+                dominant_driver = (
+                    f"{len(port_events)} live disruption "
+                    f"signal(s)"
+                )
+            else:
+                dominant_driver = "Structural port exposure"
 
         (
             supabase
-            .table("sc_ports")
+            .table("sc_master_ports")
             .update({
                 "risk_score": new_score,
                 "severity": severity,
-                "dominant_driver": dominant_driver
+                "dominant_driver": dominant_driver,
             })
             .ilike("port_name", port_name)
             .execute()
         )
 
+        supabase.table("sc_risk_history").insert(
+            snapshot
+        ).execute()
+
         updated.append({
             "port": port_name,
-            "linked_chokepoint": chokepoint_name,
-            "dependency_pct": dependency_pct,
-            "chokepoint_score": chokepoint_score,
+            "baseline_score": baseline_score,
+            "previous_score": previous_score,
             "new_score": new_score,
-            "severity": severity
+            "score_delta": snapshot["score_delta"],
+            "direction": snapshot["direction"],
+            "confidence_score": snapshot[
+                "confidence_score"
+            ],
+            "signal_score": signal_score,
+            "dependency_score": dependency_score,
+            "impact_score": impact_score,
+            "severity": severity,
+            "dominant_driver": dominant_driver,
+            "matched_chokepoints": matched_dependencies,
+            "live_signals_used": len(port_events),
         })
 
     return {
         "status": "success",
+        "registry": "sc_master_ports",
+        "ports_assessed": len(ports),
         "updated_count": len(updated),
-        "updated": updated
+        "updated": updated,
     }
 
 
@@ -1108,136 +1486,267 @@ async def recalculate_company_scores():
     companies = (
         supabase
         .table("sc_companies")
-        .select("company_name,baseline_risk_score,strategic_importance")
+        .select("*")
         .execute()
+    )
+
+    master_ports = (
+        supabase
+        .table("sc_master_ports")
+        .select("port_name,risk_score,severity,dominant_driver")
+        .execute()
+    )
+
+    commodities_master = (
+        supabase
+        .table("sc_commodities")
+        .select(
+            "commodity_name,risk_score,severity,"
+            "confidence_score,dominant_driver"
+        )
+        .execute()
+    )
+
+    company_ports = (
+        supabase
+        .table("sc_company_ports")
+        .select("*")
+        .execute()
+    )
+
+    company_suppliers = (
+        supabase
+        .table("sc_company_suppliers")
+        .select("*")
+        .execute()
+    )
+
+    commodity_exposures = (
+        supabase
+        .table("sc_commodity_company_exposure")
+        .select("*")
+        .execute()
+    )
+
+    company_markets = (
+        supabase
+        .table("sc_company_markets")
+        .select("*")
+        .execute()
+    )
+
+    live_events = (
+        supabase
+        .table("sc_live_disruption_events")
+        .select(
+            "matched_company,severity_score,"
+            "confidence_score,source,published_at"
+        )
+        .not_.is_("matched_company", "null")
+        .execute()
+    )
+
+    assessments = calculate_all_companies(
+        companies=companies.data or [],
+        master_ports=master_ports.data or [],
+        commodities_master=commodities_master.data or [],
+        company_ports=company_ports.data or [],
+        company_suppliers=company_suppliers.data or [],
+        commodity_exposures=commodity_exposures.data or [],
+        company_markets=company_markets.data or [],
+        live_events=live_events.data or [],
     )
 
     updated = []
 
-    for company in companies.data or []:
-        company_name = company.get("company_name")
-        baseline_score = float(
-            company.get("baseline_risk_score")
-            or company.get("strategic_importance")
-            or 50
-        )
-
-        ports = (
-            supabase
-            .table("sc_company_ports")
-            .select("port_name,dependency_pct")
-            .ilike("company_name", company_name)
-            .execute()
-        )
-
-        suppliers = (
-            supabase
-            .table("sc_company_suppliers")
-            .select("supplier_name,commodity,dependency_pct,criticality")
-            .ilike("company_name", company_name)
-            .execute()
-        )
-
-        max_port_score = 50
-        max_port_dependency = 0
-        port_driver = None
-
-        for port in ports.data or []:
-            port_name = port.get("port_name")
-            dependency_pct = float(port.get("dependency_pct") or 0)
-
-            port_score_response = (
-                supabase
-                .table("sc_ports")
-                .select("risk_score,severity,dominant_driver")
-                .ilike("port_name", port_name)
-                .limit(1)
-                .execute()
-            )
-
-            if port_score_response.data:
-                port_score = float(port_score_response.data[0].get("risk_score") or 50)
-                if port_score > max_port_score:
-                    max_port_score = port_score
-                    max_port_dependency = dependency_pct
-                    port_driver = f"{port_name} dependency at {dependency_pct:.0f}%"
-
-        max_supplier_score = 50
-        max_supplier_dependency = 0
-        supplier_driver = None
-
-        for supplier in suppliers.data or []:
-            dependency_pct = float(supplier.get("dependency_pct") or 0)
-            criticality = (supplier.get("criticality") or "").lower()
-
-            if criticality == "critical":
-                criticality_score = 90
-            elif criticality == "high":
-                criticality_score = 78
-            elif criticality == "medium":
-                criticality_score = 65
-            else:
-                criticality_score = 50
-
-            if criticality_score > max_supplier_score:
-                max_supplier_score = criticality_score
-                max_supplier_dependency = dependency_pct
-                supplier_driver = f"{supplier.get('commodity')} dependency at {dependency_pct:.0f}%"
-
-        dependency_uplift = min(
-            max(max_port_dependency, max_supplier_dependency) * 0.18,
-            10
-        )
-
-        new_score = round(
-            (baseline_score * 0.40)
-            + (max_port_score * 0.35)
-            + (max_supplier_score * 0.25)
-            + dependency_uplift,
-            1
-        )
-
-        new_score = min(new_score, 100)
-
-        if new_score >= 85:
-            severity = "Critical"
-        elif new_score >= 75:
-            severity = "High"
-        elif new_score >= 60:
-            severity = "Elevated"
-        else:
-            severity = "Guarded"
-
-        dominant_driver = port_driver or supplier_driver or "Baseline company exposure"
-
+    for assessment in assessments:
         (
             supabase
             .table("sc_companies")
             .update({
-                "risk_score": new_score,
-                "severity": severity,
-                "dominant_driver": dominant_driver
+                "risk_score": assessment["new_score"],
+                "severity": assessment["severity"],
+                "dominant_driver": assessment["dominant_driver"],
+                "port_exposure_score": assessment[
+                    "port_exposure_score"
+                ],
+                "supplier_exposure_score": assessment[
+                    "supplier_exposure_score"
+                ],
+                "commodity_exposure_score": assessment[
+                    "commodity_exposure_score"
+                ],
+                "market_exposure_score": assessment[
+                    "market_exposure_score"
+                ],
+                "live_signal_score": assessment[
+                    "live_signal_score"
+                ],
+                "confidence_score": assessment[
+                    "confidence_score"
+                ],
+                "score_direction": assessment["direction"],
+                "model_version": assessment["model_version"],
+                "last_calculated_at": assessment[
+                    "last_calculated_at"
+                ],
             })
-            .ilike("company_name", company_name)
+            .ilike("company_name", assessment["company"])
             .execute()
         )
 
+        supabase.table("sc_risk_history").insert(
+            assessment["snapshot"]
+        ).execute()
+
         updated.append({
-            "company": company_name,
-            "new_score": new_score,
-            "severity": severity,
-            "dominant_driver": dominant_driver,
-            "max_port_score": max_port_score,
-            "max_supplier_score": max_supplier_score,
-            "dependency_uplift": round(dependency_uplift, 1)
+            key: value
+            for key, value in assessment.items()
+            if key != "snapshot"
         })
 
     return {
         "status": "success",
+        "model_version": "sc-company-risk-v1",
+        "companies_assessed": len(assessments),
         "updated_count": len(updated),
-        "updated": updated
+        "updated": updated,
     }
 
+
+
+@router.post("/recalculate-commodity-scores")
+async def recalculate_commodity_scores():
+    commodities_response = (
+        supabase
+        .table("sc_commodities")
+        .select("*")
+        .execute()
+    )
+
+    quantitative_exposure_response = (
+        supabase
+        .table("sc_commodity_exposure")
+        .select("*")
+        .execute()
+    )
+
+    structural_exposure_response = (
+        supabase
+        .table("sc_chokepoint_commodity_exposure")
+        .select("*")
+        .execute()
+    )
+
+    alternative_suppliers_response = (
+        supabase
+        .table("sc_alternative_suppliers")
+        .select("*")
+        .execute()
+    )
+
+    live_events_response = (
+        supabase
+        .table("sc_live_disruption_events")
+        .select(
+            "matched_commodity,severity_score,"
+            "confidence_score,source,published_at"
+        )
+        .not_.is_("matched_commodity", "null")
+        .execute()
+    )
+
+    maritime_nodes_response = (
+        supabase
+        .table("sc_maritime_nodes")
+        .select(
+            "name,canonical_name,node_type,region,"
+            "baseline_risk_score,risk_score,severity,"
+            "confidence_score,score_direction"
+        )
+        .execute()
+    )
+
+    assessments = calculate_all_commodities(
+        commodities=commodities_response.data or [],
+        quantitative_exposures=(
+            quantitative_exposure_response.data or []
+        ),
+        structural_exposures=(
+            structural_exposure_response.data or []
+        ),
+        alternatives=(
+            alternative_suppliers_response.data or []
+        ),
+        live_events=(
+            live_events_response.data or []
+        ),
+        maritime_nodes=(
+            maritime_nodes_response.data or []
+        ),
+    )
+
+    updated = []
+
+    for assessment in assessments:
+        (
+            supabase
+            .table("sc_commodities")
+            .update({
+                "risk_score": assessment["new_score"],
+                "severity": assessment["severity"],
+                "chokepoint_exposure_score": assessment[
+                    "chokepoint_exposure_score"
+                ],
+                "concentration_score": assessment[
+                    "concentration_score"
+                ],
+                "alternative_supply_score": assessment[
+                    "alternative_supply_score"
+                ],
+                "live_signal_score": assessment[
+                    "live_signal_score"
+                ],
+                "confidence_score": assessment[
+                    "confidence_score"
+                ],
+                "score_direction": assessment[
+                    "direction"
+                ],
+                "dominant_driver": assessment[
+                    "dominant_driver"
+                ],
+                "model_version": assessment[
+                    "model_version"
+                ],
+                "last_calculated_at": assessment[
+                    "last_calculated_at"
+                ],
+            })
+            .ilike(
+                "commodity_name",
+                assessment["commodity"],
+            )
+            .execute()
+        )
+
+        supabase.table("sc_risk_history").insert(
+            assessment["snapshot"]
+        ).execute()
+
+        updated.append({
+            key: value
+            for key, value in assessment.items()
+            if key != "snapshot"
+        })
+
+    return {
+        "status": "success",
+        "model_version": "sc-commodity-risk-v1",
+        "commodities_assessed": len(assessments),
+        "updated_count": len(updated),
+        "updated": updated,
+    }
 
 
 
@@ -1726,3 +2235,113 @@ async def get_supply_chain_toolbox(category: str):
         return {"status": "success", "category": "shipping-corridors", "count": len(r.data or []), "items": r.data or []}
 
     raise HTTPException(status_code=404, detail="Unsupported toolbox category")
+
+
+@router.get("/risk-history/{entity_type}/{entity_name}")
+async def get_supply_chain_risk_history(
+    entity_type: str,
+    entity_name: str,
+    limit: int = 30,
+):
+    result = (
+        supabase
+        .table("sc_risk_history")
+        .select("*")
+        .eq("entity_type", entity_type)
+        .ilike("entity_name", entity_name)
+        .order("calculated_at", desc=True)
+        .limit(min(max(limit, 1), 100))
+        .execute()
+    )
+
+    return {
+        "status": "success",
+        "entity_type": entity_type,
+        "entity_name": entity_name,
+        "count": len(result.data or []),
+        "data": result.data or [],
+    }
+
+
+
+@router.post("/recalculate-maritime-node-scores")
+async def recalculate_maritime_node_scores():
+    nodes_response = (
+        supabase
+        .table("sc_maritime_nodes")
+        .select("*")
+        .eq("is_active", True)
+        .execute()
+    )
+
+    dependencies_response = (
+        supabase
+        .table("sc_port_dependencies")
+        .select(
+            "port_name,dependency_type,dependency_name,"
+            "dependency_weight,category,notes"
+        )
+        .execute()
+    )
+
+    events_response = (
+        supabase
+        .table("sc_live_disruption_events")
+        .select(
+            "matched_chokepoint,severity_score,"
+            "confidence_score,source,published_at"
+        )
+        .not_.is_("matched_chokepoint", "null")
+        .execute()
+    )
+
+    assessments = calculate_all_maritime_nodes(
+        nodes=nodes_response.data or [],
+        dependency_rows=dependencies_response.data or [],
+        live_events=events_response.data or [],
+    )
+
+    updated = []
+
+    for assessment in assessments:
+        (
+            supabase
+            .table("sc_maritime_nodes")
+            .update({
+                "baseline_risk_score": assessment["baseline_risk_score"],
+                "risk_score": assessment["current_risk_score"],
+                "severity": assessment["severity"],
+                "strategic_importance": assessment["strategic_importance"],
+                "network_dependency_score": assessment[
+                    "network_dependency_score"
+                ],
+                "structural_vulnerability_score": assessment[
+                    "structural_vulnerability_score"
+                ],
+                "live_signal_score": assessment["live_signal_score"],
+                "confidence_score": assessment["confidence_score"],
+                "score_direction": assessment["direction"],
+                "model_version": assessment["model_version"],
+                "last_calculated_at": assessment["last_calculated_at"],
+            })
+            .ilike("name", assessment["name"])
+            .execute()
+        )
+
+        supabase.table("sc_risk_history").insert(
+            assessment["snapshot"]
+        ).execute()
+
+        updated.append({
+            key: value
+            for key, value in assessment.items()
+            if key != "snapshot"
+        })
+
+    return {
+        "status": "success",
+        "model_version": "sc-maritime-risk-v1",
+        "nodes_assessed": len(assessments),
+        "updated_count": len(updated),
+        "updated": updated,
+    }
