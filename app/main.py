@@ -11,6 +11,11 @@ from fastapi import FastAPI
 from app.routers import signals
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
+from app.routes.sews_evidence import router as sews_evidence_router
+from app.routes.sews_warning_scoring import router as sews_warning_scoring_router
+from app.routes.sews_warning_ledger import router as sews_warning_ledger_router
+from app.routes.sews_ai_review import router as sews_ai_review_router
+from app.routes.strategic_intelligence_products import router as strategic_intelligence_products_router
 load_dotenv()
 
 from app.routes.intelligence_retrieval import router as intelligence_retrieval_router
@@ -57,6 +62,7 @@ from app.routes import global_risk
 from app.routes.strategic_agents import router as strategic_agents_router
 from app.routes.strategic_reports import router as strategic_reports_router
 from app.routes.siam import router as siam_router
+from app.routes.sews import router as sews_router
 
 
 from routers.personal_agent import router as personal_agent_router
@@ -80,6 +86,7 @@ app.add_middleware(
 )
 
 # Core platform routers
+app.include_router(sews_evidence_router)
 app.include_router(gdelt_router)
 app.include_router(ingest_router)
 app.include_router(signals_router)
@@ -175,6 +182,11 @@ app.include_router(global_risk.router)
 app.include_router(strategic_agents_router)
 app.include_router(strategic_reports_router)
 app.include_router(siam_router)
+app.include_router(sews_router)
+app.include_router(sews_warning_scoring_router)
+app.include_router(sews_warning_ledger_router)
+app.include_router(sews_ai_review_router)
+app.include_router(strategic_intelligence_products_router)
 
 
 # Strategic AI Agent background scheduler

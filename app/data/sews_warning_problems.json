@@ -1,0 +1,315 @@
+{
+  "catalog_version": "sews-catalog-v1",
+  "warning_problems": [
+    {
+      "problem_key": "WP-TWN-BLOCKADE",
+      "title": "Taiwan Blockade or Coercive Quarantine",
+      "hypothesis": "China initiates a blockade, coercive quarantine, or sustained maritime-air exclusion operation against Taiwan within 180 days.",
+      "region": "Indo-Pacific",
+      "countries": [
+        "CHN",
+        "TWN",
+        "JPN",
+        "USA"
+      ],
+      "domain": "Conflict and Military",
+      "horizon_days": 180,
+      "base_rate": 0.08,
+      "severity_score": 96
+    },
+    {
+      "problem_key": "WP-IRN-ISR-ESCALATION",
+      "title": "Iran–Israel Regional Escalation",
+      "hypothesis": "Direct or proxy confrontation between Iran and Israel expands into sustained regional conflict within 90 days.",
+      "region": "Middle East and North Africa",
+      "countries": [
+        "IRN",
+        "ISR",
+        "LBN",
+        "SYR",
+        "IRQ",
+        "YEM"
+      ],
+      "domain": "Conflict and Military",
+      "horizon_days": 90,
+      "base_rate": 0.18,
+      "severity_score": 95
+    },
+    {
+      "problem_key": "WP-RUS-NATO-SPILLOVER",
+      "title": "Russia–NATO Conflict Spillover",
+      "hypothesis": "The Russia–Ukraine war produces a direct military incident involving NATO territory or forces within 180 days.",
+      "region": "Europe",
+      "countries": [
+        "RUS",
+        "UKR",
+        "POL",
+        "LTU",
+        "LVA",
+        "EST",
+        "ROU"
+      ],
+      "domain": "Conflict and Military",
+      "horizon_days": 180,
+      "base_rate": 0.06,
+      "severity_score": 98
+    },
+    {
+      "problem_key": "WP-UKR-FRONT-DETERIORATION",
+      "title": "Major Ukrainian Front Deterioration",
+      "hypothesis": "Ukrainian defensive positions experience a strategically significant deterioration or territorial breakthrough within 90 days.",
+      "region": "Europe",
+      "countries": [
+        "UKR",
+        "RUS"
+      ],
+      "domain": "Conflict and Military",
+      "horizon_days": 90,
+      "base_rate": 0.22,
+      "severity_score": 88
+    },
+    {
+      "problem_key": "WP-PRK-STRATEGIC-PROVOCATION",
+      "title": "North Korean Strategic Provocation",
+      "hypothesis": "North Korea conducts a nuclear test, long-range missile launch, or major conventional provocation within 90 days.",
+      "region": "Indo-Pacific",
+      "countries": [
+        "PRK",
+        "KOR",
+        "JPN",
+        "CHN",
+        "USA"
+      ],
+      "domain": "Conflict and Military",
+      "horizon_days": 90,
+      "base_rate": 0.25,
+      "severity_score": 89
+    },
+    {
+      "problem_key": "WP-PAK-POLITICAL-INSTABILITY",
+      "title": "Pakistan Political Instability",
+      "hypothesis": "Political confrontation in Pakistan produces sustained unrest, institutional paralysis, or an unconstitutional transfer of authority within 120 days.",
+      "region": "South Asia",
+      "countries": [
+        "PAK"
+      ],
+      "domain": "Political Stability",
+      "horizon_days": 120,
+      "base_rate": 0.24,
+      "severity_score": 78
+    },
+    {
+      "problem_key": "WP-AFG-CROSS-BORDER-MILITANCY",
+      "title": "Afghanistan–Pakistan Cross-Border Militancy",
+      "hypothesis": "Militant activity originating from or linked to Afghanistan causes a significant escalation in cross-border attacks or interstate tensions within 90 days.",
+      "region": "South and Central Asia",
+      "countries": [
+        "AFG",
+        "PAK"
+      ],
+      "domain": "Conflict and Military",
+      "horizon_days": 90,
+      "base_rate": 0.3,
+      "severity_score": 80
+    },
+    {
+      "problem_key": "WP-SAHEL-REGIME-FAILURE",
+      "title": "Sahel Regime Failure or Coup Escalation",
+      "hypothesis": "A Sahel state experiences a coup attempt, regime collapse, or major loss of territorial control within 180 days.",
+      "region": "Sub-Saharan Africa",
+      "countries": [
+        "MLI",
+        "NER",
+        "BFA",
+        "TCD",
+        "SDN"
+      ],
+      "domain": "Political Stability",
+      "horizon_days": 180,
+      "base_rate": 0.28,
+      "severity_score": 82
+    },
+    {
+      "problem_key": "WP-RED-SEA-SHIPPING",
+      "title": "Red Sea Shipping Disruption",
+      "hypothesis": "Hostile activity or military escalation produces a material deterioration in commercial shipping through the Red Sea and Bab el-Mandeb within 60 days.",
+      "region": "Middle East and North Africa",
+      "countries": [
+        "YEM",
+        "DJI",
+        "ERI",
+        "SAU",
+        "EGY"
+      ],
+      "domain": "Energy and Supply Chain",
+      "horizon_days": 60,
+      "base_rate": 0.35,
+      "severity_score": 86
+    },
+    {
+      "problem_key": "WP-HORMUZ-CLOSURE",
+      "title": "Strait of Hormuz Closure or Severe Disruption",
+      "hypothesis": "Military action, interdiction, mining, or coercive restrictions materially disrupt transit through the Strait of Hormuz within 90 days.",
+      "region": "Middle East and North Africa",
+      "countries": [
+        "IRN",
+        "OMN",
+        "ARE",
+        "SAU",
+        "QAT"
+      ],
+      "domain": "Energy and Supply Chain",
+      "horizon_days": 90,
+      "base_rate": 0.1,
+      "severity_score": 97
+    },
+    {
+      "problem_key": "WP-SUEZ-DISRUPTION",
+      "title": "Suez Canal Operational Disruption",
+      "hypothesis": "Security, infrastructure, labor, or navigation conditions materially reduce Suez Canal throughput within 90 days.",
+      "region": "Middle East and North Africa",
+      "countries": [
+        "EGY"
+      ],
+      "domain": "Energy and Supply Chain",
+      "horizon_days": 90,
+      "base_rate": 0.12,
+      "severity_score": 83
+    },
+    {
+      "problem_key": "WP-SEMICONDUCTOR-SHOCK",
+      "title": "Global Semiconductor Supply Shock",
+      "hypothesis": "Geopolitical, industrial, environmental, or logistical disruption causes a material global semiconductor supply shock within 180 days.",
+      "region": "Global",
+      "countries": [
+        "TWN",
+        "CHN",
+        "KOR",
+        "JPN",
+        "USA",
+        "NLD"
+      ],
+      "domain": "Energy and Supply Chain",
+      "horizon_days": 180,
+      "base_rate": 0.16,
+      "severity_score": 91
+    },
+    {
+      "problem_key": "WP-CRITICAL-MINERALS-RESTRICTION",
+      "title": "Critical Minerals Export Restrictions",
+      "hypothesis": "A major producer imposes new restrictions affecting global access to critical minerals or processing capacity within 180 days.",
+      "region": "Global",
+      "countries": [
+        "CHN",
+        "IDN",
+        "COD",
+        "CHL",
+        "AUS"
+      ],
+      "domain": "Energy and Supply Chain",
+      "horizon_days": 180,
+      "base_rate": 0.22,
+      "severity_score": 80
+    },
+    {
+      "problem_key": "WP-ENERGY-PRICE-SPIKE",
+      "title": "Global Energy Price Spike",
+      "hypothesis": "A geopolitical or supply-side shock causes a sustained and material increase in global oil or natural-gas prices within 90 days.",
+      "region": "Global",
+      "countries": [
+        "SAU",
+        "IRN",
+        "RUS",
+        "QAT",
+        "USA"
+      ],
+      "domain": "Economic and Financial",
+      "horizon_days": 90,
+      "base_rate": 0.24,
+      "severity_score": 85
+    },
+    {
+      "problem_key": "WP-EM-SOVEREIGN-DEBT",
+      "title": "Emerging-Market Sovereign Debt Distress",
+      "hypothesis": "One or more vulnerable emerging-market governments enter default, restructuring, or acute external-financing distress within 180 days.",
+      "region": "Global",
+      "countries": [
+        "ARG",
+        "EGY",
+        "PAK",
+        "GHA",
+        "ZMB",
+        "ETH"
+      ],
+      "domain": "Economic and Financial",
+      "horizon_days": 180,
+      "base_rate": 0.26,
+      "severity_score": 79
+    },
+    {
+      "problem_key": "WP-CHN-FINANCIAL-STRESS",
+      "title": "China Financial and Property Stress",
+      "hypothesis": "Property-sector, local-government, or banking stress in China causes a material deterioration in domestic or regional financial conditions within 180 days.",
+      "region": "Indo-Pacific",
+      "countries": [
+        "CHN",
+        "HKG"
+      ],
+      "domain": "Economic and Financial",
+      "horizon_days": 180,
+      "base_rate": 0.3,
+      "severity_score": 87
+    },
+    {
+      "problem_key": "WP-CRITICAL-INFRA-CYBER",
+      "title": "Systemic Cyberattack on Critical Infrastructure",
+      "hypothesis": "A state-linked or sophisticated non-state actor causes a multi-sector critical-infrastructure disruption within 90 days.",
+      "region": "Global",
+      "countries": [],
+      "domain": "Cyber and Information Operations",
+      "horizon_days": 90,
+      "base_rate": 0.14,
+      "severity_score": 93
+    },
+    {
+      "problem_key": "WP-ELECTION-INTERFERENCE",
+      "title": "Major Election Interference Campaign",
+      "hypothesis": "A coordinated foreign or domestic information operation materially disrupts electoral confidence or administration within 120 days.",
+      "region": "Global",
+      "countries": [],
+      "domain": "Cyber and Information Operations",
+      "horizon_days": 120,
+      "base_rate": 0.32,
+      "severity_score": 75
+    },
+    {
+      "problem_key": "WP-FOOD-SECURITY-SHOCK",
+      "title": "Food-Security Shock in Fragile States",
+      "hypothesis": "Conflict, climate, trade restrictions, or price increases create acute food-security deterioration across one or more fragile states within 180 days.",
+      "region": "Global",
+      "countries": [
+        "SDN",
+        "SOM",
+        "ETH",
+        "YEM",
+        "AFG",
+        "HTI"
+      ],
+      "domain": "Humanitarian and Public Health",
+      "horizon_days": 180,
+      "base_rate": 0.38,
+      "severity_score": 88
+    },
+    {
+      "problem_key": "WP-OUTBREAK-CROSS-BORDER",
+      "title": "Cross-Border Infectious Disease Outbreak",
+      "hypothesis": "An infectious-disease event produces sustained cross-border transmission and significant public-health or economic disruption within 180 days.",
+      "region": "Global",
+      "countries": [],
+      "domain": "Humanitarian and Public Health",
+      "horizon_days": 180,
+      "base_rate": 0.12,
+      "severity_score": 90
+    }
+  ]
+}

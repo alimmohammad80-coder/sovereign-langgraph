@@ -1,0 +1,96 @@
+{
+  "problem_key": "WP-TWN-BLOCKADE",
+  "title": "Taiwan Quarantine or Blockade",
+  "hypothesis": "The PRC initiates quarantine-style customs enforcement, a partial blockade, or a military blockade around Taiwan within 90 days.",
+  "horizon_days": 90,
+  "base_rate": 0.08,
+  "severity_score": 92,
+  "state": "WATCH",
+  "transition_rules": {
+    "WATCH": {
+      "up_probability": 0.5,
+      "down_probability": 0.22
+    },
+    "ADVISORY": {
+      "up_probability": 0.7,
+      "down_probability": 0.42
+    },
+    "WARNING": {
+      "up_probability": 0.85,
+      "down_probability": 0.58
+    },
+    "CRITICAL": {
+      "down_probability": 0.72
+    }
+  },
+  "indicators": [
+    {
+      "indicator_key": "IND-001",
+      "description": "Sustained PLA naval and air operating pattern exceeding Taiwan-specific seasonal baseline",
+      "source_module": "conflict_forecasting",
+      "source_series": "pla.activity.twn",
+      "class": "PRECURSOR",
+      "polarity": 1,
+      "threshold_definition": {
+        "z_gte": 2.0,
+        "sustain_days": 5
+      },
+      "weight": 0.85,
+      "decay_half_life_days": 14
+    },
+    {
+      "indicator_key": "IND-002",
+      "description": "War-risk insurance premium increase for Taiwan Strait transits",
+      "source_module": "supply_chain",
+      "source_series": "marine_insurance.tws",
+      "class": "ACCELERANT",
+      "polarity": 1,
+      "threshold_definition": {
+        "z_gte": 2.0,
+        "sustain_days": 5
+      },
+      "weight": 0.7,
+      "decay_half_life_days": 21
+    },
+    {
+      "indicator_key": "IND-003",
+      "description": "Maritime exclusion, customs, or inspection notice affecting Taiwan approaches",
+      "source_module": "conflict_forecasting",
+      "source_series": "maritime_notice.twn",
+      "class": "TRIGGER",
+      "polarity": 1,
+      "threshold_definition": {
+        "event": true
+      },
+      "weight": 1.6,
+      "decay_half_life_days": 10
+    },
+    {
+      "indicator_key": "IND-004",
+      "description": "Senior PRC leadership foreign travel inconsistent with near-term crisis initiation",
+      "source_module": "country_intelligence",
+      "source_series": "leadership.travel.chn",
+      "class": "CONTRA",
+      "polarity": -1,
+      "threshold_definition": {
+        "event": true
+      },
+      "weight": 0.6,
+      "decay_half_life_days": 7
+    },
+    {
+      "indicator_key": "IND-005",
+      "description": "Normalization of commercial shipping schedules and insurance pricing",
+      "source_module": "supply_chain",
+      "source_series": "shipping.normalization.tws",
+      "class": "CONTRA",
+      "polarity": -1,
+      "threshold_definition": {
+        "z_lte": -1.0,
+        "sustain_days": 7
+      },
+      "weight": 0.55,
+      "decay_half_life_days": 14
+    }
+  ]
+}

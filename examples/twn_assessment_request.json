@@ -1,0 +1,45 @@
+{
+  "problem_key": "WP-TWN-BLOCKADE",
+  "base_rate": 0.08,
+  "current_state": "WATCH",
+  "severity_score": 92,
+  "model_agreement": 0.82,
+  "indicators": [
+    {
+      "indicator_key": "IND-001",
+      "class": "PRECURSOR",
+      "status": "ACTIVE",
+      "weight": 0.85,
+      "baseline_z": 2.7,
+      "age_days": 1,
+      "decay_half_life_days": 14,
+      "source_count": 4,
+      "source_domains": 2,
+      "reporting": true
+    },
+    {
+      "indicator_key": "IND-002",
+      "class": "ACCELERANT",
+      "status": "STIRRING",
+      "weight": 0.7,
+      "baseline_z": 1.8,
+      "age_days": 2,
+      "decay_half_life_days": 21,
+      "source_count": 3,
+      "source_domains": 2,
+      "reporting": true
+    },
+    {
+      "indicator_key": "IND-004",
+      "class": "CONTRA",
+      "status": "QUIET",
+      "weight": 0.6,
+      "baseline_z": 0,
+      "age_days": 0,
+      "decay_half_life_days": 7,
+      "source_count": 1,
+      "source_domains": 1,
+      "reporting": true
+    }
+  ]
+}
