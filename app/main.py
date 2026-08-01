@@ -16,6 +16,7 @@ from app.routes.sews_warning_scoring import router as sews_warning_scoring_route
 from app.routes.sews_warning_ledger import router as sews_warning_ledger_router
 from app.routes.sews_ai_review import router as sews_ai_review_router
 from app.routes.strategic_intelligence_products import router as strategic_intelligence_products_router
+from app.routes.sews_bridge import router as sews_bridge_router
 load_dotenv()
 
 from app.routes.intelligence_retrieval import router as intelligence_retrieval_router
@@ -187,6 +188,7 @@ app.include_router(sews_warning_scoring_router)
 app.include_router(sews_warning_ledger_router)
 app.include_router(sews_ai_review_router)
 app.include_router(strategic_intelligence_products_router)
+app.include_router(sews_bridge_router)
 
 
 # Strategic AI Agent background scheduler
