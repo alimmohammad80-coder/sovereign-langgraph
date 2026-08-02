@@ -172,6 +172,71 @@ class StrategicIntelligenceProductService:
 
     @staticmethod
     def _validate_model_payload(payload: dict[str, Any]) -> dict[str, Any]:
+        payload = dict(payload or {})
+
+        for key in (
+            "drivers",
+            "contrary_evidence",
+            "historical_analogs",
+            "monitoring_priorities",
+        ):
+            if payload.get(key) is None:
+                payload[key] = []
+
+        if payload.get("forecast") is None:
+            payload["forecast"] = {}
+
+        priorities = payload.get("monitoring_priorities") or []
+        normalized_priorities = []
+
+        for item in priorities:
+            if isinstance(item, str):
+                normalized_priorities.append(item.strip())
+            elif isinstance(item, dict):
+                value = (
+                    item.get("priority")
+                    or item.get("title")
+                    or item.get("name")
+                    or item.get("action")
+                    or item.get("description")
+                )
+                if value:
+                    normalized_priorities.append(str(value).strip())
+            elif item is not None:
+                normalized_priorities.append(str(item).strip())
+
+        payload["monitoring_priorities"] = normalized_priorities
+
+        for key in (
+            "bluf",
+            "executive_summary",
+            "full_analysis",
+        ):
+            value = payload.get(key)
+
+            if value is None:
+                payload[key] = ""
+            elif isinstance(value, str):
+                payload[key] = value.strip()
+            elif isinstance(value, dict):
+                extracted = (
+                    value.get("text")
+                    or value.get("content")
+                    or value.get("summary")
+                    or value.get("analysis")
+                    or value.get("narrative")
+                    or ""
+                )
+                payload[key] = str(extracted).strip()
+            elif isinstance(value, list):
+                payload[key] = "\n\n".join(
+                    str(item).strip()
+                    for item in value
+                    if item is not None
+                )
+            else:
+                payload[key] = str(value).strip()
+
         required = {
             "bluf",
             "executive_summary",
