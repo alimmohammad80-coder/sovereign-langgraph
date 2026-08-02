@@ -142,18 +142,19 @@ class SEWSDeterministicIndicatorMatcher:
         metadata = evidence.get("metadata") or {}
 
         raw = (
-            evidence.get("corroboration_count")
-            or metadata.get("corroboration_count")
-            or metadata.get("duplicate_count")
-            or 0
+            evidence.get("source_diversity_count")
+            or metadata.get("source_diversity_count")
+            or 1
         )
 
         try:
-            count = max(0, int(raw))
+            count = max(1, int(raw))
         except Exception:
-            count = 0
+            count = 1
 
-        return self._bounded(count / 3.0)
+        # Only distinct sources increase corroboration confidence.
+        # Repeated reporting from the same source does not.
+        return self._bounded((count - 1) / 3.0)
 
     def _lexical_scores(
         self,

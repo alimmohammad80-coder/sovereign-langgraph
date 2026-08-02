@@ -51,6 +51,7 @@ class SEWSWarningSupervisor:
             self.db.table("sews_raw_evidence")
             .select("*")
             .contains("metadata", {"warning_problem_key": problem_key})
+            .is_("duplicate_of_id", "null")
             .order("collected_at", desc=True)
             .limit(500)
             .execute()
@@ -286,7 +287,27 @@ class SEWSWarningSupervisor:
                             metadata={
                                 "match_score": match.score,
                                 "matched_terms": match.matched_terms,
+                                "score_breakdown": match.score_breakdown,
                                 "mapping_rationale": mapping.get("rationale"),
+                                "ranking_version": "sews-hybrid-ranking-v1",
+                                "duplicate_cluster_key": (
+                                    evidence.get("metadata", {}).get(
+                                        "duplicate_cluster_key"
+                                    )
+                                ),
+                                "corroboration_count": (
+                                    evidence.get("metadata", {}).get(
+                                        "corroboration_count",
+                                        1,
+                                    )
+                                ),
+                                "source_diversity_count": (
+                                    evidence.get("metadata", {}).get(
+                                        "source_diversity_count",
+                                        1,
+                                    )
+                                ),
+                                "canonical_evidence_id": evidence.get("id"),
                             },
                             evidence_links=[link],
                         )

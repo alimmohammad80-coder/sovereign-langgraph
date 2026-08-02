@@ -296,7 +296,7 @@ class StrategicIntelligenceProductService:
                 assessment.get("recommended_state") is not None
             ),
             "bluf_sentence_limit": bluf_sentences <= 7,
-            "analysis_word_range": 350 <= analysis_words <= 700,
+            "analysis_word_range": 500 <= analysis_words <= 700,
             "drivers_present": bool(deterministic_drivers),
             "contrary_evidence_section_present": (
                 "contrary_evidence" in model_payload
@@ -418,7 +418,7 @@ class StrategicIntelligenceProductService:
             else json.loads(response.content)
         )
 
-        max_attempts = 2
+        max_attempts = 3
 
         for attempt in range(max_attempts):
             qa = self._qa(
@@ -448,8 +448,30 @@ class StrategicIntelligenceProductService:
                 AIGatewayRequest(
                     task_type=AITaskType.FULL_ANALYSIS,
                     system_prompt=SYSTEM_PROMPT,
-                    user_prompt=json.dumps(context, ensure_ascii=False, default=str)
-                    + "\n\nYour previous report was too short. Regenerate the complete analysis so it is between 500 and 700 words while preserving the official deterministic assessment exactly.",
+                    user_prompt=(
+                        json.dumps(
+                            context,
+                            ensure_ascii=False,
+                            default=str,
+                        )
+                        + "\n\nPREVIOUS PRODUCT:\n"
+                        + json.dumps(
+                            payload,
+                            ensure_ascii=False,
+                            default=str,
+                        )
+                        + (
+                            f"\n\nThe previous full_analysis contains "
+                            f"{self._word_count(payload['full_analysis'])} words. "
+                            "Return the complete valid JSON product again with every "
+                            "required key. Expand only the full_analysis to 575–650 "
+                            "words by adding evidence-grounded explanation of drivers, "
+                            "contrary evidence, escalation pathways, implications, and "
+                            "monitoring priorities. Do not summarize or shorten it. "
+                            "Preserve the official deterministic probability, confidence, "
+                            "severity, state, drivers, and evidence exactly."
+                        )
+                    ),
                     preferred_provider=request.preferred_provider,
                     preferred_model=request.preferred_model,
                     response_format=AIResponseFormat.JSON,
