@@ -195,6 +195,8 @@ class IndicatorStateRecalculateRequest(ORMModel):
 
 
 class IndicatorStateResponse(ORMModel):
+    model_config = ConfigDict(from_attributes=True, extra="ignore")
+
     id: UUID
     state_key: str
     indicator_key: str

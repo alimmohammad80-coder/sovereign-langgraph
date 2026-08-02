@@ -132,41 +132,6 @@ class StrategicIntelligenceProductService:
         return len(re.findall(r"\b[\w'-]+\b", text))
 
     @staticmethod
-    def _indicator_drivers(
-        assessment: dict[str, Any],
-    ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-        snapshot = assessment.get("indicator_snapshot") or []
-        ordered = sorted(
-            snapshot,
-            key=lambda item: abs(
-                float(item.get("weighted_contribution") or 0)
-            ),
-            reverse=True,
-        )
-
-        drivers = []
-        contra = []
-
-        for item in ordered:
-            record = {
-                "indicator_key": item.get("indicator_key"),
-                "indicator_class": item.get("indicator_class"),
-                "current_value": item.get("current_value"),
-                "confidence": item.get("confidence"),
-                "weighted_contribution": item.get(
-                    "weighted_contribution"
-                ),
-                "status": item.get("status"),
-            }
-
-            if float(item.get("weighted_contribution") or 0) >= 0:
-                drivers.append(record)
-            else:
-                contra.append(record)
-
-        return drivers, contra
-
-    @staticmethod
     def _context_payload(
         problem: dict[str, Any],
         assessment: dict[str, Any],
@@ -296,6 +261,43 @@ class StrategicIntelligenceProductService:
         digest = hashlib.sha256(raw.encode()).hexdigest()[:20]
         return f"SIP-{problem_key}-{digest}".upper()
 
+
+    @staticmethod
+    def _indicator_drivers(
+        assessment: dict[str, Any],
+    ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+        snapshot = assessment.get("indicator_snapshot") or []
+
+        ordered = sorted(
+            snapshot,
+            key=lambda item: abs(float(item.get("weighted_contribution") or 0)),
+            reverse=True,
+        )
+
+        drivers = []
+        contra = []
+
+        for item in ordered:
+            record = {
+                "indicator_key": item.get("indicator_key"),
+                "indicator_class": item.get("indicator_class"),
+                "current_value": item.get("current_value"),
+                "confidence": item.get("confidence"),
+                "weighted_contribution": item.get("weighted_contribution"),
+                "status": item.get("status"),
+            }
+
+            if str(item.get("status", "")).upper() == "ACTIVE":
+                drivers.append(record)
+
+            if (
+                str(item.get("indicator_class", "")).upper() == "CONTRA"
+                or str(item.get("polarity", "")).upper() == "CONTRADICTING"
+            ):
+                contra.append(record)
+
+        return drivers, contra
+
     def generate(
         self,
         problem_key: str,
@@ -351,15 +353,54 @@ class StrategicIntelligenceProductService:
             else json.loads(response.content)
         )
 
-        qa = self._qa(
-            model_payload=payload,
-            assessment=assessment,
-            deterministic_drivers=deterministic_drivers,
-        )
+        max_attempts = 2
 
-        if not qa["passed"]:
-            raise StrategicIntelligenceProductError(
-                f"Product failed quality assurance: {qa}"
+        for attempt in range(max_attempts):
+            qa = self._qa(
+                model_payload=payload,
+                assessment=assessment,
+                deterministic_drivers=deterministic_drivers,
+            )
+
+            if qa["passed"]:
+                break
+
+            only_short_report = (
+                not qa["checks"]["analysis_word_range"]
+                and all(
+                    value
+                    for key, value in qa["checks"].items()
+                    if key != "analysis_word_range"
+                )
+            )
+
+            if not only_short_report or attempt == max_attempts - 1:
+                raise StrategicIntelligenceProductError(
+                    f"Product failed quality assurance: {qa}"
+                )
+
+            response = self.gateway.generate(
+                AIGatewayRequest(
+                    task_type=AITaskType.FULL_ANALYSIS,
+                    system_prompt=SYSTEM_PROMPT,
+                    user_prompt=json.dumps(context, ensure_ascii=False, default=str)
+                    + "\n\nYour previous report was too short. Regenerate the complete analysis so it is between 500 and 700 words while preserving the official deterministic assessment exactly.",
+                    preferred_provider=request.preferred_provider,
+                    preferred_model=request.preferred_model,
+                    response_format=AIResponseFormat.JSON,
+                    temperature=0.2,
+                    metadata={
+                        "problem_key": problem_key,
+                        "assessment_id": str(request.assessment_id),
+                        "product_type": request.product_type,
+                    },
+                )
+            )
+
+            payload = self._validate_model_payload(
+                response.parsed_json
+                if isinstance(response.parsed_json, dict)
+                else json.loads(response.content)
             )
 
         created_at = datetime.now(timezone.utc)

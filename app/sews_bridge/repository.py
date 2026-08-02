@@ -9,9 +9,25 @@ class SEWSBridgeRepository:
         result = self.db.table("sews_sources").select("id").eq("source_key", source_key).limit(1).execute()
         if result.data:
             return result.data[0]["id"]
+        source_types = {
+            "GOOGLE_NEWS_RSS": "NEWS",
+            "GDELT": "EVENT_DATA",
+            "NEWSAPI": "NEWS",
+            "WORLD_BANK": "ECONOMIC_DATA",
+            "IMF": "ECONOMIC_DATA",
+            "FRED": "FINANCIAL_DATA",
+            "EIA": "ENERGY_DATA",
+            "RELIEFWEB": "HUMANITARIAN_DATA",
+            "OFAC": "SANCTIONS_DATA",
+        }
+
         created = self.db.table("sews_sources").insert({
             "source_key": source_key,
             "name": source_key.replace("_", " ").title(),
+            "source_type": source_types.get(
+                source_key,
+                "OPEN_SOURCE",
+            ),
             "active": True,
             "metadata": {"managed_by": "sews-existing-source-bridge"},
         }).execute()

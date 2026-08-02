@@ -1,36 +1,29 @@
-# SEWS Warning Scoring Backend
+# SEWS Runtime Initialization
 
-This package adds the main deterministic SEWS warning assessment layer.
+Loads canonical indicator definitions and approved warning-to-indicator mappings into Supabase.
 
-## Install
+Endpoints:
 
-Extract into the repository root, then register:
+- `GET /api/sews/admin/runtime/status`
+- `POST /api/sews/admin/runtime/initialize`
+
+Register:
 
 ```python
-from app.routes.sews_warning_scoring import router as sews_warning_scoring_router
-app.include_router(sews_warning_scoring_router)
+from app.routes.sews_runtime_initialization import router as sews_runtime_initialization_router
+app.include_router(sews_runtime_initialization_router)
 ```
 
-## Test
-
-```bash
-PYTHONPATH=. pytest tests/test_sews_warning_scoring.py -v
-```
-
-## Endpoint
-
-```text
-POST /api/sews/warning-problems/{problem_key}/assess
-```
-
-Example body:
+Preview body:
 
 ```json
-{
-  "country_iso3": "IRN",
-  "region_key": "MIDDLE_EAST",
-  "minimum_indicator_confidence": 30,
-  "minimum_indicator_count": 2,
-  "persist": true
-}
+{"dry_run": true}
 ```
+
+Apply body:
+
+```json
+{"dry_run": false}
+```
+
+This does not invent observations, scores, or live evidence. It operationalizes the existing validated 1,920 framework references while consolidating duplicate `(problem_key, indicator_key)` pairs required by the database unique constraint.

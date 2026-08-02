@@ -71,6 +71,71 @@ class SEWSObservationService:
                 f"Evidence objects not found: {', '.join(missing)}"
             )
 
+        # Prevent duplicate observations for the same
+        # evidence-object / indicator / warning combination.
+        existing_links = (
+            self.db.table(
+                "sews_observation_evidence_links"
+            )
+            .select("observation_id,evidence_object_id")
+            .in_("evidence_object_id", evidence_ids)
+            .execute()
+        )
+
+        linked_observation_ids = {
+            row["observation_id"]
+            for row in (existing_links.data or [])
+        }
+
+        if linked_observation_ids:
+            existing_query = (
+                self.db.table("sews_observations")
+                .select(
+                    "id,observation_key,indicator_key,status,"
+                    "evidence_count,corroborated_source_count,"
+                    "source_reliability_mean,freshness_score,"
+                    "warning_problem_key"
+                )
+                .in_("id", list(linked_observation_ids))
+                .eq("indicator_key", request.indicator_key)
+            )
+
+            if request.warning_problem_key:
+                existing_query = existing_query.eq(
+                    "warning_problem_key",
+                    request.warning_problem_key,
+                )
+
+            existing_result = (
+                existing_query.limit(1).execute()
+            )
+
+            if existing_result.data:
+                existing = existing_result.data[0]
+
+                return ObservationResponse(
+                    id=existing["id"],
+                    observation_key=existing[
+                        "observation_key"
+                    ],
+                    indicator_key=existing[
+                        "indicator_key"
+                    ],
+                    status=existing["status"],
+                    evidence_count=existing[
+                        "evidence_count"
+                    ],
+                    corroborated_source_count=existing[
+                        "corroborated_source_count"
+                    ],
+                    source_reliability_mean=existing.get(
+                        "source_reliability_mean"
+                    ),
+                    freshness_score=existing.get(
+                        "freshness_score"
+                    ),
+                )
+
         invalid = [
             row["id"]
             for row in evidence_rows
