@@ -1,4 +1,5 @@
 
+from app.routes.sews_causal_simulation import router as sews_causal_simulation_router
 from app.routes.supply_chain_geo import router as supply_chain_geo_router
 from app.routes import global_risk
 from routers.context_memory import router as context_memory_router
@@ -89,6 +90,7 @@ app.add_middleware(
 )
 
 # Core platform routers
+app.include_router(sews_causal_simulation_router)
 app.include_router(sews_evidence_router)
 app.include_router(gdelt_router)
 app.include_router(ingest_router)
