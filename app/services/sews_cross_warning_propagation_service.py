@@ -45,16 +45,37 @@ class SEWSCrossWarningPropagationService:
         return latest
 
     def _dependencies(self) -> list[dict[str, Any]]:
-        return (
-            self.db.table("sews_warning_dependencies")
-            .select("*")
-            .eq("active", True)
-            .eq("direction_status", "VALIDATED")
-            .neq("relationship_type", "RELATED")
-            .execute()
-            .data
-            or []
-        )
+        rows: list[dict[str, Any]] = []
+        start = 0
+        page_size = 500
+
+        while True:
+            page = (
+                self.db.table("sews_warning_dependencies")
+                .select("*")
+                .eq("active", True)
+                .eq("direction_status", "VALIDATED")
+                .order("dependency_key")
+                .range(start, start + page_size - 1)
+                .execute()
+                .data
+                or []
+            )
+
+            rows.extend(page)
+
+            if len(page) < page_size:
+                break
+
+            start += page_size
+
+        return [
+            row
+            for row in rows
+            if str(
+                row.get("relationship_type") or ""
+            ).upper() != "RELATED"
+        ]
 
     def propagate(
         self,
@@ -71,6 +92,11 @@ class SEWSCrossWarningPropagationService:
 
         updates: list[dict[str, Any]] = []
         skipped = 0
+        skipped_by_reason: dict[str, int] = {
+            "missing_assessment": 0,
+            "lag_not_elapsed": 0,
+            "duplicate_propagation": 0,
+        }
 
         for dependency in dependencies:
             source_key = dependency["source_problem_key"]
@@ -81,6 +107,7 @@ class SEWSCrossWarningPropagationService:
 
             if not source or not target:
                 skipped += 1
+                skipped_by_reason["missing_assessment"] += 1
                 continue
 
             source_probability = float(
@@ -116,6 +143,7 @@ class SEWSCrossWarningPropagationService:
 
             if now < eligible_at:
                 skipped += 1
+                skipped_by_reason["lag_not_elapsed"] += 1
                 continue
 
             transmitted = self._bounded(
@@ -176,9 +204,61 @@ class SEWSCrossWarningPropagationService:
                 }
             )
 
+        persisted_updates: list[dict[str, Any]] = []
+
         if persist and updates:
             for item in updates:
-                (
+                existing = (
+                    self.db.table(
+                        "sews_cross_warning_propagation_runs"
+                    )
+                    .select("id,created_at")
+                    .eq(
+                        "dependency_key",
+                        item["dependency_key"],
+                    )
+                    .eq(
+                        "source_problem_key",
+                        item["source_problem_key"],
+                    )
+                    .eq(
+                        "target_problem_key",
+                        item["target_problem_key"],
+                    )
+                    .eq(
+                        "source_probability",
+                        item["source_probability"],
+                    )
+                    .eq(
+                        "target_probability_before",
+                        item[
+                            "target_probability_before"
+                        ],
+                    )
+                    .eq(
+                        "target_probability_after",
+                        item[
+                            "target_probability_after"
+                        ],
+                    )
+                    .eq(
+                        "formula_version",
+                        item["formula_version"],
+                    )
+                    .limit(1)
+                    .execute()
+                    .data
+                    or []
+                )
+
+                if existing:
+                    skipped += 1
+                    skipped_by_reason[
+                        "duplicate_propagation"
+                    ] += 1
+                    continue
+
+                inserted = (
                     self.db.table(
                         "sews_cross_warning_propagation_runs"
                     )
@@ -191,14 +271,25 @@ class SEWSCrossWarningPropagationService:
                         }
                     )
                     .execute()
+                    .data
+                    or []
                 )
+
+                if inserted:
+                    persisted_updates.append(item)
+
+        elif not persist:
+            persisted_updates = updates
 
         return {
             "relationships_considered": len(
                 dependencies
             ),
-            "propagations_created": len(updates),
+            "propagations_created": len(
+                persisted_updates
+            ),
             "propagations_skipped": skipped,
-            "updates": updates,
+            "skipped_by_reason": skipped_by_reason,
+            "updates": persisted_updates,
             "formula_version": FORMULA_VERSION,
         }

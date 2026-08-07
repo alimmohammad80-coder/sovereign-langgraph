@@ -49,15 +49,50 @@ class SEWSCausalNodeIndicatorLinkGenerator:
             weight = 1.0
         return round(min(10.0, max(0.1, weight)), 6)
 
+    def _fetch_all(
+        self,
+        table_name: str,
+        select_clause: str,
+        configure=None,
+        page_size: int = 1000,
+    ) -> list[dict[str, Any]]:
+        """Fetch every matching PostgREST row using explicit pagination."""
+        rows: list[dict[str, Any]] = []
+        start = 0
+
+        while True:
+            query = (
+                self.db.table(table_name)
+                .select(select_clause)
+            )
+
+            if configure is not None:
+                query = configure(query)
+
+            page = (
+                query.range(
+                    start,
+                    start + page_size - 1,
+                )
+                .execute()
+                .data
+                or []
+            )
+
+            rows.extend(page)
+
+            if len(page) < page_size:
+                break
+
+            start += page_size
+
+        return rows
+
     def _active_problem_keys(self) -> list[str]:
-        rows = (
-            self.db.table("sews_warning_problems")
-            .select("problem_key")
-            .eq("active", True)
-            .range(0, 4999)
-            .execute()
-            .data
-            or []
+        rows = self._fetch_all(
+            "sews_warning_problems",
+            "problem_key",
+            lambda query: query.eq("active", True),
         )
         return sorted({
             str(row["problem_key"])
@@ -68,42 +103,38 @@ class SEWSCausalNodeIndicatorLinkGenerator:
     def _nodes(self, problem_keys: list[str]) -> list[dict[str, Any]]:
         if not problem_keys:
             return []
-        return (
-            self.db.table("sews_causal_nodes")
-            .select("id,node_key,problem_key,node_type,active")
-            .in_("problem_key", problem_keys)
-            .eq("active", True)
-            .range(0, 4999)
-            .execute()
-            .data
-            or []
+
+        return self._fetch_all(
+            "sews_causal_nodes",
+            "id,node_key,problem_key,node_type,active",
+            lambda query: (
+                query
+                .in_("problem_key", problem_keys)
+                .eq("active", True)
+            ),
         )
 
     def _mappings(self, problem_keys: list[str]) -> list[dict[str, Any]]:
         if not problem_keys:
             return []
-        return (
-            self.db.table("sews_warning_problem_indicators")
-            .select(
+
+        return self._fetch_all(
+            "sews_warning_problem_indicators",
+            (
                 "problem_key,indicator_key,indicator_class,"
                 "weight,polarity,active"
-            )
-            .in_("problem_key", problem_keys)
-            .eq("active", True)
-            .range(0, 9999)
-            .execute()
-            .data
-            or []
+            ),
+            lambda query: (
+                query
+                .in_("problem_key", problem_keys)
+                .eq("active", True)
+            ),
         )
 
     def _existing_links(self) -> set[tuple[str, str, str]]:
-        rows = (
-            self.db.table("sews_causal_node_indicator_links")
-            .select("node_id,indicator_key,influence_type")
-            .range(0, 99999)
-            .execute()
-            .data
-            or []
+        rows = self._fetch_all(
+            "sews_causal_node_indicator_links",
+            "node_id,indicator_key,influence_type",
         )
         return {
             (

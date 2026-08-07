@@ -1,12 +1,18 @@
 from __future__ import annotations
 
+import json
 from datetime import datetime, timezone
+from pathlib import Path
 from statistics import mean
 from typing import Any
 
 from supabase import Client
 
 PRODUCT_VERSION = "sews-strategic-intelligence-product-v1.0.0"
+
+WARNING_REGISTRY_PATH = Path(
+    "app/data/sews_global_warning_registry.json"
+)
 
 
 class SEWSStrategicIntelligenceProductError(RuntimeError):
@@ -16,6 +22,185 @@ class SEWSStrategicIntelligenceProductError(RuntimeError):
 class SEWSStrategicIntelligenceProductionService:
     def __init__(self, db: Client):
         self.db = db
+        self._warning_registry = (
+            self._load_warning_registry()
+        )
+
+    @staticmethod
+    def _load_warning_registry() -> dict[str, dict[str, Any]]:
+        if not WARNING_REGISTRY_PATH.exists():
+            return {}
+
+        try:
+            payload = json.loads(
+                WARNING_REGISTRY_PATH.read_text()
+            )
+        except (
+            OSError,
+            json.JSONDecodeError,
+        ):
+            return {}
+
+        records = (
+            payload.get("warning_problems")
+            or payload.get("problems")
+            or payload.get("registry")
+            or []
+        )
+
+        if isinstance(records, dict):
+            records = list(records.values())
+
+        registry: dict[str, dict[str, Any]] = {}
+
+        for item in records:
+            if not isinstance(item, dict):
+                continue
+
+            problem_key = (
+                item.get("problem_key")
+                or item.get("warning_problem_key")
+            )
+
+            if problem_key:
+                registry[str(problem_key)] = item
+
+        return registry
+
+    @staticmethod
+    def _normalize_countries(value: Any) -> list[str]:
+        if value is None:
+            return []
+
+        if isinstance(value, str):
+            values = [
+                item.strip()
+                for item in value.split(",")
+                if item.strip()
+            ]
+        elif isinstance(value, list):
+            values = value
+        elif isinstance(value, dict):
+            values = (
+                value.get("countries")
+                or value.get("country_iso3")
+                or value.get("country_codes")
+                or value.get("iso3")
+                or []
+            )
+
+            if isinstance(values, str):
+                values = [values]
+        else:
+            return []
+
+        countries: list[str] = []
+
+        for item in values:
+            if isinstance(item, str):
+                code = item.strip().upper()
+            elif isinstance(item, dict):
+                code = str(
+                    item.get("iso3")
+                    or item.get("country_iso3")
+                    or item.get("code")
+                    or ""
+                ).strip().upper()
+            else:
+                code = ""
+
+            if code and code not in countries:
+                countries.append(code)
+
+        return countries
+
+    def _registry_problem(
+        self,
+        problem_key: str,
+    ) -> dict[str, Any]:
+        return self._warning_registry.get(
+            problem_key,
+            {},
+        )
+
+    def _geography(
+        self,
+        problem: dict[str, Any],
+    ) -> tuple[
+        str | None,
+        list[str],
+        dict[str, Any],
+    ]:
+        problem_key = str(
+            problem.get("problem_key")
+            or problem.get("warning_problem_key")
+            or ""
+        )
+
+        registry_problem = self._registry_problem(
+            problem_key
+        )
+
+        database_scope = (
+            problem.get("geographic_scope")
+            or problem.get("geography")
+            or {}
+        )
+
+        registry_scope = (
+            registry_problem.get("geographic_scope")
+            or registry_problem.get("geography")
+            or {}
+        )
+
+        if not isinstance(database_scope, dict):
+            database_scope = {}
+
+        if not isinstance(registry_scope, dict):
+            registry_scope = {}
+
+        region = (
+            problem.get("region")
+            or problem.get("region_key")
+            or database_scope.get("region")
+            or database_scope.get("region_key")
+            or registry_problem.get("region")
+            or registry_problem.get("region_key")
+            or registry_scope.get("region")
+            or registry_scope.get("region_key")
+        )
+
+        country_candidates = (
+            problem.get("countries")
+            or problem.get("country_iso3")
+            or problem.get("country_codes")
+            or database_scope.get("countries")
+            or database_scope.get("country_iso3")
+            or database_scope.get("country_codes")
+            or registry_problem.get("countries")
+            or registry_problem.get("country_iso3")
+            or registry_problem.get("country_codes")
+            or registry_scope.get("countries")
+            or registry_scope.get("country_iso3")
+            or registry_scope.get("country_codes")
+        )
+
+        countries = self._normalize_countries(
+            country_candidates
+        )
+
+        geographic_scope = {
+            **registry_scope,
+            **database_scope,
+            "region": region,
+            "countries": countries,
+        }
+
+        return (
+            str(region) if region else None,
+            countries,
+            geographic_scope,
+        )
 
     @staticmethod
     def _probability_band(value: float) -> str:
@@ -30,12 +215,32 @@ class SEWSStrategicIntelligenceProductionService:
         return "Critical"
 
     @staticmethod
-    def _confidence_label(value: float) -> str:
+    def _confidence_label(
+        value: float | None,
+        *,
+        evidence_count: int = 0,
+        active_indicator_count: int = 0,
+    ) -> str:
+        if value is None:
+            return "Insufficient Evidence"
+
+        if (
+            value <= 0
+            and evidence_count <= 0
+            and active_indicator_count <= 0
+        ):
+            return "Insufficient Evidence"
+
         if value >= 75:
             return "High"
+
         if value >= 50:
             return "Moderate"
-        return "Low"
+
+        if value >= 25:
+            return "Low"
+
+        return "Very Low"
 
     @staticmethod
     def _trend(current: float, previous: float | None) -> str:
@@ -122,48 +327,270 @@ class SEWSStrategicIntelligenceProductionService:
         )
 
     @staticmethod
-    def _drivers(states: list[dict[str, Any]]) -> list[dict[str, Any]]:
-        active = [
-            row for row in states
-            if str(row.get("status") or "").upper() == "ACTIVE"
+    def _drivers(
+        states: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        candidates = [
+            row
+            for row in states
+            if row.get("indicator_key")
             and row.get("current_value") is not None
-        ]
-        ranked = sorted(
-            active,
-            key=lambda row: float(row.get("current_value") or 0)
-            * float(row.get("confidence") or 0),
-            reverse=True,
-        )
-        return [
-            {
-                "indicator_key": row["indicator_key"],
-                "current_value": float(row.get("current_value") or 0),
-                "confidence": float(row.get("confidence") or 0),
-                "evidence_count": int(row.get("evidence_count") or 0),
-            }
-            for row in ranked[:8]
+            and (
+                int(row.get("evidence_count") or 0) > 0
+                or float(row.get("confidence") or 0) > 0
+            )
         ]
 
+        def rank_score(row: dict[str, Any]) -> float:
+            status = str(
+                row.get("status") or ""
+            ).upper()
+
+            status_weight = {
+                "ACTIVE": 1.0,
+                "WATCH": 0.85,
+                "OBSERVED": 0.80,
+                "INACTIVE": 0.60,
+                "INSUFFICIENT_EVIDENCE": 0.35,
+            }.get(status, 0.50)
+
+            current_value = abs(
+                float(row.get("current_value") or 0)
+            )
+
+            confidence = (
+                float(row.get("confidence") or 0)
+                / 100.0
+            )
+
+            evidence_factor = min(
+                1.0,
+                int(row.get("evidence_count") or 0)
+                / 5.0,
+            )
+
+            freshness = (
+                float(row.get("freshness_score") or 0)
+                / 100.0
+            )
+
+            return (
+                current_value
+                * max(confidence, 0.10)
+                * max(evidence_factor, 0.20)
+                * max(freshness, 0.25)
+                * status_weight
+            )
+
+        ranked = sorted(
+            candidates,
+            key=rank_score,
+            reverse=True,
+        )
+
+        drivers = []
+
+        for row in ranked[:8]:
+            drivers.append(
+                {
+                    "indicator_key": row["indicator_key"],
+                    "current_value": round(
+                        float(
+                            row.get("current_value") or 0
+                        ),
+                        4,
+                    ),
+                    "confidence": round(
+                        float(row.get("confidence") or 0),
+                        2,
+                    ),
+                    "evidence_count": int(
+                        row.get("evidence_count") or 0
+                    ),
+                    "status": str(
+                        row.get("status") or "UNKNOWN"
+                    ).upper(),
+                    "freshness_score": round(
+                        float(
+                            row.get("freshness_score") or 0
+                        ),
+                        2,
+                    ),
+                    "driver_score": round(
+                        rank_score(row),
+                        6,
+                    ),
+                }
+            )
+
+        return drivers
+
     @staticmethod
-    def _confidence_explanation(states: list[dict[str, Any]], confidence: float) -> dict[str, Any]:
-        active = [r for r in states if str(r.get("status") or "").upper() == "ACTIVE"]
-        evidence_count = sum(int(r.get("evidence_count") or 0) for r in active)
-        source_count = max([int(r.get("corroborated_source_count") or 0) for r in active] or [0])
-        freshness_values = [float(r.get("freshness_score") or 0) for r in active]
-        contradicting = sum(int(r.get("contradicting_evidence_count") or 0) for r in active)
-        supporting = sum(int(r.get("supporting_evidence_count") or 0) for r in active)
+    def _confidence_explanation(
+        states: list[dict[str, Any]],
+        evidence: list[dict[str, Any]],
+        raw_confidence: float,
+    ) -> dict[str, Any]:
+        active = [
+            row
+            for row in states
+            if str(
+                row.get("status") or ""
+            ).upper() == "ACTIVE"
+        ]
+
+        active_indicator_evidence_count = sum(
+            int(row.get("evidence_count") or 0)
+            for row in active
+        )
+
+        raw_evidence_count = len(evidence)
+
+        evidence_ids = {
+            str(row.get("id"))
+            for row in evidence
+            if row.get("id")
+        }
+
+        source_ids = {
+            str(row.get("source_id"))
+            for row in evidence
+            if row.get("source_id")
+        }
+
+        state_source_count = max(
+            [
+                int(
+                    row.get(
+                        "corroborated_source_count"
+                    )
+                    or 0
+                )
+                for row in active
+            ]
+            or [0]
+        )
+
+        corroborated_source_count = max(
+            state_source_count,
+            len(source_ids),
+        )
+
+        freshness_values = [
+            float(row.get("freshness_score") or 0)
+            for row in active
+            if row.get("freshness_score") is not None
+        ]
+
+        contradicting = sum(
+            int(
+                row.get(
+                    "contradicting_evidence_count"
+                )
+                or 0
+            )
+            for row in active
+        )
+
+        supporting = sum(
+            int(
+                row.get(
+                    "supporting_evidence_count"
+                )
+                or 0
+            )
+            for row in active
+        )
+
+        total_evidence_count = max(
+            raw_evidence_count,
+            len(evidence_ids),
+            active_indicator_evidence_count,
+        )
+
+        eligibility_failures: list[str] = []
+
+        if raw_confidence < 50:
+            eligibility_failures.append(
+                "raw_confidence_below_50"
+            )
+
+        if total_evidence_count < 2:
+            eligibility_failures.append(
+                "fewer_than_2_evidence_records"
+            )
+
+        if (
+            corroborated_source_count < 1
+            and not active
+        ):
+            eligibility_failures.append(
+                "no_identifiable_source_or_active_indicator"
+            )
+
+        assessed = not eligibility_failures
+
+        score = (
+            round(raw_confidence, 2)
+            if assessed
+            else None
+        )
+
+        status = (
+            "ASSESSED"
+            if assessed
+            else "INSUFFICIENT_EVIDENCE"
+        )
+
         return {
-            "label": SEWSStrategicIntelligenceProductionService._confidence_label(confidence),
-            "score": round(confidence, 2),
+            "label": (
+                SEWSStrategicIntelligenceProductionService
+                ._confidence_label(raw_confidence)
+            ),
+            "score": score,
+            "raw_score": round(raw_confidence, 2),
+            "assessment_status": status,
+            "eligibility_failures": (
+                eligibility_failures
+            ),
+            "insufficient_evidence_reasons": (
+                eligibility_failures
+            ),
             "active_indicator_count": len(active),
-            "evidence_count": evidence_count,
-            "corroborated_source_count": source_count,
-            "mean_freshness": round(mean(freshness_values), 2) if freshness_values else 0.0,
-            "contradiction_ratio": round(contradicting / max(1, supporting + contradicting), 4),
+            "active_indicator_evidence_count": (
+                active_indicator_evidence_count
+            ),
+            "raw_evidence_count": raw_evidence_count,
+            "evidence_count": total_evidence_count,
+            "corroborated_source_count": (
+                corroborated_source_count
+            ),
+            "mean_freshness": (
+                round(mean(freshness_values), 2)
+                if freshness_values
+                else 0.0
+            ),
+            "contradiction_ratio": round(
+                contradicting
+                / max(
+                    1,
+                    supporting + contradicting,
+                ),
+                4,
+            ),
             "remaining_uncertainty": [
-                "Leadership intent and decision thresholds",
-                "Potentially classified military or diplomatic activity",
-                "Incomplete source coverage in low-transparency environments",
+                (
+                    "Leadership intent and decision "
+                    "thresholds"
+                ),
+                (
+                    "Potentially classified military "
+                    "or diplomatic activity"
+                ),
+                (
+                    "Incomplete source coverage in "
+                    "low-transparency environments"
+                ),
             ],
         }
 
@@ -220,20 +647,54 @@ class SEWSStrategicIntelligenceProductionService:
 
     @staticmethod
     def _analysis(problem: dict[str, Any], probability: float, confidence: float, trend: str, drivers: list[dict[str, Any]], evidence: list[dict[str, Any]], confidence_explanation: dict[str, Any]) -> tuple[str, str, str]:
-        band = SEWSStrategicIntelligenceProductionService._probability_band(probability)
-        confidence_label = SEWSStrategicIntelligenceProductionService._confidence_label(confidence)
-        driver_names = [item["indicator_key"] for item in drivers[:5]]
-        driver_text = ", ".join(driver_names) if driver_names else "no sufficiently active indicators"
+        band = (
+            SEWSStrategicIntelligenceProductionService
+            ._probability_band(probability)
+        )
+
         evidence_count = len(evidence)
+
+        confidence_label = (
+            confidence_explanation.get("label")
+            or "Insufficient Evidence"
+        )
+
+        confidence_status = (
+            confidence_explanation.get(
+                "assessment_status"
+            )
+            or "INSUFFICIENT_EVIDENCE"
+        )
+
+        driver_names = [
+            item["indicator_key"]
+            for item in drivers[:5]
+        ]
+
+        driver_text = (
+            ", ".join(driver_names)
+            if driver_names
+            else (
+                "no indicator currently has sufficient "
+                "measurement support for driver ranking"
+            )
+        )
+
+        confidence_text = (
+            f"{confidence_label.lower()} at "
+            f"{confidence:.0f}%"
+            if confidence_status == "ASSESSED"
+            else "not yet assessable because the evidence base is insufficient"
+        )
         bluf = (
             f"The assessed probability of {problem['title']} is {probability:.0%}, placing the warning in the {band.lower()} range. "
-            f"The current trajectory is {trend.lower()}. Confidence is {confidence_label.lower()} at {confidence:.0f}%, based on "
+            f"The current trajectory is {trend.lower()}. Confidence is {confidence_text}, based on "
             f"{confidence_explanation['active_indicator_count']} active indicators and {evidence_count} recent evidence records. "
             f"The strongest observed drivers are {driver_text}. The assessment should be updated if new evidence materially changes indicator activation, freshness, or corroboration."
         )
         executive = (
             f"{problem['title']} remains assessed at {probability:.0%} probability over the stated {problem.get('horizon_days') or 90}-day horizon. "
-            f"The latest causal assessment indicates a {trend.lower()} trajectory with {confidence_label.lower()} confidence. "
+            f"The latest causal assessment indicates a {trend.lower()} trajectory; confidence is {confidence_text}. "
             f"The current judgment is driven primarily by {driver_text}. Collection should prioritize unresolved indicator gaps and independent corroboration of high-impact reporting."
         )
         sections = [
@@ -252,12 +713,47 @@ class SEWSStrategicIntelligenceProductionService:
         previous = self._previous_causal(problem_key, str(causal["id"]))
         states = self._states(problem_key)
         evidence = self._evidence(problem_key)
-        probability = float(causal["outcome_probability"])
-        confidence = float(causal.get("confidence_score") or 0)
-        previous_probability = float(previous["outcome_probability"]) if previous and previous.get("outcome_probability") is not None else None
-        trend = self._trend(probability, previous_probability)
+        probability = float(
+            causal["outcome_probability"]
+        )
+
+        raw_confidence = float(
+            causal.get("confidence_score") or 0
+        )
+
+        previous_probability = (
+            float(previous["outcome_probability"])
+            if previous
+            and previous.get("outcome_probability") is not None
+            else None
+        )
+
+        trend = self._trend(
+            probability,
+            previous_probability,
+        )
+
         drivers = self._drivers(states)
-        confidence_explanation = self._confidence_explanation(states, confidence)
+
+        confidence_explanation = (
+            self._confidence_explanation(
+                states,
+                evidence,
+                raw_confidence,
+            )
+        )
+
+        confidence_status = (
+            confidence_explanation.get(
+                "assessment_status"
+            )
+            or "INSUFFICIENT_EVIDENCE"
+        )
+
+        confidence = confidence_explanation.get(
+            "score"
+        )
+
         forecast = self._forecast(probability, int(problem.get("horizon_days") or 90))
         scenarios = self._scenarios(probability)
         gaps = self._gaps(states)
@@ -266,15 +762,51 @@ class SEWSStrategicIntelligenceProductionService:
 
         countries = problem.get("countries") or []
         country_iso3 = countries[0] if isinstance(countries, list) and countries else None
+        region, countries, geographic_scope = (
+            self._geography(problem)
+        )
+
+        country_iso3 = (
+            countries[0]
+            if countries
+            else None
+        )
+
         product = {
             "warning_problem_key": problem_key,
             "causal_assessment_id": causal["id"],
             "warning_assessment_id": causal.get("warning_assessment_id"),
             "country_iso3": country_iso3,
-            "region_key": problem.get("region"),
+            "region_key": region,
+            "region": region,
+            "countries": (
+                countries
+                if isinstance(countries, list)
+                else []
+            ),
+            "geographic_scope": {
+                "region": region,
+                "countries": (
+                    countries
+                    if isinstance(countries, list)
+                    else []
+                ),
+            },
             "generated_at": datetime.now(timezone.utc).isoformat(),
             "probability": probability,
-            "confidence": confidence,
+            "confidence": (
+                confidence
+                if confidence_explanation.get(
+                    "assessment_status"
+                ) == "ASSESSED"
+                else None
+            ),
+            "raw_confidence": confidence,
+            "confidence_status": (
+                confidence_explanation.get(
+                    "assessment_status"
+                )
+            ),
             "trend": trend,
             "bluf": bluf,
             "executive_summary": executive,

@@ -1,0 +1,1302 @@
+{
+  "catalog_version": "sews-phase6-cross-warning-dependencies-v1",
+  "relationship_count": 72,
+  "relationships": [
+    {
+      "dependency_key": "SEWS-DEP-F9FC90AE7C3C12E6",
+      "source_problem_key": "WP-SCS-CHN-PHL-ESCALATION",
+      "target_problem_key": "WP-TRADE-WAR-ESCALATION",
+      "relationship_type": "AMPLIFIES",
+      "direction_status": "VALIDATED",
+      "transmission_strength": 0.54,
+      "conditional_probability": 0.46,
+      "lag_hours": 72,
+      "rationale": "A sustained South China Sea crisis would increase the probability of sanctions, export controls, and retaliatory trade measures.",
+      "active": true,
+      "metadata": {
+        "generator_version": "sews-phase6-curated-dependency-expansion-v1",
+        "validation_version": "sews-curated-analytic-validation-v1",
+        "registry_version": "sews-global-registry-v1.1",
+        "analytic_basis": "curated deterministic cross-warning transmission contract"
+      }
+    },
+    {
+      "dependency_key": "SEWS-DEP-65E978A21B04507D",
+      "source_problem_key": "WP-SCS-CHN-PHL-ESCALATION",
+      "target_problem_key": "WP-CONTAINER-SHIPPING-SHOCK",
+      "relationship_type": "TRANSMITS",
+      "direction_status": "VALIDATED",
+      "transmission_strength": 0.48,
+      "conditional_probability": 0.42,
+      "lag_hours": 48,
+      "rationale": "Maritime insecurity in the South China Sea can raise rerouting, insurance, delay, and freight-rate pressure.",
+      "active": true,
+      "metadata": {
+        "generator_version": "sews-phase6-curated-dependency-expansion-v1",
+        "validation_version": "sews-curated-analytic-validation-v1",
+        "registry_version": "sews-global-registry-v1.1",
+        "analytic_basis": "curated deterministic cross-warning transmission contract"
+      }
+    },
+    {
+      "dependency_key": "SEWS-DEP-62A3C20B4E70CCBD",
+      "source_problem_key": "WP-ECS-CHN-JPN-CRISIS",
+      "target_problem_key": "WP-TRADE-WAR-ESCALATION",
+      "relationship_type": "AMPLIFIES",
+      "direction_status": "VALIDATED",
+      "transmission_strength": 0.57,
+      "conditional_probability": 0.49,
+      "lag_hours": 72,
+      "rationale": "A China–Japan crisis would increase the likelihood of coordinated economic restrictions and commercial retaliation.",
+      "active": true,
+      "metadata": {
+        "generator_version": "sews-phase6-curated-dependency-expansion-v1",
+        "validation_version": "sews-curated-analytic-validation-v1",
+        "registry_version": "sews-global-registry-v1.1",
+        "analytic_basis": "curated deterministic cross-warning transmission contract"
+      }
+    },
+    {
+      "dependency_key": "SEWS-DEP-6CE03DF7DE9B0006",
+      "source_problem_key": "WP-ECS-CHN-JPN-CRISIS",
+      "target_problem_key": "WP-SEMICONDUCTOR-SHOCK",
+      "relationship_type": "TRANSMITS",
+      "direction_status": "VALIDATED",
+      "transmission_strength": 0.46,
+      "conditional_probability": 0.4,
+      "lag_hours": 96,
+      "rationale": "Escalation affecting Japan and East China Sea logistics can disrupt semiconductor materials, equipment, and transport flows.",
+      "active": true,
+      "metadata": {
+        "generator_version": "sews-phase6-curated-dependency-expansion-v1",
+        "validation_version": "sews-curated-analytic-validation-v1",
+        "registry_version": "sews-global-registry-v1.1",
+        "analytic_basis": "curated deterministic cross-warning transmission contract"
+      }
+    },
+    {
+      "dependency_key": "SEWS-DEP-FF32A0543E51422C",
+      "source_problem_key": "WP-IND-CHN-BORDER-CRISIS",
+      "target_problem_key": "WP-TRADE-WAR-ESCALATION",
+      "relationship_type": "AMPLIFIES",
+      "direction_status": "VALIDATED",
+      "transmission_strength": 0.44,
+      "conditional_probability": 0.38,
+      "lag_hours": 120,
+      "rationale": "A sustained India–China border crisis would raise the probability of bilateral trade restrictions and technology controls.",
+      "active": true,
+      "metadata": {
+        "generator_version": "sews-phase6-curated-dependency-expansion-v1",
+        "validation_version": "sews-curated-analytic-validation-v1",
+        "registry_version": "sews-global-registry-v1.1",
+        "analytic_basis": "curated deterministic cross-warning transmission contract"
+      }
+    },
+    {
+      "dependency_key": "SEWS-DEP-FD1F4AAEE4B6DB21",
+      "source_problem_key": "WP-IND-PAK-ESCALATION",
+      "target_problem_key": "WP-PAK-POLITICAL-INSTABILITY",
+      "relationship_type": "AMPLIFIES",
+      "direction_status": "VALIDATED",
+      "transmission_strength": 0.68,
+      "conditional_probability": 0.61,
+      "lag_hours": 24,
+      "rationale": "Military escalation would intensify domestic political, fiscal, and security pressure in Pakistan.",
+      "active": true,
+      "metadata": {
+        "generator_version": "sews-phase6-curated-dependency-expansion-v1",
+        "validation_version": "sews-curated-analytic-validation-v1",
+        "registry_version": "sews-global-registry-v1.1",
+        "analytic_basis": "curated deterministic cross-warning transmission contract"
+      }
+    },
+    {
+      "dependency_key": "SEWS-DEP-2DAECED5605F85E0",
+      "source_problem_key": "WP-IND-PAK-ESCALATION",
+      "target_problem_key": "WP-FOOD-SECURITY-SHOCK",
+      "relationship_type": "TRANSMITS",
+      "direction_status": "VALIDATED",
+      "transmission_strength": 0.35,
+      "conditional_probability": 0.3,
+      "lag_hours": 336,
+      "rationale": "Prolonged conflict could disrupt agriculture, trade, transport, and humanitarian access across vulnerable areas.",
+      "active": true,
+      "metadata": {
+        "generator_version": "sews-phase6-curated-dependency-expansion-v1",
+        "validation_version": "sews-curated-analytic-validation-v1",
+        "registry_version": "sews-global-registry-v1.1",
+        "analytic_basis": "curated deterministic cross-warning transmission contract"
+      }
+    },
+    {
+      "dependency_key": "SEWS-DEP-1110EA2AF1EEDE41",
+      "source_problem_key": "WP-TWN-BLOCKADE",
+      "target_problem_key": "WP-CONTAINER-SHIPPING-SHOCK",
+      "relationship_type": "CAUSES",
+      "direction_status": "VALIDATED",
+      "transmission_strength": 0.86,
+      "conditional_probability": 0.79,
+      "lag_hours": 12,
+      "rationale": "A blockade or coercive quarantine around Taiwan would immediately disrupt major container and transshipment routes.",
+      "active": true,
+      "metadata": {
+        "generator_version": "sews-phase6-curated-dependency-expansion-v1",
+        "validation_version": "sews-curated-analytic-validation-v1",
+        "registry_version": "sews-global-registry-v1.1",
+        "analytic_basis": "curated deterministic cross-warning transmission contract"
+      }
+    },
+    {
+      "dependency_key": "SEWS-DEP-53999A480E8D9CC9",
+      "source_problem_key": "WP-TWN-BLOCKADE",
+      "target_problem_key": "WP-TRADE-WAR-ESCALATION",
+      "relationship_type": "AMPLIFIES",
+      "direction_status": "VALIDATED",
+      "transmission_strength": 0.82,
+      "conditional_probability": 0.76,
+      "lag_hours": 24,
+      "rationale": "A Taiwan blockade would trigger extensive sanctions, export controls, and retaliatory trade measures.",
+      "active": true,
+      "metadata": {
+        "generator_version": "sews-phase6-curated-dependency-expansion-v1",
+        "validation_version": "sews-curated-analytic-validation-v1",
+        "registry_version": "sews-global-registry-v1.1",
+        "analytic_basis": "curated deterministic cross-warning transmission contract"
+      }
+    },
+    {
+      "dependency_key": "SEWS-DEP-674797E48155C608",
+      "source_problem_key": "WP-TWN-BLOCKADE",
+      "target_problem_key": "WP-SCS-CHN-PHL-ESCALATION",
+      "relationship_type": "AMPLIFIES",
+      "direction_status": "VALIDATED",
+      "transmission_strength": 0.53,
+      "conditional_probability": 0.47,
+      "lag_hours": 24,
+      "rationale": "A Taiwan crisis would increase military activity and escalation risk across the northern South China Sea.",
+      "active": true,
+      "metadata": {
+        "generator_version": "sews-phase6-curated-dependency-expansion-v1",
+        "validation_version": "sews-curated-analytic-validation-v1",
+        "registry_version": "sews-global-registry-v1.1",
+        "analytic_basis": "curated deterministic cross-warning transmission contract"
+      }
+    },
+    {
+      "dependency_key": "SEWS-DEP-5E12E731D3143DEA",
+      "source_problem_key": "WP-SEMICONDUCTOR-SHOCK",
+      "target_problem_key": "WP-GLOBAL-RECESSION",
+      "relationship_type": "TRANSMITS",
+      "direction_status": "VALIDATED",
+      "transmission_strength": 0.52,
+      "conditional_probability": 0.44,
+      "lag_hours": 720,
+      "rationale": "A prolonged semiconductor shortage would constrain industrial production and investment across major economies.",
+      "active": true,
+      "metadata": {
+        "generator_version": "sews-phase6-curated-dependency-expansion-v1",
+        "validation_version": "sews-curated-analytic-validation-v1",
+        "registry_version": "sews-global-registry-v1.1",
+        "analytic_basis": "curated deterministic cross-warning transmission contract"
+      }
+    },
+    {
+      "dependency_key": "SEWS-DEP-4F2329CEA83EC40D",
+      "source_problem_key": "WP-CRITICAL-MINERALS-RESTRICTION",
+      "target_problem_key": "WP-TRADE-WAR-ESCALATION",
+      "relationship_type": "AMPLIFIES",
+      "direction_status": "VALIDATED",
+      "transmission_strength": 0.66,
+      "conditional_probability": 0.59,
+      "lag_hours": 72,
+      "rationale": "Strategic mineral restrictions would increase retaliatory trade and industrial-policy measures.",
+      "active": true,
+      "metadata": {
+        "generator_version": "sews-phase6-curated-dependency-expansion-v1",
+        "validation_version": "sews-curated-analytic-validation-v1",
+        "registry_version": "sews-global-registry-v1.1",
+        "analytic_basis": "curated deterministic cross-warning transmission contract"
+      }
+    },
+    {
+      "dependency_key": "SEWS-DEP-550CD8E66788DD8D",
+      "source_problem_key": "WP-TRADE-WAR-ESCALATION",
+      "target_problem_key": "WP-SEMICONDUCTOR-SHOCK",
+      "relationship_type": "AMPLIFIES",
+      "direction_status": "VALIDATED",
+      "transmission_strength": 0.71,
+      "conditional_probability": 0.65,
+      "lag_hours": 168,
+      "rationale": "Export controls and retaliatory restrictions can materially constrain semiconductor equipment, inputs, and markets.",
+      "active": true,
+      "metadata": {
+        "generator_version": "sews-phase6-curated-dependency-expansion-v1",
+        "validation_version": "sews-curated-analytic-validation-v1",
+        "registry_version": "sews-global-registry-v1.1",
+        "analytic_basis": "curated deterministic cross-warning transmission contract"
+      }
+    },
+    {
+      "dependency_key": "SEWS-DEP-BDB2F102E733376F",
+      "source_problem_key": "WP-TRADE-WAR-ESCALATION",
+      "target_problem_key": "WP-GLOBAL-RECESSION",
+      "relationship_type": "TRANSMITS",
+      "direction_status": "VALIDATED",
+      "transmission_strength": 0.58,
+      "conditional_probability": 0.5,
+      "lag_hours": 720,
+      "rationale": "A major-power trade war would reduce trade, investment, productivity, and business confidence.",
+      "active": true,
+      "metadata": {
+        "generator_version": "sews-phase6-curated-dependency-expansion-v1",
+        "validation_version": "sews-curated-analytic-validation-v1",
+        "registry_version": "sews-global-registry-v1.1",
+        "analytic_basis": "curated deterministic cross-warning transmission contract"
+      }
+    },
+    {
+      "dependency_key": "SEWS-DEP-763FF172FC48FEA3",
+      "source_problem_key": "WP-UKR-FRONT-DETERIORATION",
+      "target_problem_key": "WP-RUS-NATO-SPILLOVER",
+      "relationship_type": "AMPLIFIES",
+      "direction_status": "VALIDATED",
+      "transmission_strength": 0.71,
+      "conditional_probability": 0.63,
+      "lag_hours": 24,
+      "rationale": "A major deterioration on the Ukrainian front increases the risk of incidents involving NATO territory, forces, or logistics.",
+      "active": true,
+      "metadata": {
+        "generator_version": "sews-phase6-curated-dependency-expansion-v1",
+        "validation_version": "sews-curated-analytic-validation-v1",
+        "registry_version": "sews-global-registry-v1.1",
+        "analytic_basis": "curated deterministic cross-warning transmission contract"
+      }
+    },
+    {
+      "dependency_key": "SEWS-DEP-C0E9ED3C27894C2E",
+      "source_problem_key": "WP-RUS-NATO-SPILLOVER",
+      "target_problem_key": "WP-EU-GAS-SUPPLY-SHOCK",
+      "relationship_type": "AMPLIFIES",
+      "direction_status": "VALIDATED",
+      "transmission_strength": 0.62,
+      "conditional_probability": 0.55,
+      "lag_hours": 24,
+      "rationale": "Direct Russia–NATO escalation would increase the probability of gas infrastructure, transit, or supply disruption.",
+      "active": true,
+      "metadata": {
+        "generator_version": "sews-phase6-curated-dependency-expansion-v1",
+        "validation_version": "sews-curated-analytic-validation-v1",
+        "registry_version": "sews-global-registry-v1.1",
+        "analytic_basis": "curated deterministic cross-warning transmission contract"
+      }
+    },
+    {
+      "dependency_key": "SEWS-DEP-5321217E1AEFDAAC",
+      "source_problem_key": "WP-EU-GAS-SUPPLY-SHOCK",
+      "target_problem_key": "WP-ENERGY-PRICE-SPIKE",
+      "relationship_type": "CAUSES",
+      "direction_status": "VALIDATED",
+      "transmission_strength": 0.76,
+      "conditional_probability": 0.68,
+      "lag_hours": 12,
+      "rationale": "A material European gas supply shock would rapidly raise regional and global energy prices.",
+      "active": true,
+      "metadata": {
+        "generator_version": "sews-phase6-curated-dependency-expansion-v1",
+        "validation_version": "sews-curated-analytic-validation-v1",
+        "registry_version": "sews-global-registry-v1.1",
+        "analytic_basis": "curated deterministic cross-warning transmission contract"
+      }
+    },
+    {
+      "dependency_key": "SEWS-DEP-40FAB03FE6A24FAF",
+      "source_problem_key": "WP-EU-GAS-SUPPLY-SHOCK",
+      "target_problem_key": "WP-GLOBAL-RECESSION",
+      "relationship_type": "TRANSMITS",
+      "direction_status": "VALIDATED",
+      "transmission_strength": 0.41,
+      "conditional_probability": 0.35,
+      "lag_hours": 336,
+      "rationale": "A prolonged European gas shock would weaken industrial output, household demand, and regional growth.",
+      "active": true,
+      "metadata": {
+        "generator_version": "sews-phase6-curated-dependency-expansion-v1",
+        "validation_version": "sews-curated-analytic-validation-v1",
+        "registry_version": "sews-global-registry-v1.1",
+        "analytic_basis": "curated deterministic cross-warning transmission contract"
+      }
+    },
+    {
+      "dependency_key": "SEWS-DEP-AB930A9CE3DFA348",
+      "source_problem_key": "WP-ARM-AZE-ESCALATION",
+      "target_problem_key": "WP-ENERGY-PRICE-SPIKE",
+      "relationship_type": "AMPLIFIES",
+      "direction_status": "VALIDATED",
+      "transmission_strength": 0.27,
+      "conditional_probability": 0.22,
+      "lag_hours": 72,
+      "rationale": "Escalation near South Caucasus energy corridors can increase regional supply-risk premiums.",
+      "active": true,
+      "metadata": {
+        "generator_version": "sews-phase6-curated-dependency-expansion-v1",
+        "validation_version": "sews-curated-analytic-validation-v1",
+        "registry_version": "sews-global-registry-v1.1",
+        "analytic_basis": "curated deterministic cross-warning transmission contract"
+      }
+    },
+    {
+      "dependency_key": "SEWS-DEP-FEEE4C1B3E20280E",
+      "source_problem_key": "WP-SRB-KOS-CRISIS",
+      "target_problem_key": "WP-MASS-PROTEST-ESCALATION",
+      "relationship_type": "AMPLIFIES",
+      "direction_status": "VALIDATED",
+      "transmission_strength": 0.31,
+      "conditional_probability": 0.26,
+      "lag_hours": 48,
+      "rationale": "A Serbia–Kosovo crisis can intensify nationalist mobilization and protest activity in the region.",
+      "active": true,
+      "metadata": {
+        "generator_version": "sews-phase6-curated-dependency-expansion-v1",
+        "validation_version": "sews-curated-analytic-validation-v1",
+        "registry_version": "sews-global-registry-v1.1",
+        "analytic_basis": "curated deterministic cross-warning transmission contract"
+      }
+    },
+    {
+      "dependency_key": "SEWS-DEP-ED7B5E71D12E24AE",
+      "source_problem_key": "WP-IRN-ISR-ESCALATION",
+      "target_problem_key": "WP-HORMUZ-CLOSURE",
+      "relationship_type": "AMPLIFIES",
+      "direction_status": "VALIDATED",
+      "transmission_strength": 0.78,
+      "conditional_probability": 0.62,
+      "lag_hours": 12,
+      "rationale": "Regional military escalation involving Iran materially increases closure, interdiction, mining, or attack risk in Hormuz.",
+      "active": true,
+      "metadata": {
+        "generator_version": "sews-phase6-curated-dependency-expansion-v1",
+        "validation_version": "sews-curated-analytic-validation-v1",
+        "registry_version": "sews-global-registry-v1.1",
+        "analytic_basis": "curated deterministic cross-warning transmission contract"
+      }
+    },
+    {
+      "dependency_key": "SEWS-DEP-0C1D6BE2E8424112",
+      "source_problem_key": "WP-IRN-ISR-ESCALATION",
+      "target_problem_key": "WP-RED-SEA-SHIPPING",
+      "relationship_type": "AMPLIFIES",
+      "direction_status": "VALIDATED",
+      "transmission_strength": 0.67,
+      "conditional_probability": 0.56,
+      "lag_hours": 24,
+      "rationale": "Regional escalation can increase proxy attacks and maritime threats affecting Red Sea shipping.",
+      "active": true,
+      "metadata": {
+        "generator_version": "sews-phase6-curated-dependency-expansion-v1",
+        "validation_version": "sews-curated-analytic-validation-v1",
+        "registry_version": "sews-global-registry-v1.1",
+        "analytic_basis": "curated deterministic cross-warning transmission contract"
+      }
+    },
+    {
+      "dependency_key": "SEWS-DEP-65C4CEB908BC11F8",
+      "source_problem_key": "WP-IRN-ISR-ESCALATION",
+      "target_problem_key": "WP-ENERGY-PRICE-SPIKE",
+      "relationship_type": "AMPLIFIES",
+      "direction_status": "VALIDATED",
+      "transmission_strength": 0.74,
+      "conditional_probability": 0.66,
+      "lag_hours": 6,
+      "rationale": "Sustained Iran–Israel escalation raises energy supply-risk premiums and physical-disruption risk.",
+      "active": true,
+      "metadata": {
+        "generator_version": "sews-phase6-curated-dependency-expansion-v1",
+        "validation_version": "sews-curated-analytic-validation-v1",
+        "registry_version": "sews-global-registry-v1.1",
+        "analytic_basis": "curated deterministic cross-warning transmission contract"
+      }
+    },
+    {
+      "dependency_key": "SEWS-DEP-6AE98992182EB9E9",
+      "source_problem_key": "WP-HORMUZ-CLOSURE",
+      "target_problem_key": "WP-ENERGY-PRICE-SPIKE",
+      "relationship_type": "CAUSES",
+      "direction_status": "VALIDATED",
+      "transmission_strength": 0.95,
+      "conditional_probability": 0.91,
+      "lag_hours": 3,
+      "rationale": "Severe disruption of Hormuz would directly constrain oil and LNG flows.",
+      "active": true,
+      "metadata": {
+        "generator_version": "sews-phase6-curated-dependency-expansion-v1",
+        "validation_version": "sews-curated-analytic-validation-v1",
+        "registry_version": "sews-global-registry-v1.1",
+        "analytic_basis": "curated deterministic cross-warning transmission contract"
+      }
+    },
+    {
+      "dependency_key": "SEWS-DEP-9952D8DCC0778EEF",
+      "source_problem_key": "WP-HORMUZ-CLOSURE",
+      "target_problem_key": "WP-EM-CURRENCY-CRISIS",
+      "relationship_type": "TRANSMITS",
+      "direction_status": "VALIDATED",
+      "transmission_strength": 0.56,
+      "conditional_probability": 0.49,
+      "lag_hours": 168,
+      "rationale": "A prolonged Hormuz disruption would pressure energy-importing currencies and reserves.",
+      "active": true,
+      "metadata": {
+        "generator_version": "sews-phase6-curated-dependency-expansion-v1",
+        "validation_version": "sews-curated-analytic-validation-v1",
+        "registry_version": "sews-global-registry-v1.1",
+        "analytic_basis": "curated deterministic cross-warning transmission contract"
+      }
+    },
+    {
+      "dependency_key": "SEWS-DEP-73067A3D89662915",
+      "source_problem_key": "WP-RED-SEA-SHIPPING",
+      "target_problem_key": "WP-SUEZ-DISRUPTION",
+      "relationship_type": "AMPLIFIES",
+      "direction_status": "VALIDATED",
+      "transmission_strength": 0.76,
+      "conditional_probability": 0.68,
+      "lag_hours": 12,
+      "rationale": "Sustained Red Sea insecurity can reduce traffic and create operational disruption affecting the Suez corridor.",
+      "active": true,
+      "metadata": {
+        "generator_version": "sews-phase6-curated-dependency-expansion-v1",
+        "validation_version": "sews-curated-analytic-validation-v1",
+        "registry_version": "sews-global-registry-v1.1",
+        "analytic_basis": "curated deterministic cross-warning transmission contract"
+      }
+    },
+    {
+      "dependency_key": "SEWS-DEP-578F1C32B0FF8C88",
+      "source_problem_key": "WP-RED-SEA-SHIPPING",
+      "target_problem_key": "WP-CONTAINER-SHIPPING-SHOCK",
+      "relationship_type": "CAUSES",
+      "direction_status": "VALIDATED",
+      "transmission_strength": 0.81,
+      "conditional_probability": 0.73,
+      "lag_hours": 24,
+      "rationale": "Sustained Red Sea disruption would increase rerouting, freight rates, and container imbalances.",
+      "active": true,
+      "metadata": {
+        "generator_version": "sews-phase6-curated-dependency-expansion-v1",
+        "validation_version": "sews-curated-analytic-validation-v1",
+        "registry_version": "sews-global-registry-v1.1",
+        "analytic_basis": "curated deterministic cross-warning transmission contract"
+      }
+    },
+    {
+      "dependency_key": "SEWS-DEP-7FA1BF630CB8E132",
+      "source_problem_key": "WP-SUEZ-DISRUPTION",
+      "target_problem_key": "WP-CONTAINER-SHIPPING-SHOCK",
+      "relationship_type": "CAUSES",
+      "direction_status": "VALIDATED",
+      "transmission_strength": 0.84,
+      "conditional_probability": 0.77,
+      "lag_hours": 12,
+      "rationale": "Material Suez throughput disruption would immediately affect global container schedules and capacity.",
+      "active": true,
+      "metadata": {
+        "generator_version": "sews-phase6-curated-dependency-expansion-v1",
+        "validation_version": "sews-curated-analytic-validation-v1",
+        "registry_version": "sews-global-registry-v1.1",
+        "analytic_basis": "curated deterministic cross-warning transmission contract"
+      }
+    },
+    {
+      "dependency_key": "SEWS-DEP-FFCDE5CA61FC1215",
+      "source_problem_key": "WP-ENERGY-PRICE-SPIKE",
+      "target_problem_key": "WP-FOOD-SECURITY-SHOCK",
+      "relationship_type": "TRANSMITS",
+      "direction_status": "VALIDATED",
+      "transmission_strength": 0.72,
+      "conditional_probability": 0.65,
+      "lag_hours": 336,
+      "rationale": "Higher energy, fertilizer, transport, storage, and production costs transmit into food-security risk.",
+      "active": true,
+      "metadata": {
+        "generator_version": "sews-phase6-curated-dependency-expansion-v1",
+        "validation_version": "sews-curated-analytic-validation-v1",
+        "registry_version": "sews-global-registry-v1.1",
+        "analytic_basis": "curated deterministic cross-warning transmission contract"
+      }
+    },
+    {
+      "dependency_key": "SEWS-DEP-C545494760BB786B",
+      "source_problem_key": "WP-ENERGY-PRICE-SPIKE",
+      "target_problem_key": "WP-EM-CURRENCY-CRISIS",
+      "relationship_type": "AMPLIFIES",
+      "direction_status": "VALIDATED",
+      "transmission_strength": 0.59,
+      "conditional_probability": 0.52,
+      "lag_hours": 168,
+      "rationale": "Higher import costs would intensify external financing and currency pressure in vulnerable economies.",
+      "active": true,
+      "metadata": {
+        "generator_version": "sews-phase6-curated-dependency-expansion-v1",
+        "validation_version": "sews-curated-analytic-validation-v1",
+        "registry_version": "sews-global-registry-v1.1",
+        "analytic_basis": "curated deterministic cross-warning transmission contract"
+      }
+    },
+    {
+      "dependency_key": "SEWS-DEP-C9DE7156F2ADFD7F",
+      "source_problem_key": "WP-PANAMA-CANAL-DISRUPTION",
+      "target_problem_key": "WP-CONTAINER-SHIPPING-SHOCK",
+      "relationship_type": "CAUSES",
+      "direction_status": "VALIDATED",
+      "transmission_strength": 0.73,
+      "conditional_probability": 0.65,
+      "lag_hours": 24,
+      "rationale": "A sustained Panama Canal capacity reduction would increase rerouting, delays, and freight costs.",
+      "active": true,
+      "metadata": {
+        "generator_version": "sews-phase6-curated-dependency-expansion-v1",
+        "validation_version": "sews-curated-analytic-validation-v1",
+        "registry_version": "sews-global-registry-v1.1",
+        "analytic_basis": "curated deterministic cross-warning transmission contract"
+      }
+    },
+    {
+      "dependency_key": "SEWS-DEP-9B84299FE3FA8DC6",
+      "source_problem_key": "WP-MALACCA-DISRUPTION",
+      "target_problem_key": "WP-CONTAINER-SHIPPING-SHOCK",
+      "relationship_type": "CAUSES",
+      "direction_status": "VALIDATED",
+      "transmission_strength": 0.88,
+      "conditional_probability": 0.82,
+      "lag_hours": 6,
+      "rationale": "A major disruption in the Strait of Malacca would affect a critical share of Asia-linked maritime trade.",
+      "active": true,
+      "metadata": {
+        "generator_version": "sews-phase6-curated-dependency-expansion-v1",
+        "validation_version": "sews-curated-analytic-validation-v1",
+        "registry_version": "sews-global-registry-v1.1",
+        "analytic_basis": "curated deterministic cross-warning transmission contract"
+      }
+    },
+    {
+      "dependency_key": "SEWS-DEP-F064B9EFE20AA1C2",
+      "source_problem_key": "WP-MALACCA-DISRUPTION",
+      "target_problem_key": "WP-ENERGY-PRICE-SPIKE",
+      "relationship_type": "AMPLIFIES",
+      "direction_status": "VALIDATED",
+      "transmission_strength": 0.69,
+      "conditional_probability": 0.61,
+      "lag_hours": 12,
+      "rationale": "Malacca disruption would constrain energy transit and increase delivery-risk premiums.",
+      "active": true,
+      "metadata": {
+        "generator_version": "sews-phase6-curated-dependency-expansion-v1",
+        "validation_version": "sews-curated-analytic-validation-v1",
+        "registry_version": "sews-global-registry-v1.1",
+        "analytic_basis": "curated deterministic cross-warning transmission contract"
+      }
+    },
+    {
+      "dependency_key": "SEWS-DEP-E6EFF3CC6F545A57",
+      "source_problem_key": "WP-MAJOR-PORT-CLOSURE",
+      "target_problem_key": "WP-CONTAINER-SHIPPING-SHOCK",
+      "relationship_type": "AMPLIFIES",
+      "direction_status": "VALIDATED",
+      "transmission_strength": 0.64,
+      "conditional_probability": 0.57,
+      "lag_hours": 24,
+      "rationale": "Closure of a major port can create vessel queues, schedule disruption, and container imbalances.",
+      "active": true,
+      "metadata": {
+        "generator_version": "sews-phase6-curated-dependency-expansion-v1",
+        "validation_version": "sews-curated-analytic-validation-v1",
+        "registry_version": "sews-global-registry-v1.1",
+        "analytic_basis": "curated deterministic cross-warning transmission contract"
+      }
+    },
+    {
+      "dependency_key": "SEWS-DEP-BB4C4E5ABA4D06B8",
+      "source_problem_key": "WP-CONTAINER-SHIPPING-SHOCK",
+      "target_problem_key": "WP-GLOBAL-RECESSION",
+      "relationship_type": "TRANSMITS",
+      "direction_status": "VALIDATED",
+      "transmission_strength": 0.39,
+      "conditional_probability": 0.33,
+      "lag_hours": 720,
+      "rationale": "A sustained global shipping shock would raise trade costs and weaken industrial and consumer activity.",
+      "active": true,
+      "metadata": {
+        "generator_version": "sews-phase6-curated-dependency-expansion-v1",
+        "validation_version": "sews-curated-analytic-validation-v1",
+        "registry_version": "sews-global-registry-v1.1",
+        "analytic_basis": "curated deterministic cross-warning transmission contract"
+      }
+    },
+    {
+      "dependency_key": "SEWS-DEP-0604B51ACE2C222D",
+      "source_problem_key": "WP-FINANCIAL-SYSTEM-CYBER",
+      "target_problem_key": "WP-GLOBAL-BANKING-STRESS",
+      "relationship_type": "CAUSES",
+      "direction_status": "VALIDATED",
+      "transmission_strength": 0.79,
+      "conditional_probability": 0.71,
+      "lag_hours": 3,
+      "rationale": "A material attack on payment, clearing, or banking infrastructure would immediately create liquidity and confidence stress.",
+      "active": true,
+      "metadata": {
+        "generator_version": "sews-phase6-curated-dependency-expansion-v1",
+        "validation_version": "sews-curated-analytic-validation-v1",
+        "registry_version": "sews-global-registry-v1.1",
+        "analytic_basis": "curated deterministic cross-warning transmission contract"
+      }
+    },
+    {
+      "dependency_key": "SEWS-DEP-EE24F88EBFEA771F",
+      "source_problem_key": "WP-CRITICAL-INFRA-CYBER",
+      "target_problem_key": "WP-UNDERSEA-CABLE-DISRUPTION",
+      "relationship_type": "AMPLIFIES",
+      "direction_status": "VALIDATED",
+      "transmission_strength": 0.39,
+      "conditional_probability": 0.33,
+      "lag_hours": 24,
+      "rationale": "A coordinated infrastructure campaign can include or exploit undersea communications disruptions.",
+      "active": true,
+      "metadata": {
+        "generator_version": "sews-phase6-curated-dependency-expansion-v1",
+        "validation_version": "sews-curated-analytic-validation-v1",
+        "registry_version": "sews-global-registry-v1.1",
+        "analytic_basis": "curated deterministic cross-warning transmission contract"
+      }
+    },
+    {
+      "dependency_key": "SEWS-DEP-3F7AE15F777C138F",
+      "source_problem_key": "WP-UNDERSEA-CABLE-DISRUPTION",
+      "target_problem_key": "WP-FINANCIAL-SYSTEM-CYBER",
+      "relationship_type": "AMPLIFIES",
+      "direction_status": "VALIDATED",
+      "transmission_strength": 0.32,
+      "conditional_probability": 0.27,
+      "lag_hours": 12,
+      "rationale": "Major cable disruption can degrade financial connectivity and magnify concurrent cyber incidents.",
+      "active": true,
+      "metadata": {
+        "generator_version": "sews-phase6-curated-dependency-expansion-v1",
+        "validation_version": "sews-curated-analytic-validation-v1",
+        "registry_version": "sews-global-registry-v1.1",
+        "analytic_basis": "curated deterministic cross-warning transmission contract"
+      }
+    },
+    {
+      "dependency_key": "SEWS-DEP-E3B93805894A8680",
+      "source_problem_key": "WP-UNDERSEA-CABLE-DISRUPTION",
+      "target_problem_key": "WP-CONTAINER-SHIPPING-SHOCK",
+      "relationship_type": "TRANSMITS",
+      "direction_status": "VALIDATED",
+      "transmission_strength": 0.21,
+      "conditional_probability": 0.17,
+      "lag_hours": 72,
+      "rationale": "Severe communications disruption can impair port, logistics, and maritime coordination systems.",
+      "active": true,
+      "metadata": {
+        "generator_version": "sews-phase6-curated-dependency-expansion-v1",
+        "validation_version": "sews-curated-analytic-validation-v1",
+        "registry_version": "sews-global-registry-v1.1",
+        "analytic_basis": "curated deterministic cross-warning transmission contract"
+      }
+    },
+    {
+      "dependency_key": "SEWS-DEP-2101A90A740E6E21",
+      "source_problem_key": "WP-GPS-DEGRADATION",
+      "target_problem_key": "WP-CONTAINER-SHIPPING-SHOCK",
+      "relationship_type": "AMPLIFIES",
+      "direction_status": "VALIDATED",
+      "transmission_strength": 0.34,
+      "conditional_probability": 0.29,
+      "lag_hours": 24,
+      "rationale": "Sustained GNSS disruption can impair navigation, port approaches, aviation, and logistics coordination.",
+      "active": true,
+      "metadata": {
+        "generator_version": "sews-phase6-curated-dependency-expansion-v1",
+        "validation_version": "sews-curated-analytic-validation-v1",
+        "registry_version": "sews-global-registry-v1.1",
+        "analytic_basis": "curated deterministic cross-warning transmission contract"
+      }
+    },
+    {
+      "dependency_key": "SEWS-DEP-AA676D1B5E5CA943",
+      "source_problem_key": "WP-GPS-DEGRADATION",
+      "target_problem_key": "WP-MAJOR-PORT-CLOSURE",
+      "relationship_type": "AMPLIFIES",
+      "direction_status": "VALIDATED",
+      "transmission_strength": 0.29,
+      "conditional_probability": 0.24,
+      "lag_hours": 12,
+      "rationale": "Regional GNSS interference can reduce safe port access and throughput.",
+      "active": true,
+      "metadata": {
+        "generator_version": "sews-phase6-curated-dependency-expansion-v1",
+        "validation_version": "sews-curated-analytic-validation-v1",
+        "registry_version": "sews-global-registry-v1.1",
+        "analytic_basis": "curated deterministic cross-warning transmission contract"
+      }
+    },
+    {
+      "dependency_key": "SEWS-DEP-F4D0E66CC5DD5995",
+      "source_problem_key": "WP-AI-DISINFORMATION-CAMPAIGN",
+      "target_problem_key": "WP-ELECTION-INTERFERENCE",
+      "relationship_type": "AMPLIFIES",
+      "direction_status": "VALIDATED",
+      "transmission_strength": 0.82,
+      "conditional_probability": 0.75,
+      "lag_hours": 6,
+      "rationale": "AI-enabled influence operations increase the scale, speed, and plausibility of election interference.",
+      "active": true,
+      "metadata": {
+        "generator_version": "sews-phase6-curated-dependency-expansion-v1",
+        "validation_version": "sews-curated-analytic-validation-v1",
+        "registry_version": "sews-global-registry-v1.1",
+        "analytic_basis": "curated deterministic cross-warning transmission contract"
+      }
+    },
+    {
+      "dependency_key": "SEWS-DEP-93281CF73F22D3D0",
+      "source_problem_key": "WP-AI-DISINFORMATION-CAMPAIGN",
+      "target_problem_key": "WP-MASS-PROTEST-ESCALATION",
+      "relationship_type": "AMPLIFIES",
+      "direction_status": "VALIDATED",
+      "transmission_strength": 0.43,
+      "conditional_probability": 0.37,
+      "lag_hours": 24,
+      "rationale": "Coordinated synthetic media and narratives can accelerate mobilization and public disorder.",
+      "active": true,
+      "metadata": {
+        "generator_version": "sews-phase6-curated-dependency-expansion-v1",
+        "validation_version": "sews-curated-analytic-validation-v1",
+        "registry_version": "sews-global-registry-v1.1",
+        "analytic_basis": "curated deterministic cross-warning transmission contract"
+      }
+    },
+    {
+      "dependency_key": "SEWS-DEP-8E7908B2DA002BB2",
+      "source_problem_key": "WP-ELECTION-INTERFERENCE",
+      "target_problem_key": "WP-MASS-PROTEST-ESCALATION",
+      "relationship_type": "AMPLIFIES",
+      "direction_status": "VALIDATED",
+      "transmission_strength": 0.47,
+      "conditional_probability": 0.41,
+      "lag_hours": 48,
+      "rationale": "Material disruption of electoral confidence can increase protest and unrest risk.",
+      "active": true,
+      "metadata": {
+        "generator_version": "sews-phase6-curated-dependency-expansion-v1",
+        "validation_version": "sews-curated-analytic-validation-v1",
+        "registry_version": "sews-global-registry-v1.1",
+        "analytic_basis": "curated deterministic cross-warning transmission contract"
+      }
+    },
+    {
+      "dependency_key": "SEWS-DEP-C25B2F37DC74ED69",
+      "source_problem_key": "WP-CHN-FINANCIAL-STRESS",
+      "target_problem_key": "WP-GLOBAL-BANKING-STRESS",
+      "relationship_type": "AMPLIFIES",
+      "direction_status": "VALIDATED",
+      "transmission_strength": 0.54,
+      "conditional_probability": 0.47,
+      "lag_hours": 168,
+      "rationale": "Severe China financial stress can transmit through banks, markets, property exposure, and confidence.",
+      "active": true,
+      "metadata": {
+        "generator_version": "sews-phase6-curated-dependency-expansion-v1",
+        "validation_version": "sews-curated-analytic-validation-v1",
+        "registry_version": "sews-global-registry-v1.1",
+        "analytic_basis": "curated deterministic cross-warning transmission contract"
+      }
+    },
+    {
+      "dependency_key": "SEWS-DEP-9CB1293E27597864",
+      "source_problem_key": "WP-CHN-FINANCIAL-STRESS",
+      "target_problem_key": "WP-GLOBAL-RECESSION",
+      "relationship_type": "TRANSMITS",
+      "direction_status": "VALIDATED",
+      "transmission_strength": 0.61,
+      "conditional_probability": 0.54,
+      "lag_hours": 720,
+      "rationale": "A deep China slowdown would weaken global demand, trade, commodities, and investment.",
+      "active": true,
+      "metadata": {
+        "generator_version": "sews-phase6-curated-dependency-expansion-v1",
+        "validation_version": "sews-curated-analytic-validation-v1",
+        "registry_version": "sews-global-registry-v1.1",
+        "analytic_basis": "curated deterministic cross-warning transmission contract"
+      }
+    },
+    {
+      "dependency_key": "SEWS-DEP-C88D9CA05FE2AC7E",
+      "source_problem_key": "WP-GLOBAL-BANKING-STRESS",
+      "target_problem_key": "WP-GLOBAL-RECESSION",
+      "relationship_type": "CAUSES",
+      "direction_status": "VALIDATED",
+      "transmission_strength": 0.72,
+      "conditional_probability": 0.65,
+      "lag_hours": 336,
+      "rationale": "Broad banking stress would tighten credit and materially weaken investment and demand.",
+      "active": true,
+      "metadata": {
+        "generator_version": "sews-phase6-curated-dependency-expansion-v1",
+        "validation_version": "sews-curated-analytic-validation-v1",
+        "registry_version": "sews-global-registry-v1.1",
+        "analytic_basis": "curated deterministic cross-warning transmission contract"
+      }
+    },
+    {
+      "dependency_key": "SEWS-DEP-C10FCF348A25B31F",
+      "source_problem_key": "WP-GLOBAL-BANKING-STRESS",
+      "target_problem_key": "WP-EM-SOVEREIGN-DEBT",
+      "relationship_type": "AMPLIFIES",
+      "direction_status": "VALIDATED",
+      "transmission_strength": 0.63,
+      "conditional_probability": 0.56,
+      "lag_hours": 168,
+      "rationale": "Global banking stress would tighten external financing for vulnerable sovereigns.",
+      "active": true,
+      "metadata": {
+        "generator_version": "sews-phase6-curated-dependency-expansion-v1",
+        "validation_version": "sews-curated-analytic-validation-v1",
+        "registry_version": "sews-global-registry-v1.1",
+        "analytic_basis": "curated deterministic cross-warning transmission contract"
+      }
+    },
+    {
+      "dependency_key": "SEWS-DEP-27BA4FE22B53FFB6",
+      "source_problem_key": "WP-EM-CURRENCY-CRISIS",
+      "target_problem_key": "WP-EM-SOVEREIGN-DEBT",
+      "relationship_type": "AMPLIFIES",
+      "direction_status": "VALIDATED",
+      "transmission_strength": 0.78,
+      "conditional_probability": 0.71,
+      "lag_hours": 72,
+      "rationale": "Acute depreciation and reserve loss directly worsen foreign-currency debt sustainability.",
+      "active": true,
+      "metadata": {
+        "generator_version": "sews-phase6-curated-dependency-expansion-v1",
+        "validation_version": "sews-curated-analytic-validation-v1",
+        "registry_version": "sews-global-registry-v1.1",
+        "analytic_basis": "curated deterministic cross-warning transmission contract"
+      }
+    },
+    {
+      "dependency_key": "SEWS-DEP-03CE815296F48C33",
+      "source_problem_key": "WP-EM-SOVEREIGN-DEBT",
+      "target_problem_key": "WP-FOOD-SECURITY-SHOCK",
+      "relationship_type": "AMPLIFIES",
+      "direction_status": "VALIDATED",
+      "transmission_strength": 0.62,
+      "conditional_probability": 0.55,
+      "lag_hours": 336,
+      "rationale": "Sovereign debt distress can constrain food imports, subsidies, and humanitarian spending.",
+      "active": true,
+      "metadata": {
+        "generator_version": "sews-phase6-curated-dependency-expansion-v1",
+        "validation_version": "sews-curated-analytic-validation-v1",
+        "registry_version": "sews-global-registry-v1.1",
+        "analytic_basis": "curated deterministic cross-warning transmission contract"
+      }
+    },
+    {
+      "dependency_key": "SEWS-DEP-406CE45722059E96",
+      "source_problem_key": "WP-AFG-CROSS-BORDER-MILITANCY",
+      "target_problem_key": "WP-PAK-POLITICAL-INSTABILITY",
+      "relationship_type": "AMPLIFIES",
+      "direction_status": "VALIDATED",
+      "transmission_strength": 0.57,
+      "conditional_probability": 0.5,
+      "lag_hours": 72,
+      "rationale": "Escalating cross-border militancy would increase domestic security and political pressure in Pakistan.",
+      "active": true,
+      "metadata": {
+        "generator_version": "sews-phase6-curated-dependency-expansion-v1",
+        "validation_version": "sews-curated-analytic-validation-v1",
+        "registry_version": "sews-global-registry-v1.1",
+        "analytic_basis": "curated deterministic cross-warning transmission contract"
+      }
+    },
+    {
+      "dependency_key": "SEWS-DEP-AB6347DEC63EF8D7",
+      "source_problem_key": "WP-PAK-POLITICAL-INSTABILITY",
+      "target_problem_key": "WP-IND-PAK-ESCALATION",
+      "relationship_type": "AMPLIFIES",
+      "direction_status": "VALIDATED",
+      "transmission_strength": 0.36,
+      "conditional_probability": 0.3,
+      "lag_hours": 72,
+      "rationale": "Severe instability can increase crisis miscalculation, militant activity, or diversionary escalation risk.",
+      "active": true,
+      "metadata": {
+        "generator_version": "sews-phase6-curated-dependency-expansion-v1",
+        "validation_version": "sews-curated-analytic-validation-v1",
+        "registry_version": "sews-global-registry-v1.1",
+        "analytic_basis": "curated deterministic cross-warning transmission contract"
+      }
+    },
+    {
+      "dependency_key": "SEWS-DEP-677C2D267E597721",
+      "source_problem_key": "WP-GLOBAL-COUP-WAVE",
+      "target_problem_key": "WP-SAHEL-REGIME-FAILURE",
+      "relationship_type": "AMPLIFIES",
+      "direction_status": "VALIDATED",
+      "transmission_strength": 0.49,
+      "conditional_probability": 0.42,
+      "lag_hours": 336,
+      "rationale": "A broader coup wave can reduce deterrence and increase unconstitutional-transfer risk in the Sahel.",
+      "active": true,
+      "metadata": {
+        "generator_version": "sews-phase6-curated-dependency-expansion-v1",
+        "validation_version": "sews-curated-analytic-validation-v1",
+        "registry_version": "sews-global-registry-v1.1",
+        "analytic_basis": "curated deterministic cross-warning transmission contract"
+      }
+    },
+    {
+      "dependency_key": "SEWS-DEP-07840A8EDC73672A",
+      "source_problem_key": "WP-SAHEL-REGIME-FAILURE",
+      "target_problem_key": "WP-MASS-PROTEST-ESCALATION",
+      "relationship_type": "AMPLIFIES",
+      "direction_status": "VALIDATED",
+      "transmission_strength": 0.31,
+      "conditional_probability": 0.25,
+      "lag_hours": 168,
+      "rationale": "Regime failure and insecurity can accelerate protest, repression, and political mobilization.",
+      "active": true,
+      "metadata": {
+        "generator_version": "sews-phase6-curated-dependency-expansion-v1",
+        "validation_version": "sews-curated-analytic-validation-v1",
+        "registry_version": "sews-global-registry-v1.1",
+        "analytic_basis": "curated deterministic cross-warning transmission contract"
+      }
+    },
+    {
+      "dependency_key": "SEWS-DEP-9A41EA6497463C3C",
+      "source_problem_key": "WP-MASS-PROTEST-ESCALATION",
+      "target_problem_key": "WP-BGD-POLITICAL-INSTABILITY",
+      "relationship_type": "AMPLIFIES",
+      "direction_status": "VALIDATED",
+      "transmission_strength": 0.34,
+      "conditional_probability": 0.28,
+      "lag_hours": 72,
+      "rationale": "Large-scale protest escalation can intensify institutional paralysis in Bangladesh.",
+      "active": true,
+      "metadata": {
+        "generator_version": "sews-phase6-curated-dependency-expansion-v1",
+        "validation_version": "sews-curated-analytic-validation-v1",
+        "registry_version": "sews-global-registry-v1.1",
+        "analytic_basis": "curated deterministic cross-warning transmission contract"
+      }
+    },
+    {
+      "dependency_key": "SEWS-DEP-9815D17BAC5DD361",
+      "source_problem_key": "WP-MASS-PROTEST-ESCALATION",
+      "target_problem_key": "WP-NGA-POLITICAL-SECURITY",
+      "relationship_type": "AMPLIFIES",
+      "direction_status": "VALIDATED",
+      "transmission_strength": 0.28,
+      "conditional_probability": 0.23,
+      "lag_hours": 72,
+      "rationale": "Large protest movements can compound governance and security pressure in Nigeria.",
+      "active": true,
+      "metadata": {
+        "generator_version": "sews-phase6-curated-dependency-expansion-v1",
+        "validation_version": "sews-curated-analytic-validation-v1",
+        "registry_version": "sews-global-registry-v1.1",
+        "analytic_basis": "curated deterministic cross-warning transmission contract"
+      }
+    },
+    {
+      "dependency_key": "SEWS-DEP-422080E504C923AF",
+      "source_problem_key": "WP-MMR-STATE-FRAGMENTATION",
+      "target_problem_key": "WP-FOOD-SECURITY-SHOCK",
+      "relationship_type": "AMPLIFIES",
+      "direction_status": "VALIDATED",
+      "transmission_strength": 0.51,
+      "conditional_probability": 0.44,
+      "lag_hours": 336,
+      "rationale": "State fragmentation would worsen displacement, market access, agriculture, and humanitarian delivery.",
+      "active": true,
+      "metadata": {
+        "generator_version": "sews-phase6-curated-dependency-expansion-v1",
+        "validation_version": "sews-curated-analytic-validation-v1",
+        "registry_version": "sews-global-registry-v1.1",
+        "analytic_basis": "curated deterministic cross-warning transmission contract"
+      }
+    },
+    {
+      "dependency_key": "SEWS-DEP-6E090D3D2D0656DC",
+      "source_problem_key": "WP-HTI-STATE-COLLAPSE",
+      "target_problem_key": "WP-FOOD-SECURITY-SHOCK",
+      "relationship_type": "AMPLIFIES",
+      "direction_status": "VALIDATED",
+      "transmission_strength": 0.67,
+      "conditional_probability": 0.59,
+      "lag_hours": 168,
+      "rationale": "State collapse in Haiti would intensify import, distribution, and humanitarian-access constraints.",
+      "active": true,
+      "metadata": {
+        "generator_version": "sews-phase6-curated-dependency-expansion-v1",
+        "validation_version": "sews-curated-analytic-validation-v1",
+        "registry_version": "sews-global-registry-v1.1",
+        "analytic_basis": "curated deterministic cross-warning transmission contract"
+      }
+    },
+    {
+      "dependency_key": "SEWS-DEP-4B3A5303233F6278",
+      "source_problem_key": "WP-NGA-POLITICAL-SECURITY",
+      "target_problem_key": "WP-GLOBAL-GRAIN-SHOCK",
+      "relationship_type": "AMPLIFIES",
+      "direction_status": "VALIDATED",
+      "transmission_strength": 0.16,
+      "conditional_probability": 0.12,
+      "lag_hours": 336,
+      "rationale": "Major instability in Nigeria can add regional grain and food-market pressure.",
+      "active": true,
+      "metadata": {
+        "generator_version": "sews-phase6-curated-dependency-expansion-v1",
+        "validation_version": "sews-curated-analytic-validation-v1",
+        "registry_version": "sews-global-registry-v1.1",
+        "analytic_basis": "curated deterministic cross-warning transmission contract"
+      }
+    },
+    {
+      "dependency_key": "SEWS-DEP-5A86DDA6BCB6D1CD",
+      "source_problem_key": "WP-SDN-REGIONAL-SPILLOVER",
+      "target_problem_key": "WP-FOOD-SECURITY-SHOCK",
+      "relationship_type": "AMPLIFIES",
+      "direction_status": "VALIDATED",
+      "transmission_strength": 0.69,
+      "conditional_probability": 0.62,
+      "lag_hours": 168,
+      "rationale": "Regional spillover from Sudan would worsen displacement, market disruption, and humanitarian access.",
+      "active": true,
+      "metadata": {
+        "generator_version": "sews-phase6-curated-dependency-expansion-v1",
+        "validation_version": "sews-curated-analytic-validation-v1",
+        "registry_version": "sews-global-registry-v1.1",
+        "analytic_basis": "curated deterministic cross-warning transmission contract"
+      }
+    },
+    {
+      "dependency_key": "SEWS-DEP-688FC74FCEDA9E34",
+      "source_problem_key": "WP-SDN-REGIONAL-SPILLOVER",
+      "target_problem_key": "WP-ETH-ERI-CONFLICT",
+      "relationship_type": "AMPLIFIES",
+      "direction_status": "VALIDATED",
+      "transmission_strength": 0.28,
+      "conditional_probability": 0.23,
+      "lag_hours": 72,
+      "rationale": "Regional militarization and border pressure can increase Ethiopia–Eritrea escalation risk.",
+      "active": true,
+      "metadata": {
+        "generator_version": "sews-phase6-curated-dependency-expansion-v1",
+        "validation_version": "sews-curated-analytic-validation-v1",
+        "registry_version": "sews-global-registry-v1.1",
+        "analytic_basis": "curated deterministic cross-warning transmission contract"
+      }
+    },
+    {
+      "dependency_key": "SEWS-DEP-6FED19064CD8962E",
+      "source_problem_key": "WP-ETH-ERI-CONFLICT",
+      "target_problem_key": "WP-FOOD-SECURITY-SHOCK",
+      "relationship_type": "AMPLIFIES",
+      "direction_status": "VALIDATED",
+      "transmission_strength": 0.58,
+      "conditional_probability": 0.51,
+      "lag_hours": 168,
+      "rationale": "Renewed conflict would disrupt agriculture, trade, displacement routes, and humanitarian access.",
+      "active": true,
+      "metadata": {
+        "generator_version": "sews-phase6-curated-dependency-expansion-v1",
+        "validation_version": "sews-curated-analytic-validation-v1",
+        "registry_version": "sews-global-registry-v1.1",
+        "analytic_basis": "curated deterministic cross-warning transmission contract"
+      }
+    },
+    {
+      "dependency_key": "SEWS-DEP-C750CF9BC94BBBA2",
+      "source_problem_key": "WP-DRC-REGIONAL-CONFLICT",
+      "target_problem_key": "WP-CRITICAL-MINERALS-RESTRICTION",
+      "relationship_type": "AMPLIFIES",
+      "direction_status": "VALIDATED",
+      "transmission_strength": 0.52,
+      "conditional_probability": 0.45,
+      "lag_hours": 168,
+      "rationale": "Regional conflict in eastern DRC can constrain production and transport of strategic minerals.",
+      "active": true,
+      "metadata": {
+        "generator_version": "sews-phase6-curated-dependency-expansion-v1",
+        "validation_version": "sews-curated-analytic-validation-v1",
+        "registry_version": "sews-global-registry-v1.1",
+        "analytic_basis": "curated deterministic cross-warning transmission contract"
+      }
+    },
+    {
+      "dependency_key": "SEWS-DEP-572F2D26A8AE1B24",
+      "source_problem_key": "WP-DRC-REGIONAL-CONFLICT",
+      "target_problem_key": "WP-FOOD-SECURITY-SHOCK",
+      "relationship_type": "AMPLIFIES",
+      "direction_status": "VALIDATED",
+      "transmission_strength": 0.55,
+      "conditional_probability": 0.48,
+      "lag_hours": 168,
+      "rationale": "Expanded conflict would intensify displacement and food insecurity in affected areas.",
+      "active": true,
+      "metadata": {
+        "generator_version": "sews-phase6-curated-dependency-expansion-v1",
+        "validation_version": "sews-curated-analytic-validation-v1",
+        "registry_version": "sews-global-registry-v1.1",
+        "analytic_basis": "curated deterministic cross-warning transmission contract"
+      }
+    },
+    {
+      "dependency_key": "SEWS-DEP-BAC0577246CC353D",
+      "source_problem_key": "WP-VEN-GUY-BORDER",
+      "target_problem_key": "WP-ENERGY-PRICE-SPIKE",
+      "relationship_type": "AMPLIFIES",
+      "direction_status": "VALIDATED",
+      "transmission_strength": 0.19,
+      "conditional_probability": 0.15,
+      "lag_hours": 72,
+      "rationale": "Escalation near offshore energy assets can increase localized supply-risk premiums.",
+      "active": true,
+      "metadata": {
+        "generator_version": "sews-phase6-curated-dependency-expansion-v1",
+        "validation_version": "sews-curated-analytic-validation-v1",
+        "registry_version": "sews-global-registry-v1.1",
+        "analytic_basis": "curated deterministic cross-warning transmission contract"
+      }
+    },
+    {
+      "dependency_key": "SEWS-DEP-EA2F23829A5A257B",
+      "source_problem_key": "WP-MULTIREGION-DROUGHT",
+      "target_problem_key": "WP-GLOBAL-GRAIN-SHOCK",
+      "relationship_type": "CAUSES",
+      "direction_status": "VALIDATED",
+      "transmission_strength": 0.78,
+      "conditional_probability": 0.71,
+      "lag_hours": 336,
+      "rationale": "Concurrent drought across major producing regions would materially reduce grain output and export availability.",
+      "active": true,
+      "metadata": {
+        "generator_version": "sews-phase6-curated-dependency-expansion-v1",
+        "validation_version": "sews-curated-analytic-validation-v1",
+        "registry_version": "sews-global-registry-v1.1",
+        "analytic_basis": "curated deterministic cross-warning transmission contract"
+      }
+    },
+    {
+      "dependency_key": "SEWS-DEP-86E6DE1B54B05ED7",
+      "source_problem_key": "WP-MULTIREGION-DROUGHT",
+      "target_problem_key": "WP-WATER-SCARCITY-CRISIS",
+      "relationship_type": "AMPLIFIES",
+      "direction_status": "VALIDATED",
+      "transmission_strength": 0.81,
+      "conditional_probability": 0.74,
+      "lag_hours": 168,
+      "rationale": "Persistent drought directly intensifies water availability and allocation stress.",
+      "active": true,
+      "metadata": {
+        "generator_version": "sews-phase6-curated-dependency-expansion-v1",
+        "validation_version": "sews-curated-analytic-validation-v1",
+        "registry_version": "sews-global-registry-v1.1",
+        "analytic_basis": "curated deterministic cross-warning transmission contract"
+      }
+    },
+    {
+      "dependency_key": "SEWS-DEP-8DD4C98DEDA60C19",
+      "source_problem_key": "WP-WATER-SCARCITY-CRISIS",
+      "target_problem_key": "WP-FOOD-SECURITY-SHOCK",
+      "relationship_type": "AMPLIFIES",
+      "direction_status": "VALIDATED",
+      "transmission_strength": 0.72,
+      "conditional_probability": 0.65,
+      "lag_hours": 336,
+      "rationale": "Severe water scarcity constrains agriculture, livestock, household supply, and food affordability.",
+      "active": true,
+      "metadata": {
+        "generator_version": "sews-phase6-curated-dependency-expansion-v1",
+        "validation_version": "sews-curated-analytic-validation-v1",
+        "registry_version": "sews-global-registry-v1.1",
+        "analytic_basis": "curated deterministic cross-warning transmission contract"
+      }
+    },
+    {
+      "dependency_key": "SEWS-DEP-95D800C482541B63",
+      "source_problem_key": "WP-GLOBAL-GRAIN-SHOCK",
+      "target_problem_key": "WP-FOOD-SECURITY-SHOCK",
+      "relationship_type": "CAUSES",
+      "direction_status": "VALIDATED",
+      "transmission_strength": 0.89,
+      "conditional_probability": 0.83,
+      "lag_hours": 168,
+      "rationale": "A global grain shock would directly reduce food availability and raise prices in import-dependent states.",
+      "active": true,
+      "metadata": {
+        "generator_version": "sews-phase6-curated-dependency-expansion-v1",
+        "validation_version": "sews-curated-analytic-validation-v1",
+        "registry_version": "sews-global-registry-v1.1",
+        "analytic_basis": "curated deterministic cross-warning transmission contract"
+      }
+    },
+    {
+      "dependency_key": "SEWS-DEP-8051978080CB75CE",
+      "source_problem_key": "WP-FOOD-SECURITY-SHOCK",
+      "target_problem_key": "WP-MASS-PROTEST-ESCALATION",
+      "relationship_type": "AMPLIFIES",
+      "direction_status": "VALIDATED",
+      "transmission_strength": 0.46,
+      "conditional_probability": 0.39,
+      "lag_hours": 336,
+      "rationale": "Acute food-price and availability deterioration can increase protest and political-instability risk.",
+      "active": true,
+      "metadata": {
+        "generator_version": "sews-phase6-curated-dependency-expansion-v1",
+        "validation_version": "sews-curated-analytic-validation-v1",
+        "registry_version": "sews-global-registry-v1.1",
+        "analytic_basis": "curated deterministic cross-warning transmission contract"
+      }
+    },
+    {
+      "dependency_key": "SEWS-DEP-9D954BAFBF685FCC",
+      "source_problem_key": "WP-OUTBREAK-CROSS-BORDER",
+      "target_problem_key": "WP-GLOBAL-RECESSION",
+      "relationship_type": "AMPLIFIES",
+      "direction_status": "VALIDATED",
+      "transmission_strength": 0.42,
+      "conditional_probability": 0.35,
+      "lag_hours": 720,
+      "rationale": "A severe cross-border outbreak can weaken labor supply, mobility, confidence, and economic activity.",
+      "active": true,
+      "metadata": {
+        "generator_version": "sews-phase6-curated-dependency-expansion-v1",
+        "validation_version": "sews-curated-analytic-validation-v1",
+        "registry_version": "sews-global-registry-v1.1",
+        "analytic_basis": "curated deterministic cross-warning transmission contract"
+      }
+    },
+    {
+      "dependency_key": "SEWS-DEP-D38F91CC236769C6",
+      "source_problem_key": "WP-OUTBREAK-CROSS-BORDER",
+      "target_problem_key": "WP-FOOD-SECURITY-SHOCK",
+      "relationship_type": "AMPLIFIES",
+      "direction_status": "VALIDATED",
+      "transmission_strength": 0.31,
+      "conditional_probability": 0.25,
+      "lag_hours": 336,
+      "rationale": "A cross-border health emergency can disrupt labor, logistics, markets, and humanitarian operations.",
+      "active": true,
+      "metadata": {
+        "generator_version": "sews-phase6-curated-dependency-expansion-v1",
+        "validation_version": "sews-curated-analytic-validation-v1",
+        "registry_version": "sews-global-registry-v1.1",
+        "analytic_basis": "curated deterministic cross-warning transmission contract"
+      }
+    }
+  ]
+}
