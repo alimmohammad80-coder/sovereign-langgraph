@@ -20,6 +20,7 @@ from app.routes.strategic_intelligence_products import router as strategic_intel
 from app.routes.sews_bridge import router as sews_bridge_router
 from app.routes.sews_runtime_initialization import router as sews_runtime_initialization_router
 from app.routes.sews_operational_intelligence import router as sews_operational_intelligence_router
+from app.routes.sews_executive_brief import router as sews_executive_brief_router
 from app.routes.sews_operations import router as sews_operations_router
 load_dotenv()
 
@@ -196,6 +197,7 @@ app.include_router(strategic_intelligence_products_router)
 app.include_router(sews_bridge_router)
 app.include_router(sews_runtime_initialization_router)
 app.include_router(sews_operational_intelligence_router)
+app.include_router(sews_executive_brief_router)
 app.include_router(sews_operations_router)
 
 
