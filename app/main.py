@@ -24,6 +24,9 @@ from app.routes.sews_executive_brief import router as sews_executive_brief_route
 from app.routes.sews_operations import router as sews_operations_router
 load_dotenv()
 
+from app.routes.sews_warning_baselines import (
+    router as sews_warning_baselines_router,
+)
 from app.routes.intelligence_retrieval import router as intelligence_retrieval_router
 from app.routes import global_risk
 from routers.strategic_knowledge_graph import router as strategic_knowledge_graph_router
@@ -94,6 +97,7 @@ app.add_middleware(
 # Core platform routers
 app.include_router(sews_causal_simulation_router)
 app.include_router(sews_evidence_router)
+app.include_router(sews_warning_baselines_router)
 app.include_router(gdelt_router)
 app.include_router(ingest_router)
 app.include_router(signals_router)
