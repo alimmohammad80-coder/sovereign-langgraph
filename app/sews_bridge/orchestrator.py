@@ -1,4 +1,6 @@
 import json
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 from pathlib import Path
 from supabase import Client
 from app.sews_bridge.discovery import discover_sources
@@ -43,6 +45,31 @@ class SEWSExistingSourcesBridge:
                 out.append(q)
         return out[:3]
 
+    @staticmethod
+    def _parse_datetime(value):
+        if not value:
+            return None
+
+        if isinstance(value, datetime):
+            dt = value
+        else:
+            raw = str(value).strip()
+
+            try:
+                dt = datetime.fromisoformat(
+                    raw.replace("Z", "+00:00")
+                )
+            except ValueError:
+                try:
+                    dt = parsedate_to_datetime(raw)
+                except Exception:
+                    return None
+
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+
+        return dt.astimezone(timezone.utc)
+
     async def run(self, request):
         resolved, statuses = discover_sources()
         requested = {k.upper() for k in request.source_keys} if request.source_keys else set(resolved)
@@ -80,6 +107,26 @@ class SEWSExistingSourcesBridge:
                                 region_key=c.get("region_key"), query=query
                             )
                             result.records_normalized += 1
+
+                            if request.collect_since:
+                                cutoff = self._parse_datetime(
+                                    request.collect_since
+                                )
+                                published = self._parse_datetime(
+                                    payload.get("published_at")
+                                )
+
+                                if (
+                                    cutoff is not None
+                                    and (
+                                        published is None
+                                        or published <= cutoff
+                                    )
+                                ):
+                                    continue
+
+                            result.records_after_freshness_filter += 1
+
                             if request.persist and not request.dry_run:
                                 inserted, _ = self.repository.persist_evidence(payload)
                                 result.records_persisted += int(inserted)
@@ -93,5 +140,10 @@ class SEWSExistingSourcesBridge:
             source_results=results,
             total_records_received=sum(x.records_received for x in results),
             total_records_persisted=sum(x.records_persisted for x in results),
-            metadata={"dry_run": request.dry_run, "persist": request.persist, "resolved_sources": sorted(resolved)},
+            metadata={
+                "dry_run": request.dry_run,
+                "persist": request.persist,
+                "collect_since": request.collect_since,
+                "resolved_sources": sorted(resolved),
+            },
         )

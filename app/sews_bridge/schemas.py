@@ -14,6 +14,7 @@ class BridgeRunRequest(BaseModel):
     problem_keys: list[str] | None = None
     source_keys: list[str] | None = None
     limit_per_query: int = Field(default=10, ge=1, le=100)
+    collect_since: str | None = None
     persist: bool = True
     dry_run: bool = False
 
@@ -23,6 +24,7 @@ class BridgeSourceResult(BaseModel):
     queries_attempted: int = 0
     records_received: int = 0
     records_normalized: int = 0
+    records_after_freshness_filter: int = 0
     records_persisted: int = 0
     duplicates_skipped: int = 0
     errors: list[str] = Field(default_factory=list)

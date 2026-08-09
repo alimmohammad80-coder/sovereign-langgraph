@@ -8,10 +8,16 @@ def _first(record, *keys):
             return value
     return None
 
-def _dt(value):
+def _dt(value, *, default_now=True):
     if value is None:
-        return datetime.now(timezone.utc).isoformat()
+        return (
+            datetime.now(timezone.utc).isoformat()
+            if default_now
+            else None
+        )
     if isinstance(value, datetime):
+        if value.tzinfo is None:
+            value = value.replace(tzinfo=timezone.utc)
         return value.astimezone(timezone.utc).isoformat()
     return str(value)
 

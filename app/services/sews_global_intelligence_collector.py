@@ -40,6 +40,24 @@ class SEWSGlobalIntelligenceCollector:
         for index in range(0, len(values), size):
             yield values[index:index + size]
 
+    def _latest_successful_cycle(self) -> str | None:
+        rows = (
+            self.db.table("sews_pipeline_runs")
+            .select("finished_at")
+            .eq("status", "SUCCESS")
+            .not_.is_("finished_at", "null")
+            .order("finished_at", desc=True)
+            .limit(1)
+            .execute()
+            .data
+            or []
+        )
+
+        if not rows:
+            return None
+
+        return rows[0].get("finished_at")
+
     def _active_problem_keys(self) -> list[str]:
         rows = (
             self.db.table("sews_warning_problems")
@@ -97,6 +115,13 @@ class SEWSGlobalIntelligenceCollector:
         remaining = [key for key in problem_keys if key not in completed]
 
         started_at = datetime.now(timezone.utc)
+        collect_since = self._latest_successful_cycle()
+
+        print(
+            "Freshness cutoff:",
+            collect_since or "FIRST_RUN",
+        )
+
         records_received = 0
         records_persisted = 0
         batches_completed = 0
@@ -123,6 +148,7 @@ class SEWSGlobalIntelligenceCollector:
                         problem_keys=batch,
                         source_keys=list(config.source_keys),
                         limit_per_query=config.limit_per_query,
+                        collect_since=collect_since,
                         persist=config.persist and not config.dry_run,
                         dry_run=config.dry_run,
                     )
@@ -167,6 +193,7 @@ class SEWSGlobalIntelligenceCollector:
             "status": "success" if not errors else "partial",
             "started_at": started_at.isoformat(),
             "finished_at": finished_at.isoformat(),
+            "collect_since": collect_since,
             "active_warning_problems": len(problem_keys),
             "already_completed_on_resume": len(set(problem_keys) - set(remaining)),
             "warning_problems_attempted": len(remaining),

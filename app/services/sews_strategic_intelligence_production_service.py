@@ -681,10 +681,19 @@ class SEWSStrategicIntelligenceProductionService:
         )
 
         confidence_text = (
-            f"{confidence_label.lower()} at "
-            f"{confidence:.0f}%"
+            (
+                f"{confidence_label.lower()} at "
+                + (
+                    f"{confidence:.0f}%"
+                    if confidence is not None
+                    else "not yet assessable"
+                )
+            )
             if confidence_status == "ASSESSED"
-            else "not yet assessable because the evidence base is insufficient"
+            else (
+                "not yet assessable because the evidence base "
+                "is insufficient"
+            )
         )
         bluf = (
             f"The assessed probability of {problem['title']} is {probability:.0%}, placing the warning in the {band.lower()} range. "
@@ -700,7 +709,25 @@ class SEWSStrategicIntelligenceProductionService:
         sections = [
             ("Current Situation", f"The latest SEWS causal assessment places the probability of {problem['title']} at {probability:.1%}. This is a {band.lower()} warning level relative to the configured base rate and the current evidence picture. The assessed direction is {trend.lower()}. The judgment is bounded by the warning hypothesis: {problem.get('hypothesis') or problem.get('title') or '' ''}"),
             ("Key Drivers", f"The most influential active indicators are {driver_text}. These indicators matter because they represent observable conditions within the causal pathway rather than isolated news events. Their effect is moderated by source reliability, freshness, corroboration, and contradiction. Indicators without sufficient evidence do not contribute artificial confidence."),
-            ("Evidence Assessment", f"The product draws on {evidence_count} recent raw evidence records and {confidence_explanation['active_indicator_count']} active indicator states. Aggregate confidence is {confidence:.1f}%. Mean evidence freshness is {confidence_explanation['mean_freshness']:.1f}%, and the contradiction ratio is {confidence_explanation['contradiction_ratio']:.1%}. The evidence base is therefore adequate for a directional judgment but may remain incomplete where reporting access is limited or state intent is not directly observable."),
+            (
+                "Evidence Assessment",
+                (
+                    f"The product draws on {evidence_count} recent raw evidence records "
+                    f"and {confidence_explanation['active_indicator_count']} active "
+                    f"indicator states. Aggregate confidence is "
+                    + (
+                        f"{confidence:.1f}%"
+                        if confidence is not None
+                        else "not yet assessable"
+                    )
+                    + f". Mean evidence freshness is "
+                    f"{confidence_explanation['mean_freshness']:.1f}%, and the "
+                    f"contradiction ratio is "
+                    f"{confidence_explanation['contradiction_ratio']:.1%}. "
+                    "The evidence base may remain incomplete where reporting access "
+                    "is limited or state intent is not directly observable."
+                ),
+            ),
             ("Causal Interpretation", "SEWS evaluates how indicator activation propagates through precursor, acceleration, trigger, mitigation, and outcome nodes. The resulting probability is not a simple count of articles. It reflects the interaction of mapped indicators, their confidence, their freshness, and the configured causal edges. This structure reduces the risk that repetitive or low-quality reporting dominates the assessment."),
             ("Forecast", f"Absent a material change in the evidence, the warning is expected to remain broadly {trend.lower()} over the near term. A sharp increase would require stronger trigger indicators, greater cross-source corroboration, or activation of connected warning pathways. A decline would require credible contrary evidence, de-escalatory action, or sustained weakening of the current drivers."),
             ("Strategic Implications", f"If the assessed outcome occurs, implications will extend beyond the immediate {problem.get('domain') or 'strategic'} domain through linked economic, political, security, and supply-chain pathways. Decision-makers should use the current probability as a planning judgment, not as certainty. The most valuable next step is targeted collection against the largest evidence gaps and close monitoring for material changes."),
