@@ -253,7 +253,7 @@ class SEWSPipelineOrchestrator:
                         or {}
                     )
 
-                    product_problem_keys.update(
+                    affected_problem_keys = sorted({
                         str(key)
                         for key in (
                             incremental.get(
@@ -262,7 +262,70 @@ class SEWSPipelineOrchestrator:
                             or []
                         )
                         if key
-                    )
+                    })
+
+                    if affected_problem_keys:
+                        supervisor_stage = PipelineStage(
+                            "warning_supervisors",
+                            [
+                                sys.executable,
+                                "scripts/"
+                                "run_selected_sews_warning_supervisors.py",
+                                "--problem-keys",
+                                *affected_problem_keys,
+                                "--limit-per-query",
+                                str(limit_per_query),
+                            ],
+                            required=False,
+                        )
+
+                        supervisor_result = self._run_stage(
+                            supervisor_stage
+                        )
+
+                        stage_results.append(
+                            supervisor_result
+                        )
+
+                        supervisor_summary = (
+                            supervisor_result.get(
+                                "summary"
+                            )
+                            or {}
+                        )
+
+                        product_problem_keys.update(
+                            str(key)
+                            for key in (
+                                supervisor_summary.get(
+                                    "material_changed_problem_keys"
+                                )
+                                or []
+                            )
+                            if key
+                        )
+
+                        if (
+                            supervisor_result["status"]
+                            == "FAILED"
+                        ):
+                            errors.append(
+                                {
+                                    "stage_key": (
+                                        "warning_supervisors"
+                                    ),
+                                    "return_code": (
+                                        supervisor_result[
+                                            "return_code"
+                                        ]
+                                    ),
+                                    "stderr_tail": (
+                                        supervisor_result[
+                                            "stderr_tail"
+                                        ]
+                                    ),
+                                }
+                            )
 
                 elif stage.key == "cross_warning_propagation":
                     for update in summary.get("updates") or []:
