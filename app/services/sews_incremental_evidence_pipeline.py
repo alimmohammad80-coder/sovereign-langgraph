@@ -12,6 +12,7 @@ from app.schemas.sews_evidence import IndicatorStateRecalculateRequest
 from app.services.sews_causal_propagation_service import (
     SEWSCausalPropagationService,
 )
+from app.services.sews_deterministic_matcher import SEWSDeterministicIndicatorMatcher
 from app.services.sews_indicator_state_service import (
     SEWSIndicatorStateService,
 )
@@ -258,10 +259,84 @@ class SEWSIncrementalEvidencePipeline:
             }
 
         mappings = self._mappings(problem_keys)
-        contexts = sorted({
-            (str(row["problem_key"]), str(row["indicator_key"]))
-            for row in mappings
-            if row.get("problem_key") and row.get("indicator_key")
+
+        # Incremental execution must operate at indicator granularity.
+        #
+        # Previously, every indicator mapped to every warning problem
+        # referenced by new evidence was recalculated. That caused a
+        # handful of new evidence records to fan out into ~1,000 state
+        # recalculations across the global warning portfolio.
+        #
+        # Instead, rank each new evidence record only against indicators
+        # belonging to its routed warning problem and mark only actual
+        # evidence-to-indicator matches as dirty.
+        matcher = SEWSDeterministicIndicatorMatcher()
+
+        mappings_by_problem: dict[
+            str,
+            list[dict[str, Any]],
+        ] = {}
+
+        for row in mappings:
+            problem_key = str(row.get("problem_key") or "")
+            indicator_key = str(row.get("indicator_key") or "")
+
+            if not problem_key or not indicator_key:
+                continue
+
+            mappings_by_problem.setdefault(
+                problem_key,
+                [],
+            ).append(row)
+
+        dirty_contexts: set[tuple[str, str]] = set()
+
+        for evidence in evidence_rows:
+            metadata = evidence.get("metadata") or {}
+
+            evidence_problem_key = str(
+                metadata.get("warning_problem_key")
+                or evidence.get("warning_problem_key")
+                or ""
+            )
+
+            if not evidence_problem_key:
+                continue
+
+            candidate_mappings = mappings_by_problem.get(
+                evidence_problem_key,
+                [],
+            )
+
+            if not candidate_mappings:
+                continue
+
+            matches = matcher.rank_for_evidence(
+                evidence=evidence,
+                mappings=candidate_mappings,
+                limit=4,
+            )
+
+            for mapping, match in matches:
+                indicator_key = str(
+                    mapping.get("indicator_key")
+                    or match.indicator_key
+                    or ""
+                )
+
+                if indicator_key:
+                    dirty_contexts.add(
+                        (
+                            evidence_problem_key,
+                            indicator_key,
+                        )
+                    )
+
+        contexts = sorted(dirty_contexts)
+
+        affected_problem_keys = sorted({
+            problem_key
+            for problem_key, _ in contexts
         })
 
         state_service = SEWSIndicatorStateService(self.db)
@@ -302,7 +377,7 @@ class SEWSIncrementalEvidencePipeline:
         causal_results: list[dict[str, Any]] = []
         causal_errors: list[dict[str, str]] = []
 
-        for problem_key in problem_keys:
+        for problem_key in affected_problem_keys:
             try:
                 result = causal_service.propagate(
                     problem_key,
@@ -405,7 +480,7 @@ class SEWSIncrementalEvidencePipeline:
                     "updated_at": datetime.now(timezone.utc).isoformat(),
                     "last_collected_at": latest_collected_at,
                     "last_evidence_id": evidence_rows[-1].get("id"),
-                    "affected_warning_problems": problem_keys,
+                    "affected_warning_problems": affected_problem_keys,
                     "indicator_contexts_recalculated": len(state_results),
                     "causal_assessments_updated": len(causal_results),
                     "intelligence_products_generated": len(
@@ -421,8 +496,8 @@ class SEWSIncrementalEvidencePipeline:
             "pipeline_version": PIPELINE_VERSION,
             "status": "success" if completed else "partial",
             "new_evidence_records": len(evidence_rows),
-            "affected_warning_problem_keys": problem_keys,
-            "affected_warning_problems": len(problem_keys),
+            "affected_warning_problem_keys": affected_problem_keys,
+            "affected_warning_problems": len(affected_problem_keys),
             "indicator_contexts_considered": len(contexts),
             "indicator_contexts_recalculated": len(state_results),
             "indicator_state_errors": state_errors,
