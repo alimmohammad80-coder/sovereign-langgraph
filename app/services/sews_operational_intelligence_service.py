@@ -105,20 +105,17 @@ class SEWSOperationalIntelligenceService:
         self,
     ) -> dict[str, dict[str, Any]]:
         rows = (
-            self.db.table("sews_intelligence_products")
+            self.db.table(
+                "sews_latest_operational_products"
+            )
             .select(
                 "id,warning_problem_key,generated_at,"
-                "probability,confidence,trend,bluf,"
-                "executive_summary,complete_analysis,"
-                "key_drivers,confidence_explanation,"
-                "evidence_summary,forecast,scenarios,"
-                "intelligence_gaps,collection_priorities,"
-                "region,region_key,country_iso3,countries,"
-                "geographic_scope,confidence_status,"
-                "raw_confidence,metadata"
+                "confidence,confidence_status,"
+                "raw_confidence,trend,bluf,key_drivers,"
+                "forecast,intelligence_gaps,"
+                "collection_priorities"
             )
-            .order("generated_at", desc=True)
-            .range(0, 9999)
+            .range(0, 999)
             .execute()
             .data
             or []
