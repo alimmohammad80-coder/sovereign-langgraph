@@ -7,6 +7,26 @@ class SourceDefinition:
     kind: str
 
 SOURCE_DEFINITIONS = (
+    SourceDefinition("SEWS_ECONOMIC", (
+        "app.services.sews_authoritative_collection_adapter:"
+        "fetch_sews_economic_intelligence",
+    ), "AUTHORITATIVE"),
+    SourceDefinition("SEWS_ENERGY", (
+        "app.services.sews_authoritative_collection_adapter:"
+        "fetch_sews_energy_intelligence",
+    ), "AUTHORITATIVE"),
+    SourceDefinition("SEWS_CONFLICT", (
+        "app.services.sews_authoritative_collection_adapter:"
+        "fetch_sews_conflict_intelligence",
+    ), "AUTHORITATIVE"),
+    SourceDefinition("SEWS_POLITICAL", (
+        "app.services.sews_authoritative_collection_adapter:"
+        "fetch_sews_political_intelligence",
+    ), "AUTHORITATIVE"),
+    SourceDefinition("SEWS_TRADE_SANCTIONS", (
+        "app.services.sews_authoritative_collection_adapter:"
+        "fetch_sews_trade_sanctions_intelligence",
+    ), "AUTHORITATIVE"),
     SourceDefinition("GOOGLE_NEWS_RSS", (
         "app.intelligence.sources.google_news:fetch_google_news",
         "app.services.google_news_service:fetch_google_news",

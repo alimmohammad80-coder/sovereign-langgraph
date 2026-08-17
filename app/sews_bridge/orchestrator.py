@@ -46,6 +46,79 @@ class SEWSExistingSourcesBridge:
         return out[:3]
 
     @staticmethod
+    def _source_keys_for_problem(problem):
+        """
+        Select intelligence families according to the warning problem.
+
+        News/event sources remain universal because they provide current
+        event awareness. Authoritative domain collectors are added only
+        where analytically relevant.
+        """
+        key = str(problem.get("problem_key") or "").upper()
+        title = str(problem.get("title") or "").lower()
+        hypothesis = str(problem.get("hypothesis") or "").lower()
+        classification = problem.get("classification") or {}
+
+        blob = " ".join([
+            key.lower(),
+            title,
+            hypothesis,
+            str(classification).lower(),
+        ])
+
+        sources = {
+            "GOOGLE_NEWS_RSS",
+            "GDELT",
+            "NEWSAPI",
+        }
+
+        economic_terms = (
+            "currency", "debt", "bank", "financial",
+            "recession", "inflation", "economic",
+            "price", "trade", "sovereign",
+        )
+
+        energy_terms = (
+            "energy", "gas", "oil", "lng", "pipeline",
+            "hormuz", "shipping", "suez", "canal",
+            "port", "semiconductor", "supply",
+        )
+
+        conflict_terms = (
+            "conflict", "war", "military", "escalation",
+            "border", "blockade", "militancy", "spillover",
+            "coup", "regime", "state collapse",
+        )
+
+        political_terms = (
+            "political", "election", "protest",
+            "disinformation", "interference",
+            "instability", "governance",
+        )
+
+        trade_terms = (
+            "sanction", "trade", "tariff", "export",
+            "mineral", "shipping", "supply chain",
+        )
+
+        if any(term in blob for term in economic_terms):
+            sources.add("SEWS_ECONOMIC")
+
+        if any(term in blob for term in energy_terms):
+            sources.add("SEWS_ENERGY")
+
+        if any(term in blob for term in conflict_terms):
+            sources.add("SEWS_CONFLICT")
+
+        if any(term in blob for term in political_terms):
+            sources.add("SEWS_POLITICAL")
+
+        if any(term in blob for term in trade_terms):
+            sources.add("SEWS_TRADE_SANCTIONS")
+
+        return sources
+
+    @staticmethod
     def _parse_datetime(value):
         if not value:
             return None
@@ -84,7 +157,15 @@ class SEWSExistingSourcesBridge:
                 results.append(result)
                 continue
             for problem in problems:
+                allowed_sources = self._source_keys_for_problem(
+                    problem
+                )
+
+                if source_key not in allowed_sources:
+                    continue
+
                 c = problem.get("classification") or {}
+
                 for query in self._queries(problem):
                     result.queries_attempted += 1
                     try:

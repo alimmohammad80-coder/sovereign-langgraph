@@ -14,7 +14,16 @@ from app.sews_bridge.schemas import BridgeRunRequest
 
 
 COLLECTOR_VERSION = "sews-global-intelligence-collector-v1.0.0"
-DEFAULT_SOURCE_KEYS = ("GOOGLE_NEWS_RSS", "GDELT", "NEWSAPI")
+DEFAULT_SOURCE_KEYS = (
+    "GOOGLE_NEWS_RSS",
+    "GDELT",
+    "NEWSAPI",
+    "SEWS_ECONOMIC",
+    "SEWS_ENERGY",
+    "SEWS_CONFLICT",
+    "SEWS_POLITICAL",
+    "SEWS_TRADE_SANCTIONS",
+)
 
 
 @dataclass(slots=True)
