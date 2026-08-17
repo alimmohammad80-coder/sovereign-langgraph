@@ -1,0 +1,13 @@
+{
+  "registry_name": "Conflict Intelligence Countries",
+  "registry_version": "conflict-intelligence-countries-v1",
+  "generated_at": "2026-08-04T00:00:00Z",
+  "source_manifest": [
+    {
+      "source": "existing_country_registry",
+      "status": "reuse_required"
+    }
+  ],
+  "record_count": 0,
+  "records": []
+}

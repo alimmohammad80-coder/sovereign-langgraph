@@ -33,6 +33,7 @@ from routers.strategic_knowledge_graph import router as strategic_knowledge_grap
 from app.routes import supply_chain
 from app.routes import global_risk
 from app.routers.conflict_forecasting import router as conflict_forecasting_router
+from app.routes.conflict_intelligence import router as conflict_intelligence_router
 from app.routes.intelligence_pipeline import router as intelligence_pipeline_router
 from app.routes import global_risk
 from app.routes.fusion_signals import router as fusion_signals_router
@@ -110,6 +111,7 @@ app.include_router(fusion_signals_router)
 app.include_router(simulation_lab_router)
 app.include_router(intelligence_pipeline_router)
 app.include_router(conflict_forecasting_router)
+app.include_router(conflict_intelligence_router)
 app.include_router(strategic_knowledge_graph_router)
 app.include_router(supply_chain_geo_router)
 

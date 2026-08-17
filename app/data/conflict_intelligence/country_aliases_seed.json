@@ -1,0 +1,917 @@
+{
+  "registry_name": "Conflict Country Alias Registry",
+  "registry_version": "country-aliases-v2",
+  "generated_at": "2026-08-16T17:57:48.300693+00:00",
+  "record_count": 101,
+  "records": [
+    {
+      "alias": "United States",
+      "iso3": "USA",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Canada",
+      "iso3": "CAN",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Mexico",
+      "iso3": "MEX",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "United Kingdom",
+      "iso3": "GBR",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "France",
+      "iso3": "FRA",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Germany",
+      "iso3": "DEU",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Italy",
+      "iso3": "ITA",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Spain",
+      "iso3": "ESP",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Poland",
+      "iso3": "POL",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Ukraine",
+      "iso3": "UKR",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Russia",
+      "iso3": "RUS",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Sweden",
+      "iso3": "SWE",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Norway",
+      "iso3": "NOR",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Finland",
+      "iso3": "FIN",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Netherlands",
+      "iso3": "NLD",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Belgium",
+      "iso3": "BEL",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Switzerland",
+      "iso3": "CHE",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Austria",
+      "iso3": "AUT",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Greece",
+      "iso3": "GRC",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Romania",
+      "iso3": "ROU",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Turkey",
+      "iso3": "TUR",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Iran",
+      "iso3": "IRN",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Israel",
+      "iso3": "ISR",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Saudi Arabia",
+      "iso3": "SAU",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "United Arab Emirates",
+      "iso3": "ARE",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Qatar",
+      "iso3": "QAT",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Iraq",
+      "iso3": "IRQ",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Syria",
+      "iso3": "SYR",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Jordan",
+      "iso3": "JOR",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Lebanon",
+      "iso3": "LBN",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Egypt",
+      "iso3": "EGY",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Morocco",
+      "iso3": "MAR",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Algeria",
+      "iso3": "DZA",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Tunisia",
+      "iso3": "TUN",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Libya",
+      "iso3": "LBY",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "India",
+      "iso3": "IND",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Pakistan",
+      "iso3": "PAK",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Afghanistan",
+      "iso3": "AFG",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Bangladesh",
+      "iso3": "BGD",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Sri Lanka",
+      "iso3": "LKA",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Nepal",
+      "iso3": "NPL",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "China",
+      "iso3": "CHN",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Taiwan",
+      "iso3": "TWN",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Japan",
+      "iso3": "JPN",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "South Korea",
+      "iso3": "KOR",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "North Korea",
+      "iso3": "PRK",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Mongolia",
+      "iso3": "MNG",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Australia",
+      "iso3": "AUS",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "New Zealand",
+      "iso3": "NZL",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Indonesia",
+      "iso3": "IDN",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Singapore",
+      "iso3": "SGP",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Malaysia",
+      "iso3": "MYS",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Vietnam",
+      "iso3": "VNM",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Philippines",
+      "iso3": "PHL",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Thailand",
+      "iso3": "THA",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Myanmar",
+      "iso3": "MMR",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Cambodia",
+      "iso3": "KHM",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Laos",
+      "iso3": "LAO",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Brazil",
+      "iso3": "BRA",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Argentina",
+      "iso3": "ARG",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Chile",
+      "iso3": "CHL",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Colombia",
+      "iso3": "COL",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Venezuela",
+      "iso3": "VEN",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Peru",
+      "iso3": "PER",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Ecuador",
+      "iso3": "ECU",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Bolivia",
+      "iso3": "BOL",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Uruguay",
+      "iso3": "URY",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Paraguay",
+      "iso3": "PRY",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Cuba",
+      "iso3": "CUB",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Dominican Republic",
+      "iso3": "DOM",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Nigeria",
+      "iso3": "NGA",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "South Africa",
+      "iso3": "ZAF",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Ethiopia",
+      "iso3": "ETH",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Kenya",
+      "iso3": "KEN",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Ghana",
+      "iso3": "GHA",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Senegal",
+      "iso3": "SEN",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Ivory Coast",
+      "iso3": "CIV",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Angola",
+      "iso3": "AGO",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Democratic Republic of the Congo",
+      "iso3": "COD",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Democratic the Congo",
+      "iso3": "COD",
+      "alias_type": "common",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "the Congo",
+      "iso3": "COD",
+      "alias_type": "common",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Sudan",
+      "iso3": "SDN",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "South Sudan",
+      "iso3": "SSD",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Somalia",
+      "iso3": "SOM",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Mali",
+      "iso3": "MLI",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Niger",
+      "iso3": "NER",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Burkina Faso",
+      "iso3": "BFA",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Kazakhstan",
+      "iso3": "KAZ",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Uzbekistan",
+      "iso3": "UZB",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Turkmenistan",
+      "iso3": "TKM",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Kyrgyzstan",
+      "iso3": "KGZ",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Tajikistan",
+      "iso3": "TJK",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Azerbaijan",
+      "iso3": "AZE",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Armenia",
+      "iso3": "ARM",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Georgia",
+      "iso3": "GEO",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Serbia",
+      "iso3": "SRB",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Hungary",
+      "iso3": "HUN",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Czech Republic",
+      "iso3": "CZE",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Cyprus",
+      "iso3": "CYP",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Guyana",
+      "iso3": "GUY",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    },
+    {
+      "alias": "Kuwait",
+      "iso3": "KWT",
+      "alias_type": "primary",
+      "source": "Conflict Countries Registry",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-16",
+      "active": true
+    }
+  ]
+}

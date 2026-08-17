@@ -1,0 +1,879 @@
+{
+  "mapping_name": "GWNO Country Crosswalk",
+  "record_count": 123,
+  "records": [
+    {
+      "gwno": 2,
+      "candidate_names": [
+        "Government of Australia, Government of United Kingdom, Government of United States of America",
+        "Government of United Kingdom, Government of United States of America",
+        "Government of United States of America"
+      ],
+      "iso3": null
+    },
+    {
+      "gwno": 40,
+      "candidate_names": [
+        "Government of Cuba"
+      ],
+      "iso3": "CUB"
+    },
+    {
+      "gwno": 41,
+      "candidate_names": [
+        "Government of Haiti"
+      ],
+      "iso3": null
+    },
+    {
+      "gwno": 42,
+      "candidate_names": [
+        "Government of Dominican Republic"
+      ],
+      "iso3": "DOM"
+    },
+    {
+      "gwno": 52,
+      "candidate_names": [
+        "Government of Trinidad and Tobago"
+      ],
+      "iso3": null
+    },
+    {
+      "gwno": 55,
+      "candidate_names": [
+        "Government of Grenada"
+      ],
+      "iso3": null
+    },
+    {
+      "gwno": 70,
+      "candidate_names": [
+        "Government of Mexico"
+      ],
+      "iso3": "MEX"
+    },
+    {
+      "gwno": 90,
+      "candidate_names": [
+        "Government of Guatemala"
+      ],
+      "iso3": null
+    },
+    {
+      "gwno": 91,
+      "candidate_names": [
+        "Government of Honduras"
+      ],
+      "iso3": null
+    },
+    {
+      "gwno": 92,
+      "candidate_names": [
+        "Government of El Salvador"
+      ],
+      "iso3": null
+    },
+    {
+      "gwno": 93,
+      "candidate_names": [
+        "Government of Nicaragua"
+      ],
+      "iso3": null
+    },
+    {
+      "gwno": 94,
+      "candidate_names": [
+        "Government of Costa Rica"
+      ],
+      "iso3": null
+    },
+    {
+      "gwno": 95,
+      "candidate_names": [
+        "Government of Panama"
+      ],
+      "iso3": null
+    },
+    {
+      "gwno": 100,
+      "candidate_names": [
+        "Government of Colombia"
+      ],
+      "iso3": "COL"
+    },
+    {
+      "gwno": 101,
+      "candidate_names": [
+        "Government of Venezuela"
+      ],
+      "iso3": "VEN"
+    },
+    {
+      "gwno": 115,
+      "candidate_names": [
+        "Government of Suriname"
+      ],
+      "iso3": null
+    },
+    {
+      "gwno": 130,
+      "candidate_names": [
+        "Government of Ecuador"
+      ],
+      "iso3": "ECU"
+    },
+    {
+      "gwno": 135,
+      "candidate_names": [
+        "Government of Peru"
+      ],
+      "iso3": "PER"
+    },
+    {
+      "gwno": 145,
+      "candidate_names": [
+        "Government of Bolivia"
+      ],
+      "iso3": "BOL"
+    },
+    {
+      "gwno": 150,
+      "candidate_names": [
+        "Government of Paraguay"
+      ],
+      "iso3": "PRY"
+    },
+    {
+      "gwno": 155,
+      "candidate_names": [
+        "Government of Chile"
+      ],
+      "iso3": "CHL"
+    },
+    {
+      "gwno": 160,
+      "candidate_names": [
+        "Government of Argentina"
+      ],
+      "iso3": "ARG"
+    },
+    {
+      "gwno": 165,
+      "candidate_names": [
+        "Government of Uruguay"
+      ],
+      "iso3": "URY"
+    },
+    {
+      "gwno": 200,
+      "candidate_names": [
+        "Government of Australia, Government of United Kingdom, Government of United States of America",
+        "Government of France, Government of Israel, Government of United Kingdom",
+        "Government of United Kingdom",
+        "Government of United Kingdom, Government of United States of America"
+      ],
+      "iso3": "GBR"
+    },
+    {
+      "gwno": 210,
+      "candidate_names": [
+        "Government of Netherlands"
+      ],
+      "iso3": "NLD"
+    },
+    {
+      "gwno": 220,
+      "candidate_names": [
+        "Government of France",
+        "Government of France, Government of Israel, Government of United Kingdom"
+      ],
+      "iso3": "FRA"
+    },
+    {
+      "gwno": 230,
+      "candidate_names": [
+        "Government of Spain"
+      ],
+      "iso3": "ESP"
+    },
+    {
+      "gwno": 235,
+      "candidate_names": [
+        "Government of Portugal"
+      ],
+      "iso3": null
+    },
+    {
+      "gwno": 310,
+      "candidate_names": [
+        "Government of Hungary"
+      ],
+      "iso3": "HUN"
+    },
+    {
+      "gwno": 339,
+      "candidate_names": [
+        "Government of Albania"
+      ],
+      "iso3": null
+    },
+    {
+      "gwno": 343,
+      "candidate_names": [
+        "Government of North Macedonia"
+      ],
+      "iso3": null
+    },
+    {
+      "gwno": 344,
+      "candidate_names": [
+        "Government of Croatia"
+      ],
+      "iso3": null
+    },
+    {
+      "gwno": 345,
+      "candidate_names": [
+        "Government of Serbia (Yugoslavia)"
+      ],
+      "iso3": null
+    },
+    {
+      "gwno": 346,
+      "candidate_names": [
+        "Government of Bosnia-Herzegovina"
+      ],
+      "iso3": null
+    },
+    {
+      "gwno": 350,
+      "candidate_names": [
+        "Government of Greece"
+      ],
+      "iso3": "GRC"
+    },
+    {
+      "gwno": 352,
+      "candidate_names": [
+        "Government of Cyprus"
+      ],
+      "iso3": "CYP"
+    },
+    {
+      "gwno": 359,
+      "candidate_names": [
+        "Government of Moldova"
+      ],
+      "iso3": null
+    },
+    {
+      "gwno": 360,
+      "candidate_names": [
+        "Government of Romania"
+      ],
+      "iso3": "ROU"
+    },
+    {
+      "gwno": 365,
+      "candidate_names": [
+        "Government of Russia (Soviet Union)"
+      ],
+      "iso3": "RUS"
+    },
+    {
+      "gwno": 369,
+      "candidate_names": [
+        "Government of Ukraine"
+      ],
+      "iso3": "UKR"
+    },
+    {
+      "gwno": 372,
+      "candidate_names": [
+        "Government of Georgia"
+      ],
+      "iso3": "GEO"
+    },
+    {
+      "gwno": 373,
+      "candidate_names": [
+        "Government of Azerbaijan"
+      ],
+      "iso3": "AZE"
+    },
+    {
+      "gwno": 404,
+      "candidate_names": [
+        "Government of Guinea-Bissau"
+      ],
+      "iso3": null
+    },
+    {
+      "gwno": 420,
+      "candidate_names": [
+        "Government of Gambia"
+      ],
+      "iso3": null
+    },
+    {
+      "gwno": 432,
+      "candidate_names": [
+        "Government of Mali"
+      ],
+      "iso3": "MLI"
+    },
+    {
+      "gwno": 433,
+      "candidate_names": [
+        "Government of Senegal"
+      ],
+      "iso3": "SEN"
+    },
+    {
+      "gwno": 434,
+      "candidate_names": [
+        "Government of Benin"
+      ],
+      "iso3": null
+    },
+    {
+      "gwno": 435,
+      "candidate_names": [
+        "Government of Mauritania"
+      ],
+      "iso3": null
+    },
+    {
+      "gwno": 436,
+      "candidate_names": [
+        "Government of Niger"
+      ],
+      "iso3": "NER"
+    },
+    {
+      "gwno": 437,
+      "candidate_names": [
+        "Government of Ivory Coast"
+      ],
+      "iso3": "CIV"
+    },
+    {
+      "gwno": 438,
+      "candidate_names": [
+        "Government of Guinea"
+      ],
+      "iso3": null
+    },
+    {
+      "gwno": 439,
+      "candidate_names": [
+        "Government of Burkina Faso"
+      ],
+      "iso3": "BFA"
+    },
+    {
+      "gwno": 450,
+      "candidate_names": [
+        "Government of Liberia"
+      ],
+      "iso3": null
+    },
+    {
+      "gwno": 451,
+      "candidate_names": [
+        "Government of Sierra Leone"
+      ],
+      "iso3": null
+    },
+    {
+      "gwno": 452,
+      "candidate_names": [
+        "Government of Ghana"
+      ],
+      "iso3": "GHA"
+    },
+    {
+      "gwno": 461,
+      "candidate_names": [
+        "Government of Togo"
+      ],
+      "iso3": null
+    },
+    {
+      "gwno": 471,
+      "candidate_names": [
+        "Government of Cameroon"
+      ],
+      "iso3": null
+    },
+    {
+      "gwno": 475,
+      "candidate_names": [
+        "Government of Nigeria"
+      ],
+      "iso3": "NGA"
+    },
+    {
+      "gwno": 481,
+      "candidate_names": [
+        "Government of Gabon"
+      ],
+      "iso3": null
+    },
+    {
+      "gwno": 482,
+      "candidate_names": [
+        "Government of Central African Republic"
+      ],
+      "iso3": null
+    },
+    {
+      "gwno": 483,
+      "candidate_names": [
+        "Government of Chad"
+      ],
+      "iso3": null
+    },
+    {
+      "gwno": 484,
+      "candidate_names": [
+        "Government of Congo"
+      ],
+      "iso3": null
+    },
+    {
+      "gwno": 490,
+      "candidate_names": [
+        "Government of DR Congo (Zaire)"
+      ],
+      "iso3": null
+    },
+    {
+      "gwno": 500,
+      "candidate_names": [
+        "Government of Uganda"
+      ],
+      "iso3": null
+    },
+    {
+      "gwno": 501,
+      "candidate_names": [
+        "Government of Kenya"
+      ],
+      "iso3": "KEN"
+    },
+    {
+      "gwno": 510,
+      "candidate_names": [
+        "Government of Tanzania"
+      ],
+      "iso3": null
+    },
+    {
+      "gwno": 516,
+      "candidate_names": [
+        "Government of Burundi"
+      ],
+      "iso3": null
+    },
+    {
+      "gwno": 517,
+      "candidate_names": [
+        "Government of Rwanda"
+      ],
+      "iso3": null
+    },
+    {
+      "gwno": 520,
+      "candidate_names": [
+        "Government of Somalia"
+      ],
+      "iso3": "SOM"
+    },
+    {
+      "gwno": 522,
+      "candidate_names": [
+        "Government of Djibouti"
+      ],
+      "iso3": null
+    },
+    {
+      "gwno": 530,
+      "candidate_names": [
+        "Government of Ethiopia"
+      ],
+      "iso3": "ETH"
+    },
+    {
+      "gwno": 531,
+      "candidate_names": [
+        "Government of Eritrea"
+      ],
+      "iso3": null
+    },
+    {
+      "gwno": 540,
+      "candidate_names": [
+        "Government of Angola"
+      ],
+      "iso3": "AGO"
+    },
+    {
+      "gwno": 541,
+      "candidate_names": [
+        "Government of Mozambique"
+      ],
+      "iso3": null
+    },
+    {
+      "gwno": 552,
+      "candidate_names": [
+        "Government of Zimbabwe (Rhodesia)"
+      ],
+      "iso3": null
+    },
+    {
+      "gwno": 560,
+      "candidate_names": [
+        "Government of South Africa"
+      ],
+      "iso3": "ZAF"
+    },
+    {
+      "gwno": 570,
+      "candidate_names": [
+        "Government of Lesotho"
+      ],
+      "iso3": null
+    },
+    {
+      "gwno": 580,
+      "candidate_names": [
+        "Government of Madagascar"
+      ],
+      "iso3": null
+    },
+    {
+      "gwno": 581,
+      "candidate_names": [
+        "Government of Comoros"
+      ],
+      "iso3": null
+    },
+    {
+      "gwno": 600,
+      "candidate_names": [
+        "Government of Morocco"
+      ],
+      "iso3": "MAR"
+    },
+    {
+      "gwno": 615,
+      "candidate_names": [
+        "Government of Algeria"
+      ],
+      "iso3": "DZA"
+    },
+    {
+      "gwno": 616,
+      "candidate_names": [
+        "Government of Tunisia"
+      ],
+      "iso3": "TUN"
+    },
+    {
+      "gwno": 620,
+      "candidate_names": [
+        "Government of Libya"
+      ],
+      "iso3": "LBY"
+    },
+    {
+      "gwno": 625,
+      "candidate_names": [
+        "Government of Sudan"
+      ],
+      "iso3": "SDN"
+    },
+    {
+      "gwno": 626,
+      "candidate_names": [
+        "Government of South Sudan"
+      ],
+      "iso3": "SSD"
+    },
+    {
+      "gwno": 630,
+      "candidate_names": [
+        "Government of Iran"
+      ],
+      "iso3": "IRN"
+    },
+    {
+      "gwno": 640,
+      "candidate_names": [
+        "Government of Turkey"
+      ],
+      "iso3": "TUR"
+    },
+    {
+      "gwno": 645,
+      "candidate_names": [
+        "Government of Egypt, Government of Iraq, Government of Jordan, Government of Lebanon, Government of Syria",
+        "Government of Iraq"
+      ],
+      "iso3": "IRQ"
+    },
+    {
+      "gwno": 651,
+      "candidate_names": [
+        "Government of Egypt",
+        "Government of Egypt, Government of Iraq, Government of Jordan, Government of Lebanon, Government of Syria"
+      ],
+      "iso3": "EGY"
+    },
+    {
+      "gwno": 652,
+      "candidate_names": [
+        "Government of Egypt, Government of Iraq, Government of Jordan, Government of Lebanon, Government of Syria",
+        "Government of Syria"
+      ],
+      "iso3": "SYR"
+    },
+    {
+      "gwno": 660,
+      "candidate_names": [
+        "Government of Egypt, Government of Iraq, Government of Jordan, Government of Lebanon, Government of Syria",
+        "Government of Lebanon"
+      ],
+      "iso3": "LBN"
+    },
+    {
+      "gwno": 663,
+      "candidate_names": [
+        "Government of Egypt, Government of Iraq, Government of Jordan, Government of Lebanon, Government of Syria",
+        "Government of Jordan"
+      ],
+      "iso3": "JOR"
+    },
+    {
+      "gwno": 666,
+      "candidate_names": [
+        "Government of France, Government of Israel, Government of United Kingdom",
+        "Government of Israel"
+      ],
+      "iso3": "ISR"
+    },
+    {
+      "gwno": 670,
+      "candidate_names": [
+        "Government of Saudi Arabia"
+      ],
+      "iso3": "SAU"
+    },
+    {
+      "gwno": 678,
+      "candidate_names": [
+        "Government of Yemen (North Yemen)"
+      ],
+      "iso3": null
+    },
+    {
+      "gwno": 680,
+      "candidate_names": [
+        "Government of South Yemen"
+      ],
+      "iso3": null
+    },
+    {
+      "gwno": 690,
+      "candidate_names": [
+        "Government of Kuwait"
+      ],
+      "iso3": "KWT"
+    },
+    {
+      "gwno": 698,
+      "candidate_names": [
+        "Government of Oman"
+      ],
+      "iso3": null
+    },
+    {
+      "gwno": 700,
+      "candidate_names": [
+        "Government of Afghanistan"
+      ],
+      "iso3": "AFG"
+    },
+    {
+      "gwno": 702,
+      "candidate_names": [
+        "Government of Tajikistan"
+      ],
+      "iso3": "TJK"
+    },
+    {
+      "gwno": 703,
+      "candidate_names": [
+        "Government of Kyrgyzstan"
+      ],
+      "iso3": "KGZ"
+    },
+    {
+      "gwno": 704,
+      "candidate_names": [
+        "Government of Uzbekistan"
+      ],
+      "iso3": "UZB"
+    },
+    {
+      "gwno": 710,
+      "candidate_names": [
+        "Government of China"
+      ],
+      "iso3": "CHN"
+    },
+    {
+      "gwno": 713,
+      "candidate_names": [
+        "Government of Taiwan"
+      ],
+      "iso3": "TWN"
+    },
+    {
+      "gwno": 731,
+      "candidate_names": [
+        "Government of North Korea"
+      ],
+      "iso3": "PRK"
+    },
+    {
+      "gwno": 732,
+      "candidate_names": [
+        "Government of South Korea"
+      ],
+      "iso3": "KOR"
+    },
+    {
+      "gwno": 750,
+      "candidate_names": [
+        "Government of India"
+      ],
+      "iso3": "IND"
+    },
+    {
+      "gwno": 751,
+      "candidate_names": [
+        "Government of Hyderabad"
+      ],
+      "iso3": null
+    },
+    {
+      "gwno": 770,
+      "candidate_names": [
+        "Government of Pakistan"
+      ],
+      "iso3": "PAK"
+    },
+    {
+      "gwno": 771,
+      "candidate_names": [
+        "Government of Bangladesh"
+      ],
+      "iso3": "BGD"
+    },
+    {
+      "gwno": 775,
+      "candidate_names": [
+        "Government of Myanmar (Burma)"
+      ],
+      "iso3": "MMR"
+    },
+    {
+      "gwno": 780,
+      "candidate_names": [
+        "Government of Sri Lanka"
+      ],
+      "iso3": "LKA"
+    },
+    {
+      "gwno": 790,
+      "candidate_names": [
+        "Government of Nepal"
+      ],
+      "iso3": "NPL"
+    },
+    {
+      "gwno": 800,
+      "candidate_names": [
+        "Government of Thailand"
+      ],
+      "iso3": "THA"
+    },
+    {
+      "gwno": 811,
+      "candidate_names": [
+        "Government of Cambodia (Kampuchea)"
+      ],
+      "iso3": null
+    },
+    {
+      "gwno": 812,
+      "candidate_names": [
+        "Government of Laos"
+      ],
+      "iso3": "LAO"
+    },
+    {
+      "gwno": 816,
+      "candidate_names": [
+        "Government of Vietnam (North Vietnam)"
+      ],
+      "iso3": null
+    },
+    {
+      "gwno": 817,
+      "candidate_names": [
+        "Government of South Vietnam"
+      ],
+      "iso3": null
+    },
+    {
+      "gwno": 820,
+      "candidate_names": [
+        "Government of Malaysia"
+      ],
+      "iso3": "MYS"
+    },
+    {
+      "gwno": 840,
+      "candidate_names": [
+        "Government of Philippines"
+      ],
+      "iso3": "PHL"
+    },
+    {
+      "gwno": 850,
+      "candidate_names": [
+        "Government of Indonesia"
+      ],
+      "iso3": "IDN"
+    },
+    {
+      "gwno": 900,
+      "candidate_names": [
+        "Government of Australia, Government of United Kingdom, Government of United States of America"
+      ],
+      "iso3": null
+    },
+    {
+      "gwno": 910,
+      "candidate_names": [
+        "Government of Papua New Guinea"
+      ],
+      "iso3": null
+    }
+  ]
+}

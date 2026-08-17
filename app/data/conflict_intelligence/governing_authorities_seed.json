@@ -1,0 +1,28 @@
+{
+  "registry_name": "Conflict Intelligence Governing Authorities",
+  "registry_version": "conflict-governing-authorities-v1",
+  "generated_at": "2026-08-14T18:47:03.098074+00:00",
+  "record_count": 1,
+  "records": [
+    {
+      "relationship_id": "GOV-AFG-TALIBAN",
+      "organization_id": "NSO-TALIBAN",
+      "state_iso3": "AFG",
+      "territory_id": null,
+      "control_scope": "national",
+      "effective_control": true,
+      "control_start_date": "2021-08-15",
+      "control_end_date": null,
+      "recognition_status": "not_un_recognized_government",
+      "recognition_source": "United Nations",
+      "recognition_source_url": "https://www.un.org/",
+      "source": "United Nations Assistance Mission in Afghanistan",
+      "source_url": "https://unama.unmissions.org/",
+      "source_version": "accessed-2026-08",
+      "confidence_grade": "high",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-14",
+      "active": true
+    }
+  ]
+}

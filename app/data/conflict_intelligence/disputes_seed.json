@@ -1,0 +1,129 @@
+{
+  "registry_name": "Conflict Intelligence Global Disputes",
+  "registry_version": "conflict-disputes-v1",
+  "generated_at": "2026-08-14T01:17:04.588466+00:00",
+  "source_manifest": [],
+  "record_count": 4,
+  "records": [
+    {
+      "dispute_id": "DISPUTE-IND-PAK-KASHMIR",
+      "name": "Jammu and Kashmir / Line of Control",
+      "dispute_type": "ceasefire_line",
+      "status": "ceasefire",
+      "parties": [
+        "India",
+        "Pakistan"
+      ],
+      "primary_dyad_id": "DYAD-IND-PAK-LAND",
+      "territory_id": null,
+      "claimant_iso3": [
+        "IND",
+        "PAK"
+      ],
+      "maritime": false,
+      "transboundary": true,
+      "start_year": 1947,
+      "last_major_incident": null,
+      "current_mechanism": "UNMOGIP",
+      "legal_process": null,
+      "geometry_ref": null,
+      "source": "United Nations Peacekeeping \u2014 UNMOGIP",
+      "source_url": "https://peacekeeping.un.org/en/factsheet/unmogip",
+      "source_version": "accessed-2026-08",
+      "confidence_grade": "high",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-14",
+      "active": true
+    },
+    {
+      "dispute_id": "DISPUTE-CYP-CYPRUS",
+      "name": "Cyprus Conflict and Buffer Zone",
+      "dispute_type": "ceasefire_line",
+      "status": "frozen",
+      "parties": [
+        "Republic of Cyprus",
+        "Turkish Cypriot side",
+        "T\u00fcrkiye"
+      ],
+      "primary_dyad_id": null,
+      "territory_id": null,
+      "claimant_iso3": [
+        "CYP",
+        "TUR"
+      ],
+      "maritime": false,
+      "transboundary": false,
+      "start_year": 1974,
+      "last_major_incident": null,
+      "current_mechanism": "UNFICYP",
+      "legal_process": null,
+      "geometry_ref": "United Nations Buffer Zone in Cyprus",
+      "source": "United Nations Peace Operations \u2014 UNFICYP",
+      "source_url": "https://unficyp.unmissions.org/en/about-unficyp",
+      "source_version": "accessed-2026-08",
+      "confidence_grade": "high",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-14",
+      "active": true
+    },
+    {
+      "dispute_id": "DISPUTE-WESTERN-SAHARA",
+      "name": "Western Sahara",
+      "dispute_type": "territorial_sovereignty",
+      "status": "active",
+      "parties": [
+        "Morocco",
+        "Frente POLISARIO"
+      ],
+      "primary_dyad_id": null,
+      "territory_id": null,
+      "claimant_iso3": [
+        "MAR"
+      ],
+      "maritime": false,
+      "transboundary": false,
+      "start_year": 1975,
+      "last_major_incident": null,
+      "current_mechanism": "MINURSO",
+      "legal_process": "UN-led political process",
+      "geometry_ref": "Western Sahara",
+      "source": "United Nations Peace Operations \u2014 MINURSO",
+      "source_url": "https://minurso.unmissions.org/en/mandate",
+      "source_version": "accessed-2026-08",
+      "confidence_grade": "high",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-14",
+      "active": true
+    },
+    {
+      "dispute_id": "DISPUTE-GUY-VEN-ESSEQUIBO",
+      "name": "Guyana\u2013Venezuela / Essequibo",
+      "dispute_type": "territorial_sovereignty",
+      "status": "active",
+      "parties": [
+        "Guyana",
+        "Venezuela"
+      ],
+      "primary_dyad_id": "DYAD-GUY-VEN-LAND",
+      "territory_id": null,
+      "claimant_iso3": [
+        "GUY",
+        "VEN"
+      ],
+      "maritime": false,
+      "transboundary": true,
+      "start_year": null,
+      "last_major_incident": null,
+      "current_mechanism": "International Court of Justice proceedings",
+      "legal_process": "Arbitral Award of 3 October 1899 (Guyana v. Venezuela)",
+      "geometry_ref": "Essequibo region",
+      "source": "International Court of Justice",
+      "source_url": "https://www.icj-cij.org/case/171",
+      "source_version": "accessed-2026-08",
+      "confidence_grade": "high",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-14",
+      "active": true
+    }
+  ]
+}

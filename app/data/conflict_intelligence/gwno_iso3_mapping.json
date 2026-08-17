@@ -1,0 +1,628 @@
+{
+  "mapping_name": "GWNO to ISO3",
+  "mapping_version": "v1",
+  "generated_by": "Sovereign Intelligence AI",
+  "record_count": 124,
+  "records": [
+    {
+      "gwno": 2,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 40,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 41,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 42,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 52,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 55,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 70,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 90,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 91,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 92,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 93,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 94,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 95,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 100,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 101,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 115,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 130,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 135,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 145,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 150,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 155,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 160,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 165,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 200,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 210,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 220,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 230,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 235,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 310,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 339,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 343,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 344,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 345,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 346,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 350,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 352,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 359,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 360,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 365,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 369,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 372,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 373,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 404,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 420,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 432,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 433,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 434,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 435,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 436,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 437,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 438,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 439,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 450,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 451,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 452,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 461,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 471,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 475,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 481,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 482,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 483,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 484,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 490,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 500,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 501,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 510,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 516,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 517,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 520,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 522,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 530,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 531,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 540,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 541,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 552,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 560,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 570,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 580,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 581,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 600,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 615,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 616,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 620,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 625,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 626,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 630,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 640,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 645,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 651,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 652,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 660,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 663,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 666,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 670,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 678,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 680,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 690,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 698,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 700,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 702,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 703,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 704,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 710,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 713,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 731,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 732,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 750,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 751,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 770,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 771,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 775,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 780,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 790,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 800,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 811,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 812,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 816,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 817,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 820,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 835,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 840,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 850,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 900,
+      "iso3": null,
+      "status": "unmapped"
+    },
+    {
+      "gwno": 910,
+      "iso3": null,
+      "status": "unmapped"
+    }
+  ]
+}

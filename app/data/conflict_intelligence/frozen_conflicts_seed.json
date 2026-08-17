@@ -1,0 +1,81 @@
+{
+  "registry_name": "Conflict Intelligence Frozen Conflicts",
+  "registry_version": "conflict-frozen-conflicts-v1",
+  "generated_at": "2026-08-14T01:40:02.069608+00:00",
+  "record_count": 3,
+  "records": [
+    {
+      "fc_id": "FC-CYP-CYPRUS",
+      "name": "Cyprus Ceasefire and Buffer Zone",
+      "dispute_id": "DISPUTE-CYP-CYPRUS",
+      "parties": [
+        "Republic of Cyprus",
+        "Turkish Cypriot side",
+        "T\u00fcrkiye"
+      ],
+      "territory_id": "TERRITORY-CYPRUS-BUFFER-ZONE",
+      "primary_dyad_id": null,
+      "freeze_year": 1974,
+      "last_flare_date": null,
+      "mediation_regime": "United Nations-led Cyprus settlement process / UNFICYP",
+      "peacekeeping_presence": true,
+      "current_status": "frozen_unresolved",
+      "reactivation_hazard_score": null,
+      "hazard_confidence": "unknown",
+      "window_watch": false,
+      "active": true,
+      "source": "United Nations Peace Operations \u2014 UNFICYP",
+      "source_version": "accessed-2026-08",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-14"
+    },
+    {
+      "fc_id": "FC-IND-PAK-KASHMIR",
+      "name": "Jammu and Kashmir / Line of Control",
+      "dispute_id": "DISPUTE-IND-PAK-KASHMIR",
+      "parties": [
+        "India",
+        "Pakistan"
+      ],
+      "territory_id": "TERRITORY-KASHMIR",
+      "primary_dyad_id": "DYAD-IND-PAK-LAND",
+      "freeze_year": 1949,
+      "last_flare_date": null,
+      "mediation_regime": "United Nations Military Observer Group in India and Pakistan (UNMOGIP)",
+      "peacekeeping_presence": true,
+      "current_status": "ceasefire_unresolved",
+      "reactivation_hazard_score": null,
+      "hazard_confidence": "unknown",
+      "window_watch": false,
+      "active": true,
+      "source": "United Nations \u2014 UNMOGIP",
+      "source_version": "accessed-2026-08",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-14"
+    },
+    {
+      "fc_id": "FC-WESTERN-SAHARA",
+      "name": "Western Sahara Conflict",
+      "dispute_id": "DISPUTE-WESTERN-SAHARA",
+      "parties": [
+        "Morocco",
+        "Frente POLISARIO"
+      ],
+      "territory_id": "TERRITORY-WESTERN-SAHARA",
+      "primary_dyad_id": null,
+      "freeze_year": 1991,
+      "last_flare_date": null,
+      "mediation_regime": "United Nations-led political process / MINURSO",
+      "peacekeeping_presence": true,
+      "current_status": "unresolved_monitored",
+      "reactivation_hazard_score": null,
+      "hazard_confidence": "unknown",
+      "window_watch": false,
+      "active": true,
+      "source": "United Nations Peace Operations \u2014 MINURSO",
+      "source_version": "accessed-2026-08",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-14"
+    }
+  ]
+}

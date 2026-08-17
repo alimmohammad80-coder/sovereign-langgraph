@@ -1,0 +1,80 @@
+{
+  "registry_name": "Conflict Intelligence Territories",
+  "registry_version": "conflict-territories-v1",
+  "generated_at": "2026-08-14T01:27:47.101585+00:00",
+  "record_count": 4,
+  "records": [
+    {
+      "territory_id": "TERRITORY-KASHMIR",
+      "name": "Jammu and Kashmir / Kashmir Disputed Area",
+      "de_jure_iso3": null,
+      "de_facto_controller": "Multiple administrations",
+      "status": "disputed",
+      "claimants": [
+        "India",
+        "Pakistan"
+      ],
+      "geometry_ref": null,
+      "active": true,
+      "source": "United Nations \u2014 UNMOGIP",
+      "source_version": "accessed-2026-08",
+      "confidence_grade": "high",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-14"
+    },
+    {
+      "territory_id": "TERRITORY-CYPRUS-BUFFER-ZONE",
+      "name": "United Nations Buffer Zone in Cyprus",
+      "de_jure_iso3": null,
+      "de_facto_controller": "UN-administered buffer zone",
+      "status": "frozen_entity",
+      "claimants": [
+        "Republic of Cyprus",
+        "Turkish Cypriot side"
+      ],
+      "geometry_ref": "UN Buffer Zone in Cyprus",
+      "active": true,
+      "source": "United Nations Peace Operations \u2014 UNFICYP",
+      "source_version": "accessed-2026-08",
+      "confidence_grade": "high",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-14"
+    },
+    {
+      "territory_id": "TERRITORY-WESTERN-SAHARA",
+      "name": "Western Sahara",
+      "de_jure_iso3": null,
+      "de_facto_controller": "Multiple administrations",
+      "status": "unresolved",
+      "claimants": [
+        "Morocco",
+        "Frente POLISARIO"
+      ],
+      "geometry_ref": "Western Sahara",
+      "active": true,
+      "source": "United Nations \u2014 MINURSO",
+      "source_version": "accessed-2026-08",
+      "confidence_grade": "high",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-14"
+    },
+    {
+      "territory_id": "TERRITORY-ESSEQUIBO",
+      "name": "Essequibo",
+      "de_jure_iso3": null,
+      "de_facto_controller": "Guyana",
+      "status": "disputed",
+      "claimants": [
+        "Guyana",
+        "Venezuela"
+      ],
+      "geometry_ref": "Essequibo region",
+      "active": true,
+      "source": "International Court of Justice",
+      "source_version": "accessed-2026-08",
+      "confidence_grade": "high",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-14"
+    }
+  ]
+}

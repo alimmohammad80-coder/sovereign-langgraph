@@ -1,0 +1,27 @@
+{
+  "registry_name": "Conflict Intelligence Non-State Organizations",
+  "registry_version": "conflict-non-state-organizations-v1",
+  "generated_at": "2026-08-14T18:46:22.247343+00:00",
+  "record_count": 1,
+  "records": [
+    {
+      "organization_id": "NSO-TALIBAN",
+      "name": "Taliban",
+      "aliases": [],
+      "active": true,
+      "areas_of_operation_iso3": [
+        "AFG"
+      ],
+      "territory_refs": [],
+      "estimated_strength": null,
+      "headquarters_location": null,
+      "external_ids": {},
+      "source": "United Nations Assistance Mission in Afghanistan",
+      "source_url": "https://unama.unmissions.org/",
+      "source_version": "accessed-2026-08",
+      "confidence_grade": "high",
+      "review_status": "validated",
+      "last_reviewed": "2026-08-14"
+    }
+  ]
+}

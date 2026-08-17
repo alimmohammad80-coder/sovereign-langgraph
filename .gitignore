@@ -12,3 +12,8 @@ __pycache__/
 sews_phase4_*.zip
 sews_phase5_*.zip
 sews_strategic_intelligence_product_engine.zip
+
+# Conflict Intelligence local datasets / build artifacts
+data/raw/
+data/processed/
+conflict_intelligence_phase1.zip
