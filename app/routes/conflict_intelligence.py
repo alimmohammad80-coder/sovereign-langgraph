@@ -561,3 +561,520 @@ def transition_matrix(
                 f"{exc}"
             ),
         ) from exc
+
+
+from app.services.conflict_intelligence.conflict_transition_forecaster import (
+    ConflictTransitionForecaster,
+)
+
+
+@router.post("/forecast/{conflict_id}")
+def forecast_conflict(
+    conflict_id: int,
+    horizon_days: int = Query(
+        30,
+        ge=1,
+        le=365,
+    ),
+):
+    try:
+        result = (
+            ConflictTransitionForecaster()
+            .forecast(
+                conflict_id,
+                horizon_days,
+            )
+        )
+
+        return {
+            "status": "success",
+            "data": result,
+        }
+
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=404,
+            detail=str(exc),
+        ) from exc
+
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                f"{type(exc).__name__}: "
+                f"{exc}"
+            ),
+        ) from exc
+
+
+@router.get("/forecast/{conflict_id}/horizons")
+def forecast_conflict_horizons(
+    conflict_id: int,
+):
+    try:
+        result = (
+            ConflictTransitionForecaster()
+            .forecast_all_horizons(
+                conflict_id
+            )
+        )
+
+        return {
+            "status": "success",
+            "data": result,
+        }
+
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=404,
+            detail=str(exc),
+        ) from exc
+
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                f"{type(exc).__name__}: "
+                f"{exc}"
+            ),
+        ) from exc
+
+
+from app.services.conflict_intelligence.pre_conflict_escalation_model import (
+    PreConflictEscalationModel,
+)
+
+
+@router.get("/forecast/{conflict_id}/escalation")
+def forecast_conflict_escalation(
+    conflict_id: int,
+    horizon_days: int = Query(
+        30,
+        ge=30,
+        le=365,
+    ),
+    lookback_days: int = Query(
+        30,
+        ge=1,
+        le=365,
+    ),
+):
+    try:
+        result = (
+            PreConflictEscalationModel()
+            .forecast(
+                conflict_id,
+                horizon_days,
+                lookback_days,
+            )
+        )
+
+        return {
+            "status": "success",
+            "data": result,
+        }
+
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=str(exc),
+        ) from exc
+
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                f"{type(exc).__name__}: "
+                f"{exc}"
+            ),
+        ) from exc
+
+
+from app.services.conflict_intelligence.dyadic_escalation_model import (
+    DyadicEscalationModel,
+)
+
+
+@router.get("/forecast/{conflict_id}/dyadic")
+def forecast_dyadic_escalation(
+    conflict_id: int,
+    horizon_days: int = Query(
+        30,
+        ge=30,
+        le=365,
+    ),
+    lookback_days: int = Query(
+        30,
+        ge=1,
+        le=365,
+    ),
+):
+    try:
+        result = (
+            DyadicEscalationModel()
+            .forecast(
+                conflict_id,
+                horizon_days,
+                lookback_days,
+            )
+        )
+
+        return {
+            "status": "success",
+            "data": result,
+        }
+
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=str(exc),
+        ) from exc
+
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                f"{type(exc).__name__}: "
+                f"{exc}"
+            ),
+        ) from exc
+
+
+from app.services.conflict_intelligence.frozen_conflict_hazard_model import (
+    FrozenConflictHazardModel,
+)
+
+
+@router.get("/forecast/{conflict_id}/frozen-hazard")
+def forecast_frozen_conflict_hazard(
+    conflict_id: int,
+    horizon_days: int = Query(
+        365,
+        ge=30,
+        le=365,
+    ),
+    lookback_days: int = Query(
+        30,
+        ge=1,
+        le=365,
+    ),
+):
+    try:
+        result = (
+            FrozenConflictHazardModel()
+            .forecast(
+                conflict_id,
+                horizon_days,
+                lookback_days,
+            )
+        )
+
+        return {
+            "status": "success",
+            "data": result,
+        }
+
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=str(exc),
+        ) from exc
+
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                f"{type(exc).__name__}: "
+                f"{exc}"
+            ),
+        ) from exc
+
+
+from app.services.conflict_intelligence.conflict_forecast_ensemble import (
+    ConflictForecastEnsemble,
+)
+
+
+@router.get("/forecast/{conflict_id}/ensemble")
+def forecast_conflict_ensemble(
+    conflict_id: int,
+    horizon_days: int = Query(
+        30,
+        ge=30,
+        le=365,
+    ),
+    lookback_days: int = Query(
+        30,
+        ge=1,
+        le=365,
+    ),
+):
+    try:
+        result = (
+            ConflictForecastEnsemble()
+            .forecast(
+                conflict_id,
+                horizon_days,
+                lookback_days,
+            )
+        )
+
+        return {
+            "status": "success",
+            "data": result,
+        }
+
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=str(exc),
+        ) from exc
+
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                f"{type(exc).__name__}: "
+                f"{exc}"
+            ),
+        ) from exc
+
+
+from app.services.conflict_intelligence.conflict_forecast_persistence import (
+    ConflictForecastPersistence,
+)
+
+
+@router.post("/forecast/{conflict_id}/run")
+def run_conflict_forecast(
+    conflict_id: int,
+    horizon_days: int = Query(
+        30,
+        ge=30,
+        le=365,
+    ),
+    lookback_days: int = Query(
+        30,
+        ge=1,
+        le=365,
+    ),
+):
+    try:
+        result = (
+            ConflictForecastPersistence()
+            .run(
+                conflict_id,
+                horizon_days,
+                lookback_days,
+            )
+        )
+
+        return {
+            "status": "success",
+            "data": result,
+        }
+
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=str(exc),
+        ) from exc
+
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                f"{type(exc).__name__}: "
+                f"{exc}"
+            ),
+        ) from exc
+
+
+from app.services.conflict_intelligence.conflict_forecast_outcome_resolver import (
+    ConflictForecastOutcomeResolver,
+)
+
+
+@router.post("/forecast-outcomes/resolve")
+def resolve_conflict_forecast_outcomes(
+    limit: int = Query(
+        500,
+        ge=1,
+        le=5000,
+    ),
+):
+    try:
+        result = (
+            ConflictForecastOutcomeResolver()
+            .resolve(
+                limit
+            )
+        )
+
+        return {
+            "status": "success",
+            "data": result,
+        }
+
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                f"{type(exc).__name__}: "
+                f"{exc}"
+            ),
+        ) from exc
+
+
+from app.services.conflict_intelligence.conflict_forecast_evaluator import (
+    ConflictForecastEvaluator,
+)
+
+
+@router.get("/forecast-performance")
+def conflict_forecast_performance(
+    threshold: float = Query(
+        0.30,
+        ge=0.0,
+        le=1.0,
+    ),
+    ensemble_model: str | None = None,
+    limit: int = Query(
+        10000,
+        ge=1,
+        le=50000,
+    ),
+):
+    try:
+        result = (
+            ConflictForecastEvaluator()
+            .evaluate(
+                threshold=threshold,
+                ensemble_model=ensemble_model,
+                limit=limit,
+            )
+        )
+
+        return {
+            "status": "success",
+            "data": result,
+        }
+
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                f"{type(exc).__name__}: "
+                f"{exc}"
+            ),
+        ) from exc
+
+
+from app.services.conflict_intelligence.hawkes_escalation_model import (
+    HawkesEscalationModel,
+)
+
+
+@router.get("/forecast/{conflict_id}/hawkes")
+def forecast_hawkes_escalation(
+    conflict_id: int,
+    horizon_days: int = Query(
+        30,
+        ge=30,
+        le=365,
+    ),
+    lookback_days: int = Query(
+        90,
+        ge=1,
+        le=730,
+    ),
+):
+    try:
+        result = (
+            HawkesEscalationModel()
+            .forecast(
+                conflict_id,
+                horizon_days,
+                lookback_days,
+            )
+        )
+
+        return {
+            "status":
+                "success",
+
+            "data":
+                result,
+        }
+
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=str(exc),
+        ) from exc
+
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                f"{type(exc).__name__}: "
+                f"{exc}"
+            ),
+        ) from exc
+
+
+from app.services.conflict_intelligence.ripple_propagation_engine import (
+    RipplePropagationEngine,
+)
+
+
+@router.post("/ripple/{conflict_id}/run")
+def run_conflict_ripple(
+    conflict_id: int,
+    horizon_days: int = Query(
+        30,
+        ge=30,
+        le=365,
+    ),
+    lookback_days: int = Query(
+        30,
+        ge=1,
+        le=365,
+    ),
+    max_depth: int = Query(
+        3,
+        ge=1,
+        le=4,
+    ),
+):
+    try:
+        result = (
+            RipplePropagationEngine()
+            .run(
+                conflict_id=conflict_id,
+                horizon_days=horizon_days,
+                lookback_days=lookback_days,
+                max_depth=max_depth,
+                persist=True,
+            )
+        )
+
+        return {
+            "status": "success",
+            "data": result,
+        }
+
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=str(exc),
+        ) from exc
+
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                f"{type(exc).__name__}: "
+                f"{exc}"
+            ),
+        ) from exc

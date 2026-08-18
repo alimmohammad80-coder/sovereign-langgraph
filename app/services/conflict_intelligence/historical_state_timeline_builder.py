@@ -52,28 +52,29 @@ class HistoricalStateTimelineBuilder:
         side_b: str | None,
     ) -> tuple[str, str]:
 
+        # UCDP/PRIO intensity level:
+        #
+        # 1 = minor armed conflict
+        # 2 = war
+        #
+        # Do not infer pre-conflict tension/crisis states
+        # from UCDP battle-death intensity alone.
+
         if intensity == 2:
             return (
-                "S3_LIMITED_CONFLICT",
-                "ucdp_intensity_2",
+                "S4_WAR",
+                "ucdp_intensity_2_war",
             )
 
         if intensity == 1:
-
-            if side_a and side_b:
-                return (
-                    "S2_CRISIS",
-                    "ucdp_intensity_1_two_state_participants",
-                )
-
             return (
-                "S1_TENSION",
-                "ucdp_intensity_1_internal_or_single_state",
+                "S3_LIMITED_CONFLICT",
+                "ucdp_intensity_1_armed_conflict",
             )
 
         return (
             "S0_STABLE",
-            "no_recorded_conflict_intensity",
+            "no_recorded_armed_conflict",
         )
 
     def build(self) -> pd.DataFrame:

@@ -1,0 +1,16 @@
+{
+  "military_activity": "pressure",
+  "military_mobilization": "pressure",
+  "border_incident": "pressure",
+  "ceasefire_violation": "pressure",
+  "diplomatic_breakdown": "pressure",
+  "sanctions": "routine",
+  "protest": "routine",
+  "armed_clash": "violence",
+  "airstrike": "violence",
+  "missile_strike": "strategic",
+  "invasion": "strategic",
+  "withdrawal": "deescalation",
+  "ceasefire": "peace",
+  "peace_agreement": "peace"
+}

@@ -1,11 +1,38 @@
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 from datetime import datetime, timezone
+from pathlib import Path
 
 
-def run_step(name: str, command: list[str]) -> None:
+def load_environment() -> dict[str, str]:
+    env = os.environ.copy()
+    env_path = Path(".env")
+
+    if env_path.exists():
+        for raw_line in env_path.read_text().splitlines():
+            line = raw_line.strip()
+
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+
+            key, value = line.split("=", 1)
+            key = key.strip()
+            value = value.strip().strip('"').strip("'")
+
+            if key:
+                env[key] = value
+
+    return env
+
+
+def run_step(
+    name: str,
+    command: list[str],
+    env: dict[str, str],
+) -> None:
     print("\n" + "=" * 100)
     print(name)
     print("=" * 100)
@@ -15,6 +42,7 @@ def run_step(name: str, command: list[str]) -> None:
     result = subprocess.run(
         command,
         check=False,
+        env=env,
     )
 
     if result.returncode != 0:
@@ -31,6 +59,24 @@ def run_step(name: str, command: list[str]) -> None:
 
 def main() -> None:
     python = sys.executable
+    env = load_environment()
+
+    required = (
+        "SUPABASE_URL",
+        "SUPABASE_SERVICE_ROLE_KEY",
+    )
+
+    missing = [
+        key
+        for key in required
+        if not env.get(key)
+    ]
+
+    if missing:
+        raise SystemExit(
+            "Missing required environment variables: "
+            + ", ".join(missing)
+        )
 
     print("=" * 100)
     print("SEWS DAILY INTELLIGENCE REFRESH")
@@ -47,6 +93,7 @@ def main() -> None:
             python,
             "scripts/recalculate_all_sews_indicator_states.py",
         ],
+        env,
     )
 
     # 2. Reassess the complete warning portfolio.
@@ -59,6 +106,7 @@ def main() -> None:
             python,
             "scripts/run_all_sews_warning_supervisors.py",
         ],
+        env,
     )
 
     # 3. Publish a current intelligence product for the complete
@@ -70,6 +118,7 @@ def main() -> None:
             python,
             "scripts/generate_all_sews_intelligence_products.py",
         ],
+        env,
     )
 
     print("\n" + "=" * 100)

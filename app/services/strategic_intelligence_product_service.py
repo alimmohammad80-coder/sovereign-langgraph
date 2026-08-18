@@ -352,12 +352,32 @@ class StrategicIntelligenceProductService:
                 "status": item.get("status"),
             }
 
-            if str(item.get("status", "")).upper() == "ACTIVE":
+            contribution = float(
+                item.get("weighted_contribution") or 0
+            )
+
+            status = str(
+                item.get("status") or ""
+            ).upper()
+
+            indicator_class = str(
+                item.get("indicator_class") or ""
+            ).upper()
+
+            polarity = str(
+                item.get("polarity") or ""
+            ).upper()
+
+            if (
+                contribution > 0
+                or status == "ACTIVE"
+            ):
                 drivers.append(record)
 
             if (
-                str(item.get("indicator_class", "")).upper() == "CONTRA"
-                or str(item.get("polarity", "")).upper() == "CONTRADICTING"
+                contribution < 0
+                or indicator_class == "CONTRA"
+                or polarity == "CONTRADICTING"
             ):
                 contra.append(record)
 

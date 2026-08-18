@@ -1,0 +1,37 @@
+{
+  "registry_version": "conflict-rpe-channels-v1",
+  "channels": {
+    "domestic_macro": {
+      "code": "A",
+      "description": "Domestic GDP, inflation, fiscal and activity effects"
+    },
+    "sovereign_fx": {
+      "code": "B",
+      "description": "Sovereign risk, currency and external financing effects"
+    },
+    "equity": {
+      "code": "C",
+      "description": "Country and sector equity exposure"
+    },
+    "commodities": {
+      "code": "D",
+      "description": "Energy, food and critical commodity pressure"
+    },
+    "supply_chain": {
+      "code": "E",
+      "description": "Trade routes, ports, chokepoints and logistics disruption"
+    },
+    "trade_contagion": {
+      "code": "F",
+      "description": "First- and second-order trade exposure"
+    },
+    "security_spillover": {
+      "code": "G",
+      "description": "Regional military, refugee and security spillover"
+    },
+    "energy_food": {
+      "code": "H",
+      "description": "Energy and food security effects"
+    }
+  }
+}

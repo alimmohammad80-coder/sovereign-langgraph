@@ -1,0 +1,52 @@
+{
+  "model_version": "hawkes-escalation-v1",
+  "baseline": {
+    "S0_STABLE": 0.00012,
+    "S1_TENSION": 0.00035,
+    "S2_CRISIS": 0.0007,
+    "S3_LIMITED_CONFLICT": 0.0018,
+    "S4_WAR": 0.0035,
+    "S5_FROZEN": 0.0009
+  },
+  "event_classes": {
+    "routine": {
+      "alpha": 0.02,
+      "half_life_days": 7
+    },
+    "pressure": {
+      "alpha": 0.05,
+      "half_life_days": 14
+    },
+    "violence": {
+      "alpha": 0.1,
+      "half_life_days": 21
+    },
+    "strategic": {
+      "alpha": 0.18,
+      "half_life_days": 30
+    },
+    "deescalation": {
+      "alpha": -0.05,
+      "half_life_days": 14
+    },
+    "peace": {
+      "alpha": -0.08,
+      "half_life_days": 21
+    }
+  },
+  "logistic": {
+    "intercept": -3.2,
+    "current_intensity": 2.4,
+    "burst": 0.9,
+    "event_count": 0.08,
+    "severity_mean": 0.55,
+    "state_offsets": {
+      "S0_STABLE": -0.2,
+      "S1_TENSION": 0.0,
+      "S2_CRISIS": 0.35,
+      "S3_LIMITED_CONFLICT": 0.7,
+      "S4_WAR": 1.0,
+      "S5_FROZEN": 0.15
+    }
+  }
+}

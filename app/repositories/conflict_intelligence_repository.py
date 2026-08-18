@@ -39,6 +39,8 @@ class ConflictIntelligenceRepository:
         "state_history": "conflict_state_history",
         "state_timeline": "conflict_state_timeline",
         "state_transitions": "conflict_state_transitions",
+        "propagation_edges": "conflict_propagation_edges",
+        "ripple_runs": "conflict_ripple_runs",
         "historical_episodes": "conflict_historical_episodes",
         "snapshots": "conflict_snapshots",
     }
