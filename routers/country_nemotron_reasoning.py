@@ -79,27 +79,48 @@ Do not invent facts beyond provided signals and scores.
 """
 
     try:
-        response = client.chat.completions.create(
-            model=NVIDIA_MODEL,
-            messages=[
-                {
-                    "role": "system",
-                    "content": "You are a senior geopolitical intelligence analyst. Return valid JSON only."
-                },
-                {
-                    "role": "user",
-                    "content": prompt
-                }
-            ],
-            temperature=0.2,
-            max_tokens=2000,
-            extra_body={
-                "chat_template_kwargs": {
-                    "enable_thinking": True
-                },
-                "reasoning_budget": 4096
+        messages = [
+            {
+                "role": "system",
+                "content": "You are a senior geopolitical intelligence analyst. Return valid JSON only."
+            },
+            {
+                "role": "user",
+                "content": prompt
             }
-        )
+        ]
+
+        try:
+            response = client.chat.completions.create(
+                model=NVIDIA_MODEL,
+                messages=messages,
+                temperature=0.2,
+                max_tokens=2000,
+                extra_body={
+                    "chat_template_kwargs": {
+                        "enable_thinking": True
+                    },
+                    "reasoning_budget": 4096
+                }
+            )
+        except Exception as primary_error:
+            primary_error_text = str(primary_error)
+            print(
+                "[Country Intelligence] Nemotron reasoning call failed; "
+                f"retrying without reasoning parameters: {primary_error_text}"
+            )
+
+            response = client.chat.completions.create(
+                model=NVIDIA_MODEL,
+                messages=messages,
+                temperature=0.2,
+                max_tokens=2000
+            )
+
+            print(
+                "[Country Intelligence] Nemotron compatibility retry succeeded "
+                f"with model {NVIDIA_MODEL}."
+            )
 
         content = response.choices[0].message.content
 
