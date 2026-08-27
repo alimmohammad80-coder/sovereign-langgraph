@@ -1078,3 +1078,317 @@ def run_conflict_ripple(
                 f"{exc}"
             ),
         ) from exc
+
+
+from app.services.conflict_intelligence.analysis_packet_builder import (
+    ConflictAnalysisPacketBuilder,
+)
+
+
+@router.get("/analysis-packet/{conflict_id}")
+def get_analysis_packet(
+    conflict_id: int,
+    horizon_days: int = Query(
+        365,
+        ge=30,
+        le=365,
+    ),
+    lookback_days: int = Query(
+        90,
+        ge=1,
+        le=365,
+    ),
+    ripple_depth: int = Query(
+        3,
+        ge=1,
+        le=4,
+    ),
+):
+    try:
+        packet = (
+            ConflictAnalysisPacketBuilder()
+            .build(
+                conflict_id=conflict_id,
+                horizon_days=horizon_days,
+                lookback_days=lookback_days,
+                ripple_depth=ripple_depth,
+            )
+        )
+
+        return {
+            "status": "success",
+            "data": packet,
+        }
+
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                f"{type(exc).__name__}: "
+                f"{exc}"
+            ),
+        ) from exc
+
+
+from app.services.conflict_intelligence.conflict_news_evidence_bridge import (
+    ConflictNewsEvidenceBridge,
+)
+
+
+@router.post("/evidence/ingest-news")
+def ingest_conflict_news_evidence(
+    limit: int = Query(
+        500,
+        ge=1,
+        le=5000,
+    ),
+):
+    try:
+        result = (
+            ConflictNewsEvidenceBridge()
+            .run(
+                limit=limit
+            )
+        )
+
+        return {
+            "status": "success",
+            "data": result,
+        }
+
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                f"{type(exc).__name__}: "
+                f"{exc}"
+            ),
+        ) from exc
+
+
+from app.services.conflict_intelligence.conflict_collection_orchestrator import (
+    ConflictCollectionOrchestrator,
+)
+
+
+@router.post("/collection/run")
+async def run_conflict_collection(
+    query: str = Query(
+        ...,
+        min_length=2,
+        max_length=250,
+    ),
+    limit_per_source: int = Query(
+        25,
+        ge=1,
+        le=100,
+    ),
+):
+    try:
+        result = (
+            await ConflictCollectionOrchestrator()
+            .run(
+                query=query,
+                limit_per_source=limit_per_source,
+            )
+        )
+
+        return {
+            "status": "success",
+            "data": result,
+        }
+
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                f"{type(exc).__name__}: "
+                f"{exc}"
+            ),
+        ) from exc
+
+
+from app.services.conflict_intelligence.conflict_intelligence_analyst import (
+    ConflictIntelligenceAnalyst,
+)
+
+
+@router.post("/analysis/{conflict_id}")
+def run_conflict_intelligence_analysis(
+    conflict_id: int,
+    horizon_days: int = Query(
+        365,
+        ge=30,
+        le=365,
+    ),
+    lookback_days: int = Query(
+        90,
+        ge=1,
+        le=365,
+    ),
+    ripple_depth: int = Query(
+        3,
+        ge=1,
+        le=4,
+    ),
+    provider: str | None = Query(
+        None,
+    ),
+    model: str | None = Query(
+        None,
+    ),
+):
+    try:
+        result = (
+            ConflictIntelligenceAnalyst()
+            .analyze(
+                conflict_id=conflict_id,
+                horizon_days=horizon_days,
+                lookback_days=lookback_days,
+                ripple_depth=ripple_depth,
+                preferred_provider=provider,
+                preferred_model=model,
+            )
+        )
+
+        return {
+            "status": "success",
+            "data": result,
+        }
+
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=str(exc),
+        ) from exc
+
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                f"{type(exc).__name__}: "
+                f"{exc}"
+            ),
+        ) from exc
+
+
+from app.services.conflict_intelligence.conflict_evidence_observation_bridge import (
+    ConflictEvidenceObservationBridge,
+)
+
+
+@router.post("/evidence/promote-observations")
+def promote_conflict_evidence_to_observations(
+    conflict_id: int | None = Query(
+        None,
+    ),
+    limit: int = Query(
+        500,
+        ge=1,
+        le=5000,
+    ),
+    recompute_state: bool = Query(
+        True,
+    ),
+):
+    try:
+        result = (
+            ConflictEvidenceObservationBridge()
+            .run(
+                conflict_id=conflict_id,
+                limit=limit,
+                recompute_state=recompute_state,
+            )
+        )
+
+        return {
+            "status": "success",
+            "data": result,
+        }
+
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                f"{type(exc).__name__}: "
+                f"{exc}"
+            ),
+        ) from exc
+
+
+from app.services.conflict_intelligence.conflict_report_persistence import (
+    ConflictReportPersistence,
+)
+
+
+@router.get("/analysis/{conflict_id}/latest")
+def get_latest_conflict_intelligence_report(
+    conflict_id: int,
+):
+    try:
+        report = (
+            ConflictReportPersistence()
+            .latest(
+                conflict_id
+            )
+        )
+
+        if not report:
+            raise HTTPException(
+                status_code=404,
+                detail=(
+                    "No validated conflict intelligence "
+                    "report is available."
+                ),
+            )
+
+        return {
+            "status": "success",
+            "data": report,
+        }
+
+    except HTTPException:
+        raise
+
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                f"{type(exc).__name__}: "
+                f"{exc}"
+            ),
+        ) from exc
+
+
+@router.get("/analysis/{conflict_id}/history")
+def get_conflict_intelligence_report_history(
+    conflict_id: int,
+    limit: int = Query(
+        20,
+        ge=1,
+        le=100,
+    ),
+):
+    try:
+        reports = (
+            ConflictReportPersistence()
+            .history(
+                conflict_id,
+                limit=limit,
+            )
+        )
+
+        return {
+            "status": "success",
+            "count": len(reports),
+            "data": reports,
+        }
+
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                f"{type(exc).__name__}: "
+                f"{exc}"
+            ),
+        ) from exc
