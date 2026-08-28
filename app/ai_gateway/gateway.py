@@ -136,6 +136,43 @@ class AIGateway:
                     provider_request
                 )
 
+                #
+                # Structured tasks may declare mandatory JSON keys.
+                # A provider returning partial JSON is not a successful
+                # completion; treat it as a provider failure so the
+                # gateway can continue to the next configured provider.
+                #
+                required_json_keys = (
+                    request.metadata.get(
+                        "required_json_keys"
+                    )
+                    or []
+                )
+
+                if required_json_keys:
+                    parsed = response.parsed_json
+
+                    if not isinstance(
+                        parsed,
+                        dict,
+                    ):
+                        raise ValueError(
+                            "Provider returned no structured JSON object."
+                        )
+
+                    missing_keys = (
+                        set(required_json_keys)
+                        - set(parsed.keys())
+                    )
+
+                    if missing_keys:
+                        raise ValueError(
+                            "Provider response missing required keys: "
+                            + ", ".join(
+                                sorted(missing_keys)
+                            )
+                        )
+
                 metadata = dict(
                     response.metadata
                     or {}

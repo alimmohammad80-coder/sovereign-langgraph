@@ -334,15 +334,21 @@ class ConflictIntelligenceAnalyst:
             "allowed_percentage_values"
         ] = allowed_percentage_values
 
-        allowed_percentage_values = sorted(
-            self.validator._packet_probabilities(
-                packet
-            )
-        )
-
-        compact_packet[
-            "allowed_percentage_values"
-        ] = allowed_percentage_values
+        required = {
+            "bluf",
+            "executive_judgment",
+            "current_situation",
+            "key_drivers",
+            "contrary_evidence",
+            "historical_context",
+            "escalation_pathways",
+            "forecast_outlook",
+            "indicators_to_watch",
+            "strategic_implications",
+            "confidence_assessment",
+            "full_analysis",
+            "references",
+        }
 
         response = self.gateway.generate(
             AIGatewayRequest(
@@ -370,6 +376,11 @@ class ConflictIntelligenceAnalyst:
 
                 temperature=0.2,
 
+                # Full executive products need enough output
+                # room for all required sections and long-form
+                # analysis.
+                max_tokens=12000,
+
                 metadata={
                     "conflict_id":
                         conflict_id,
@@ -381,6 +392,9 @@ class ConflictIntelligenceAnalyst:
                         packet.get(
                             "packet_version"
                         ),
+
+                    "required_json_keys":
+                        sorted(required),
                 },
             )
         )
@@ -395,22 +409,6 @@ class ConflictIntelligenceAnalyst:
                 response.content
             )
         )
-
-        required = {
-            "bluf",
-            "executive_judgment",
-            "current_situation",
-            "key_drivers",
-            "contrary_evidence",
-            "historical_context",
-            "escalation_pathways",
-            "forecast_outlook",
-            "indicators_to_watch",
-            "strategic_implications",
-            "confidence_assessment",
-            "full_analysis",
-            "references",
-        }
 
         missing = (
             required

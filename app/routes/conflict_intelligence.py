@@ -1392,3 +1392,167 @@ def get_conflict_intelligence_report_history(
                 f"{exc}"
             ),
         ) from exc
+
+
+# ============================================================
+# Async Conflict Executive Analysis Jobs
+# ============================================================
+
+from fastapi import BackgroundTasks
+
+from app.services.conflict_intelligence.conflict_analysis_job_service import (
+    ConflictAnalysisJobService,
+)
+
+
+@router.post("/analysis-jobs")
+def create_conflict_analysis_job(
+    background_tasks: BackgroundTasks,
+    conflict_id: int = Query(..., ge=1),
+    horizon_days: int = Query(
+        365,
+        ge=30,
+        le=365,
+    ),
+    lookback_days: int = Query(
+        90,
+        ge=1,
+        le=365,
+    ),
+    ripple_depth: int = Query(
+        3,
+        ge=1,
+        le=4,
+    ),
+    provider: str | None = Query(
+        "NVIDIA",
+    ),
+    model: str | None = Query(
+        "nvidia/nemotron-3-ultra-550b-a55b",
+    ),
+):
+    try:
+
+        service = (
+            ConflictAnalysisJobService()
+        )
+
+        job = service.create(
+            conflict_id=conflict_id,
+            horizon_days=horizon_days,
+            lookback_days=lookback_days,
+            ripple_depth=ripple_depth,
+            preferred_provider=provider,
+            preferred_model=model,
+        )
+
+        background_tasks.add_task(
+            service.run,
+            str(job["id"]),
+        )
+
+        return {
+            "status":
+                "success",
+
+            "data": {
+                "analysis_id":
+                    str(job["id"]),
+
+                "conflict_id":
+                    conflict_id,
+
+                "status":
+                    "queued",
+            },
+        }
+
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                f"{type(exc).__name__}: "
+                f"{exc}"
+            ),
+        ) from exc
+
+
+@router.get("/analysis-jobs/{analysis_id}")
+def get_conflict_analysis_job(
+    analysis_id: str,
+):
+    try:
+
+        job = (
+            ConflictAnalysisJobService()
+            .get(analysis_id)
+        )
+
+        if not job:
+            raise HTTPException(
+                status_code=404,
+                detail=(
+                    "Conflict analysis job "
+                    "not found."
+                ),
+            )
+
+        response = {
+            "analysis_id":
+                str(job["id"]),
+
+            "conflict_id":
+                job["conflict_id"],
+
+            "status":
+                job["status"],
+
+            "provider":
+                job.get("provider"),
+
+            "model":
+                job.get("model"),
+
+            "created_at":
+                job.get("created_at"),
+
+            "started_at":
+                job.get("started_at"),
+
+            "completed_at":
+                job.get("completed_at"),
+        }
+
+        if job["status"] == "completed":
+            response["result"] = (
+                job.get("result")
+            )
+
+            response["qa"] = (
+                job.get("qa")
+            )
+
+        elif job["status"] == "failed":
+            response["error"] = (
+                job.get("error_message")
+            )
+
+        return {
+            "status":
+                "success",
+
+            "data":
+                response,
+        }
+
+    except HTTPException:
+        raise
+
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                f"{type(exc).__name__}: "
+                f"{exc}"
+            ),
+        ) from exc
