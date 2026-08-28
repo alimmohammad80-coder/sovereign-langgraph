@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 from typing import Any
 
 
@@ -46,26 +47,60 @@ class ConflictAnalysisValidator:
 
         values: set[float] = set()
 
-        def walk(obj: Any) -> None:
+        #
+        # Only accept numerical fields that are legitimately
+        # expressed as percentages/scores in analytical prose.
+        #
+        allowed_key_terms = (
+            "probability",
+            "hazard",
+            "confidence",
+            "severity",
+            "reliability",
+            "score",
+            "weight",
+            "share",
+            "effect",
+            "risk",
+            "intensity",
+        )
+
+        def walk(
+            obj: Any,
+            parent_key: str = "",
+        ) -> None:
 
             if isinstance(obj, dict):
+
                 for key, value in obj.items():
+
+                    key_lower = str(
+                        key
+                    ).lower()
 
                     if isinstance(
                         value,
                         (int, float),
+                    ) and not isinstance(
+                        value,
+                        bool,
                     ):
-                        key_lower = str(
-                            key
-                        ).lower()
 
-                        if (
-                            "probability" in key_lower
-                            or "hazard" in key_lower
+                        numeric = float(value)
+
+                        metric_context = (
+                            f"{parent_key} {key_lower}"
+                        )
+
+                        if any(
+                            term in metric_context
+                            for term in allowed_key_terms
                         ):
-                            numeric = float(value)
-
-                            if 0 <= numeric <= 1:
+                            #
+                            # Fractional metrics are typically
+                            # stored as 0-1 but written as percent.
+                            #
+                            if 0.0 <= numeric <= 1.0:
                                 values.add(
                                     round(
                                         numeric * 100,
@@ -73,28 +108,146 @@ class ConflictAnalysisValidator:
                                     )
                                 )
 
-                    walk(value)
+                            #
+                            # Severity/confidence/reliability
+                            # scores are already 0-100.
+                            #
+                            if 0.0 <= numeric <= 100.0:
+                                values.add(
+                                    round(
+                                        numeric,
+                                        4,
+                                    )
+                                )
+
+                    if isinstance(
+                        value,
+                        (dict, list),
+                    ):
+                        walk(
+                            value,
+                            key_lower,
+                        )
 
             elif isinstance(obj, list):
-                for item in obj:
-                    walk(item)
 
-        walk(
+                for item in obj:
+                    walk(
+                        item,
+                        parent_key,
+                    )
+
+        #
+        # Ground only against authoritative analytical
+        # sections. Do not whitelist arbitrary historical
+        # years/counts merely because they are numbers.
+        #
+        authoritative_metrics = (
             packet.get(
                 "authoritative_metrics"
             )
+            or {}
+        )
+
+        walk(
+            authoritative_metrics
+        )
+
+        #
+        # Historical state percentages are already
+        # deterministically calculated on a 0-100 scale.
+        # Their keys are state codes rather than metric names,
+        # so add them explicitly.
+        #
+        historical_state_percentages = (
+            authoritative_metrics.get(
+                "historical_state_percentages"
+            )
+            or {}
+        )
+
+        for value in (
+            historical_state_percentages.values()
+        ):
+            if isinstance(
+                value,
+                (int, float),
+            ) and not isinstance(
+                value,
+                bool,
+            ):
+                numeric = float(value)
+
+                if 0.0 <= numeric <= 100.0:
+                    values.add(
+                        round(
+                            numeric,
+                            4,
+                        )
+                    )
+
+        walk(
+            (
+                packet.get("conflict")
+                or {}
+            ).get(
+                "current_state"
+            )
+            or {}
+        )
+
+        walk(
+            packet.get(
+                "current_evidence"
+            )
+            or {}
         )
 
         walk(
             packet.get(
                 "forecast_models"
             )
+            or {}
+        )
+
+        walk(
+            packet.get(
+                "ripple"
+            )
+            or {}
         )
 
         return values
 
     @staticmethod
+    def _normalize_citation(
+        value: str,
+    ) -> str:
+
+        value = unicodedata.normalize(
+            "NFKC",
+            str(value or ""),
+        )
+
+        value = (
+            value
+            .replace("’", "'")
+            .replace("‘", "'")
+            .replace("“", '"')
+            .replace("”", '"')
+        )
+
+        value = re.sub(
+            r"\\s+",
+            " ",
+            value,
+        )
+
+        return value.strip().rstrip(".")
+
+    @classmethod
     def _allowed_sources(
+        cls,
         packet: dict[str, Any],
     ) -> set[str]:
 
@@ -110,7 +263,9 @@ class ConflictAnalysisValidator:
 
             if citation:
                 citations.add(
-                    str(citation).strip()
+                    cls._normalize_citation(
+                        citation
+                    )
                 )
 
         return citations
@@ -181,22 +336,85 @@ class ConflictAnalysisValidator:
             )
         )
 
+        historical_rows = (
+            (
+                packet.get("historical_context")
+                or {}
+            ).get("timeline")
+            or []
+        )
+
+        historical_sources = {
+            self._normalize_citation(
+                str(row.get("source") or "")
+            )
+            for row in historical_rows
+            if row.get("source")
+        }
+
+        conflict_id = packet.get(
+            "conflict_id"
+        )
+
         bad_references = []
 
         for ref in (
             report.get("references")
             or []
         ):
-            citation = str(
+            citation = self._normalize_citation(
                 ref.get("citation")
                 or ""
-            ).strip()
+            )
 
+            if not citation:
+                continue
+
+            if citation in allowed_sources:
+                continue
+
+            # Historical timeline citations are valid only
+            # when the cited dataset is actually present in
+            # the authoritative packet and the citation refers
+            # to this conflict.
+            historical_match = False
+
+            citation_lower = citation.lower()
+
+            for source in historical_sources:
+                source_lower = str(
+                    source
+                    or ""
+                ).lower()
+
+                if (
+                    source_lower
+                    and citation_lower.startswith(
+                        source_lower
+                    )
+                ):
+                    historical_match = True
+                    break
+
+            #
+            # UCDP/PRIO is the authoritative historical
+            # dataset in the packet. Accept normal Chicago-style
+            # variants of that dataset citation when the packet
+            # actually contains UCDP/PRIO historical rows.
+            #
             if (
-                citation
-                and citation
-                not in allowed_sources
+                not historical_match
+                and "ucdp/prio" in citation_lower
+                and any(
+                    "ucdp/prio" in str(
+                        source
+                    ).lower()
+                    for source in historical_sources
+                )
             ):
+                historical_match = True
+
+            if not historical_match:
                 bad_references.append(
                     citation
                 )
@@ -232,9 +450,16 @@ class ConflictAnalysisValidator:
                 or {}
             )
 
+            is_active = (
+                obs.get("active") is not False
+            )
+
             if (
-                source == "manual-test"
-                or payload.get("test") is True
+                is_active
+                and (
+                    source == "manual-test"
+                    or payload.get("test") is True
+                )
             ):
                 active_test_evidence.append(
                     obs.get(

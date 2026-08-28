@@ -48,6 +48,16 @@ GROUNDING RULES
 - Do not derive an "event count", "war count", recurrence frequency,
   or historical rate unless that value is explicitly supplied.
 - Preserve every numerical probability exactly to reasonable rounding.
+- NEVER invent, estimate, derive, average, interpolate, or calculate a new percentage.
+- Every percentage written in the report must already exist explicitly in the supplied analysis packet.
+- The packet contains a field named allowed_percentage_values.
+- That list is the ONLY whitelist of percentages you may use.
+- Never invent, interpolate, average, estimate, derive, or round a new percentage that is not already contained in allowed_percentage_values.
+- The packet contains allowed_percentage_values. This is the authoritative whitelist for percentage claims.
+- NEVER write a percentage that is not represented in allowed_percentage_values.
+- If a percentage is not explicitly present in the packet, describe the assessment qualitatively instead.
+- Do not convert historical counts, durations, ratios, or narrative judgments into percentages.
+- Do not create confidence percentages unless the exact confidence value is supplied.
 
 You MUST NOT:
 - recalculate probabilities
@@ -313,6 +323,26 @@ class ConflictIntelligenceAnalyst:
                 packet
             )
         )
+
+        allowed_percentage_values = sorted(
+            self.validator._packet_probabilities(
+                packet
+            )
+        )
+
+        compact_packet[
+            "allowed_percentage_values"
+        ] = allowed_percentage_values
+
+        allowed_percentage_values = sorted(
+            self.validator._packet_probabilities(
+                packet
+            )
+        )
+
+        compact_packet[
+            "allowed_percentage_values"
+        ] = allowed_percentage_values
 
         response = self.gateway.generate(
             AIGatewayRequest(

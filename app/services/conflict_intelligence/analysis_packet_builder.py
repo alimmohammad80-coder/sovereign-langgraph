@@ -408,6 +408,17 @@ class ConflictAnalysisPacketBuilder:
                 + 1
             )
 
+        historical_year_count = len(timeline)
+
+        historical_state_percentages = {}
+
+        if historical_year_count > 0:
+            for state_code, count in historical_state_counts.items():
+                historical_state_percentages[state_code] = round(
+                    (float(count) / float(historical_year_count)) * 100.0,
+                    4,
+                )
+
         authoritative_metrics = {
             "current_state": (
                 current_state.get("state_code")
@@ -433,10 +444,13 @@ class ConflictAnalysisPacketBuilder:
             ),
 
             "historical_year_count":
-                len(timeline),
+                historical_year_count,
 
             "historical_state_counts":
                 historical_state_counts,
+
+            "historical_state_percentages":
+                historical_state_percentages,
         }
 
         return {
