@@ -414,7 +414,31 @@ class ConflictAnalysisValidator:
             ):
                 historical_match = True
 
-            if not historical_match:
+            internal_match = False
+
+            if conflict_id is not None:
+                citation_lower = citation.lower()
+
+                allowed_internal_prefixes = (
+                    "sovereign intelligence ai conflict-analysis-packet-v1",
+                    "sovereign intelligence ai ripple-effects model",
+                )
+
+                if (
+                    citation_lower.startswith(
+                        allowed_internal_prefixes
+                    )
+                    and (
+                        f"conflict id {conflict_id}"
+                        in citation_lower
+                    )
+                ):
+                    internal_match = True
+
+            if (
+                not historical_match
+                and not internal_match
+            ):
                 bad_references.append(
                     citation
                 )
