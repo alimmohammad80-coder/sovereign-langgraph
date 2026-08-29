@@ -1556,3 +1556,163 @@ def get_conflict_analysis_job(
                 f"{exc}"
             ),
         ) from exc
+
+
+# ============================================================
+# Canonical Conflict Resolution
+# ============================================================
+
+from app.services.conflict_intelligence.canonical_conflict_resolver import (
+    CanonicalConflictResolver,
+)
+
+
+@router.get("/resolve")
+def resolve_canonical_conflict(
+    participant_a: str = Query(
+        ...,
+        min_length=2,
+        max_length=100,
+    ),
+    participant_b: str = Query(
+        ...,
+        min_length=2,
+        max_length=100,
+    ),
+    territory: str | None = Query(
+        None,
+        max_length=200,
+    ),
+):
+    try:
+        result = (
+            CanonicalConflictResolver()
+            .resolve(
+                participant_a=
+                    participant_a,
+
+                participant_b=
+                    participant_b,
+
+                territory=
+                    territory,
+            )
+        )
+
+        return {
+            "status":
+                "success",
+
+            "data":
+                result,
+        }
+
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail=str(exc),
+        ) from exc
+
+    except Exception as exc:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                f"{type(exc).__name__}: "
+                f"{exc}"
+            ),
+        ) from exc
+
+
+# ============================================================
+# Agent-Orchestrated Conflict Executive Analysis
+# ============================================================
+
+from app.schemas.conflict_intelligence.agent_analysis import (
+    ConflictAgentAnalysisRequest,
+)
+
+
+@router.post(
+    "/agent-analysis-jobs",
+    summary="Create conflict executive analysis job",
+    description=(
+        "Creates an asynchronous Conflict Intelligence Agent job from "
+        "selected countries, region, conflict type, indicators, and "
+        "forecast horizon. Canonical conflict resolution is optional. "
+        "The agent gathers baseline conflict data, current observations, "
+        "current evidence/news, and deterministic forecast outputs when "
+        "available, then sends the governed packet through the AI gateway."
+    ),
+)
+def create_conflict_agent_analysis_job(
+    payload: ConflictAgentAnalysisRequest,
+    background_tasks: BackgroundTasks,
+):
+    try:
+
+        request_json = (
+            payload.model_dump()
+        )
+
+        service = (
+            ConflictAnalysisJobService()
+        )
+
+        job = service.create(
+            conflict_id=None,
+
+            horizon_days=
+                payload.horizon_days,
+
+            lookback_days=
+                payload.lookback_days,
+
+            ripple_depth=
+                payload.ripple_depth,
+
+            preferred_provider=
+                "NVIDIA",
+
+            preferred_model=
+                "nvidia/nemotron-3-ultra-550b-a55b",
+
+            request_mode=
+                "agent_selection",
+
+            request_json=
+                request_json,
+        )
+
+        background_tasks.add_task(
+            service.run,
+            str(job["id"]),
+        )
+
+        return {
+            "status":
+                "success",
+
+            "data": {
+                "analysis_id":
+                    str(job["id"]),
+
+                "status":
+                    "queued",
+
+                "request_mode":
+                    "agent_selection",
+
+                "selection":
+                    request_json,
+            },
+        }
+
+    except Exception as exc:
+
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                f"{type(exc).__name__}: "
+                f"{exc}"
+            ),
+        ) from exc

@@ -27,6 +27,8 @@ class OpenAICompatibleProvider(BaseAIProvider):
         return OpenAI(
             api_key=api_key,
             base_url=os.getenv(self.base_url_env, self.default_base_url),
+            timeout=120.0,
+            max_retries=1,
         )
 
     def generate(self, request: AIGatewayRequest) -> AIGatewayResponse:
