@@ -10,6 +10,10 @@ from app.ai_gateway import (
     get_ai_gateway,
 )
 
+from app.services.conflict_intelligence.report_presentation import (
+    prepare_report_for_presentation,
+)
+
 
 AGENT_SYSTEM_PROMPT = """
 You are the Conflict Intelligence Analyst for Sovereign Intelligence AI.
@@ -49,7 +53,53 @@ If deterministic quantitative outputs are unavailable, provide a
 qualitative assessment and explicitly state that a calibrated numeric
 forecast was not available.
 
-Do not refuse analysis merely because no canonical conflict_id exists.
+Do not refuse analysis merely because no canonical conflict record exists.
+
+PRESENTATION STANDARD
+
+Write for senior government, defense, corporate-risk, and policy decision-makers.
+
+The finished report must read like a professional intelligence product,
+not a description of software, database fields, or statistical machinery.
+
+NEVER expose internal identifiers, database fields, state codes,
+exception names, packet versions, model implementation names, or
+snake_case terminology in user-facing prose.
+
+Do not write terms such as:
+conflict_id
+canonical_episode_id
+current_state
+S4_WAR
+S3_LIMITED_CONFLICT
+ValueError
+frozen_hazard
+preconflict
+hawkes
+episode_end
+historical_state_counts
+historical_state_percentages
+
+Translate machine concepts into natural intelligence language.
+
+Examples:
+S4_WAR -> High-Intensity War
+S3_LIMITED_CONFLICT -> Limited Armed Conflict
+S2_CRISIS -> Crisis
+military_activity -> Military Activity
+diplomatic_tension -> Diplomatic Tension
+territorial_control -> Territorial Control
+
+Never describe a backend exception or failed model to the reader.
+If calibrated quantitative forecasting is unavailable, state this once,
+professionally, and continue with a qualitative evidence-based outlook.
+
+If the supplied data represents a concluded historical conflict,
+produce a historical strategic assessment rather than repeatedly
+discussing absent current-state forecasts.
+
+Avoid unnecessary dashes, code-like labels, technical abbreviations,
+and repetitive caveats.
 
 Separate:
 1. observed evidence
@@ -199,6 +249,13 @@ class ConflictAgentAnalyst:
                 )
             )
 
+        presentation_report, assessment_mode = (
+            prepare_report_for_presentation(
+                payload,
+                packet=packet,
+            )
+        )
+
         return {
             "provider":
                 response.provider,
@@ -214,6 +271,9 @@ class ConflictAgentAnalyst:
                     "packet_version"
                 ),
 
+            "assessment_mode":
+                assessment_mode.value,
+
             "report":
-                payload,
+                presentation_report,
         }

@@ -22,6 +22,10 @@ from app.services.conflict_intelligence.conflict_report_persistence import (
     ConflictReportPersistence,
 )
 
+from app.services.conflict_intelligence.report_presentation import (
+    prepare_report_for_presentation,
+)
+
 
 SYSTEM_PROMPT = """
 You are the Conflict Intelligence Analyst for Sovereign Intelligence AI.
@@ -442,6 +446,13 @@ class ConflictIntelligenceAnalyst:
                 )
             )
 
+        presentation_report, assessment_mode = (
+            prepare_report_for_presentation(
+                payload,
+                packet=packet,
+            )
+        )
+
         provider = getattr(
             response,
             "provider",
@@ -466,7 +477,7 @@ class ConflictIntelligenceAnalyst:
                     or "unknown",
                 provider=provider,
                 model=model,
-                report=payload,
+                report=presentation_report,
                 qa=qa,
             )
         )
@@ -500,8 +511,11 @@ class ConflictIntelligenceAnalyst:
                     "report_key"
                 ),
 
+            "assessment_mode":
+                assessment_mode.value,
+
             "report":
-                payload,
+                presentation_report,
 
             "packet_summary": {
                 "historical_timeline_count":
