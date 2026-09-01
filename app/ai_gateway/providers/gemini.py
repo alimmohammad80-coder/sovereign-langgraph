@@ -99,6 +99,85 @@ class GeminiProvider(BaseAIProvider):
             )
         )
 
+        content = (
+            response.text
+            or ""
+        )
+
+        parsed_json = None
+        json_retry_used = False
+
+        if (
+            request.response_format
+            == AIResponseFormat.JSON
+        ):
+            try:
+                parsed_json = json.loads(
+                    content
+                )
+
+            except json.JSONDecodeError:
+                #
+                # A structured Gemini response can occasionally be
+                # truncated even when application/json is requested.
+                # Never heuristically repair analytical output.
+                # Retry generation once and require a complete JSON
+                # document so gateway validation remains authoritative.
+                #
+                json_retry_used = True
+
+                retry_config = dict(
+                    config_kwargs
+                )
+
+                original_max_tokens = (
+                    request.max_tokens
+                    or 12000
+                )
+
+                retry_config[
+                    "max_output_tokens"
+                ] = min(
+                    max(
+                        original_max_tokens,
+                        20000,
+                    ),
+                    30000,
+                )
+
+                retry_prompt = (
+                    request.user_prompt
+                    + "\n\n"
+                    + (
+                        "IMPORTANT OUTPUT REQUIREMENT: "
+                        "Return one complete valid JSON object only. "
+                        "Do not use markdown fences. "
+                        "Do not truncate the response. "
+                        "Keep narrative fields concise enough for the "
+                        "entire JSON document to finish within the "
+                        "available output budget."
+                    )
+                )
+
+                response = (
+                    client.models.generate_content(
+                        model=model,
+                        contents=retry_prompt,
+                        config=types.GenerateContentConfig(
+                            **retry_config
+                        ),
+                    )
+                )
+
+                content = (
+                    response.text
+                    or ""
+                )
+
+                parsed_json = json.loads(
+                    content
+                )
+
         latency_ms = int(
             (
                 time.perf_counter()
@@ -106,21 +185,6 @@ class GeminiProvider(BaseAIProvider):
             )
             * 1000
         )
-
-        content = (
-            response.text
-            or ""
-        )
-
-        parsed_json = None
-
-        if (
-            request.response_format
-            == AIResponseFormat.JSON
-        ):
-            parsed_json = json.loads(
-                content
-            )
 
         usage: dict[str, Any] = {}
 
@@ -162,5 +226,9 @@ class GeminiProvider(BaseAIProvider):
             parsed_json=parsed_json,
             latency_ms=latency_ms,
             usage=usage,
-            metadata=request.metadata,
+            metadata={
+                **request.metadata,
+                "json_retry_used":
+                    json_retry_used,
+            },
         )
