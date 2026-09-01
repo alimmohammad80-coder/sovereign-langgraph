@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from app.repositories.conflict_intelligence_repository import (
@@ -9,6 +10,11 @@ from app.repositories.conflict_intelligence_repository import (
 from app.services.conflict_intelligence.conflict_forecast_ensemble import (
     ConflictForecastEnsemble,
 )
+
+from app.services.conflict_intelligence.conflict_state_engine import (
+    ConflictStateEngine,
+)
+
 
 from app.services.conflict_intelligence.conflict_transition_forecaster import (
     ConflictTransitionForecaster,
@@ -67,6 +73,91 @@ class ConflictAnalysisPacketBuilder:
         )
 
         return rows[0] if rows else None
+
+    def _has_recent_active_observations(
+        self,
+        conflict_id: int,
+        *,
+        window_days: int = 30,
+    ) -> bool:
+        """
+        Return True only when governed, active observations exist
+        inside the operational current-state window.
+
+        Historical records alone must never manufacture a
+        contemporary conflict state.
+        """
+
+        since = (
+            datetime.now(timezone.utc)
+            - timedelta(days=window_days)
+        ).isoformat()
+
+        rows = (
+            self.db.table(
+                "conflict_observations"
+            )
+            .select(
+                "observation_key,"
+                "observed_at,"
+                "active"
+            )
+            .eq(
+                "conflict_id",
+                conflict_id,
+            )
+            .eq(
+                "active",
+                True,
+            )
+            .gte(
+                "observed_at",
+                since,
+            )
+            .limit(1)
+            .execute()
+            .data
+            or []
+        )
+
+        return bool(rows)
+
+    def _ensure_current_state(
+        self,
+        conflict_id: int,
+    ) -> dict[str, Any] | None:
+        """
+        Ensure deterministic forecasting has a governed
+        current-state record when sufficient current
+        observations exist.
+
+        Precedence:
+        1. Existing current state
+        2. Generate from recent active observations
+        3. Leave state absent for historical/no-current-data cases
+        """
+
+        current_state = self._current_state(
+            conflict_id
+        )
+
+        if current_state:
+            return current_state
+
+        if not self._has_recent_active_observations(
+            conflict_id,
+            window_days=30,
+        ):
+            return None
+
+        ConflictStateEngine().assess(
+            conflict_id=conflict_id,
+            window_days=30,
+        )
+
+        return self._current_state(
+            conflict_id
+        )
 
     def _historical_episode(
         self,
@@ -196,7 +287,13 @@ class ConflictAnalysisPacketBuilder:
         ripple_depth: int = 3,
     ) -> dict[str, Any]:
 
-        current_state = self._current_state(
+        # Establish a governed current state BEFORE any
+        # deterministic forecast model executes.
+        #
+        # This is intentionally evidence-gated: historical
+        # episodes with no current observations remain without
+        # a current state rather than being falsely classified.
+        current_state = self._ensure_current_state(
             conflict_id
         )
 

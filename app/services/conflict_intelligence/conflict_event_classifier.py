@@ -4,26 +4,80 @@ from __future__ import annotations
 class ConflictEventClassifier:
 
     RULES = {
+        "missile_strike": [
+            "missile strike",
+            "missile strikes",
+            "missile attack",
+            "missile attacks",
+            "missile barrage",
+            "missile bombardment",
+            "cruise missile",
+            "ballistic missile attack",
+            "rocket barrage",
+        ],
+
+        "airstrike": [
+            "airstrike",
+            "airstrikes",
+            "air strike",
+            "air strikes",
+            "aerial attack",
+            "aerial attacks",
+            "aerial assault",
+            "aerial assaults",
+            "air bombardment",
+            "bombards",
+            "bombarded",
+            "bombardment",
+            "drone strike",
+            "drone strikes",
+            "drone attack",
+            "drone attacks",
+            "drone assault",
+            "drone assaults",
+            "drone barrage",
+            "drone swarm",
+        ],
+
+        "armed_clash": [
+            "armed clash",
+            "armed clashes",
+            "heavy fighting",
+            "intense fighting",
+            "ground fighting",
+            "combat operations",
+            "battle",
+            "battles",
+            "offensive operations",
+            "counteroffensive",
+        ],
+
         "border_incident": [
             "border clash",
             "border incident",
             "line of control",
             "cross-border fire",
             "exchange fire",
-            "shelling",
+            "cross-border shelling",
         ],
 
         "military_activity": [
-            "airstrike",
-            "air strike",
             "missile launch",
-            "missile strike",
             "troop mobilization",
             "troop deployment",
             "military exercise",
             "naval exercise",
-            "drone strike",
             "artillery fire",
+            "shelling",
+            "military operation",
+            "military operations",
+            "military buildup",
+            "military build-up",
+            "long-range strike",
+            "long-range strikes",
+            "deep strike",
+            "deep strikes",
+            "air war",
         ],
 
         "terrorism": [
@@ -86,6 +140,9 @@ class ConflictEventClassifier:
     }
 
     PRIORITY = [
+        "missile_strike",
+        "airstrike",
+        "armed_clash",
         "border_incident",
         "terrorism",
         "military_activity",
@@ -97,6 +154,9 @@ class ConflictEventClassifier:
     ]
 
     ESCALATORY = {
+        "missile_strike",
+        "airstrike",
+        "armed_clash",
         "border_incident",
         "military_activity",
         "terrorism",

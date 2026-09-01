@@ -15,6 +15,11 @@ from app.services.conflict_intelligence.analysis_packet_builder import (
     ConflictAnalysisPacketBuilder,
 )
 
+from app.services.conflict_intelligence.conflict_evidence_observation_bridge import (
+    ConflictEvidenceObservationBridge,
+)
+
+
 from app.services.conflict_intelligence.conflict_collection_orchestrator import (
     ConflictCollectionOrchestrator,
 )
@@ -383,6 +388,7 @@ class ConflictIntelligenceAgent:
             }
 
         deterministic_packet = None
+        observation_promotion = None
 
         if resolved:
 
@@ -391,6 +397,30 @@ class ConflictIntelligenceAgent:
                     "conflict_id"
                 ]
             )
+
+            # Live intelligence collection writes governed conflict evidence.
+            # Promote that evidence into deterministic observations and
+            # recompute the current conflict state BEFORE forecast models run.
+            #
+            # This is conflict-agnostic and uses the existing canonical
+            # resolution, observation ingestion, and state-engine rules.
+            try:
+                observation_promotion = (
+                    ConflictEvidenceObservationBridge()
+                    .run(
+                        conflict_id=conflict_id,
+                        limit=500,
+                        recompute_state=True,
+                    )
+                )
+            except Exception as exc:
+                observation_promotion = {
+                    "status": "failed",
+                    "error": (
+                        f"{type(exc).__name__}: "
+                        f"{exc}"
+                    ),
+                }
 
             try:
 
@@ -456,6 +486,9 @@ class ConflictIntelligenceAgent:
 
             "live_collection":
                 live_collection,
+
+            "observation_promotion":
+                observation_promotion,
 
             "baseline_conflict_data":
                 self._baseline(

@@ -100,6 +100,9 @@ class ConflictEvidenceEnricher:
     ) -> float:
 
         base = {
+            "missile_strike": 90.0,
+            "airstrike": 88.0,
+            "armed_clash": 85.0,
             "military_activity": 70.0,
             "border_incident": 75.0,
             "terrorism": 75.0,
