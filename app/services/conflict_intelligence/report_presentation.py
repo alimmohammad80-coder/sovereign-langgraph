@@ -22,6 +22,59 @@ STATE_LABELS = {
     "S5_FROZEN": "Frozen or Unresolved Conflict",
 }
 
+SHORT_STATE_LABELS = {
+    "S0": "Stable",
+    "S1": "Heightened Tension",
+    "S2": "Crisis",
+    "S3": "Limited Armed Conflict",
+    "S4": "High-Intensity War",
+    "S5": "Frozen or Unresolved Conflict",
+}
+
+MODEL_PRESENTATION_REPLACEMENTS = [
+    (
+        r"\btemporal escalation assessment\s+temporal\s+"
+        r"(?:point-process\s+)?model\b",
+        "Temporal Escalation Model",
+    ),
+    (
+        r"\btemporal escalation assessment\s+escalation\s+model\b",
+        "Temporal Escalation Model",
+    ),
+    (
+        r"\btemporal escalation assessment\s+model\b",
+        "Temporal Escalation Model",
+    ),
+    (
+        r"\binterstate escalation assessment\s+escalation\s+model\b",
+        "Interstate Escalation Model",
+    ),
+    (
+        r"\binterstate escalation assessment\s+model\b",
+        "Interstate Escalation Model",
+    ),
+    (
+        r"\bConflict-State Model\s+v\d+\b",
+        "Conflict State Model",
+    ),
+    (
+        r"\bEmpirical Annual Markov Model\s+v\d+\b",
+        "Empirical Transition Model",
+    ),
+    (
+        r"\bPre-Conflict Bayesian Logit\s+v\d+\b",
+        "Pre-Conflict Escalation Model",
+    ),
+    (
+        r"\bFrozen Conflict Hazard Model\s+v\d+\b",
+        "Frozen Conflict Assessment Model",
+    ),
+    (
+        r"\bConflict Ripple Propagation Engine\s+v\d+\b",
+        "Conflict Ripple Propagation Model",
+    ),
+]
+
 TECHNICAL_REPLACEMENTS = {
     "current_state_escalation_probability":
         "current escalation assessment",
@@ -84,6 +137,7 @@ FORBIDDEN_PRESENTATION_PATTERNS = [
     r"\bKeyError\b",
     r"\bTypeError\b",
     r"\bS[0-5]_[A-Z_]+\b",
+    r"\bS[0-5]\b",
 ]
 
 URL_KEYS = {
@@ -695,6 +749,23 @@ def _clean_technical_language(
             text,
         )
 
+    # Short state codes sometimes appear in generated prose even
+    # after the canonical machine state has been translated.
+    for state, label in SHORT_STATE_LABELS.items():
+        text = re.sub(
+            rf"\b{re.escape(state)}\b",
+            label,
+            text,
+        )
+
+    for pattern, replacement in MODEL_PRESENTATION_REPLACEMENTS:
+        text = re.sub(
+            pattern,
+            replacement,
+            text,
+            flags=re.IGNORECASE,
+        )
+
     for pattern in MODEL_PATTERNS:
         text = re.sub(
             pattern,
@@ -702,6 +773,33 @@ def _clean_technical_language(
             text,
             flags=re.IGNORECASE,
         )
+
+    # Remove repeated state labels such as:
+    # "High-Intensity War (High-Intensity War)".
+    for label in set(STATE_LABELS.values()):
+        text = re.sub(
+            rf"\b({re.escape(label)})\s*"
+            rf"\(\s*{re.escape(label)}\s*\)",
+            r"\1",
+            text,
+            flags=re.IGNORECASE,
+        )
+
+    # Normalize awkward phrases produced when an internal model
+    # identifier and its public replacement appear together.
+    text = re.sub(
+        r"\bTemporal Escalation Model\s+temporal\b",
+        "Temporal Escalation Model",
+        text,
+        flags=re.IGNORECASE,
+    )
+
+    text = re.sub(
+        r"\bInterstate Escalation Model\s+escalation\b",
+        "Interstate Escalation Model",
+        text,
+        flags=re.IGNORECASE,
+    )
 
     return text
 
@@ -815,13 +913,28 @@ def _sanitize_value(
         }
 
     if isinstance(value, list):
-        return [
+        cleaned = [
             _sanitize_value(
                 item,
                 key=key,
             )
             for item in value
         ]
+
+        # Empty evidence references add visual noise and carry no
+        # provenance value. Remove them only from the presentation
+        # payload; underlying governed evidence remains unchanged.
+        if key == "evidence_refs":
+            cleaned = [
+                item
+                for item in cleaned
+                if not (
+                    isinstance(item, str)
+                    and not item.strip()
+                )
+            ]
+
+        return cleaned
 
     if isinstance(value, str):
         if key in URL_KEYS:

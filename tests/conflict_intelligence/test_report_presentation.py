@@ -233,3 +233,56 @@ def test_validator_rejects_internal_terms():
                     "Internal conflict_id 123 remains visible."
             }
         )
+
+
+def test_professional_state_and_model_language_cleanup():
+    from app.services.conflict_intelligence.report_presentation import (
+        sanitize_text,
+    )
+
+    raw = (
+        "The conflict remains High-Intensity War (S4_WAR). "
+        "The High-Intensity War (High-Intensity War) classification persists. "
+        "The temporal escalation assessment temporal model indicates elevated risk. "
+        "The interstate escalation assessment escalation model remains guarded. "
+        "The next pathway is Limited Armed Conflict (S3)."
+    )
+
+    cleaned = sanitize_text(raw)
+
+    assert "High-Intensity War (High-Intensity War)" not in cleaned
+    assert "S4_WAR" not in cleaned
+    assert "(S3)" not in cleaned
+    assert "temporal escalation assessment temporal model" not in cleaned.lower()
+    assert "interstate escalation assessment escalation model" not in cleaned.lower()
+
+    assert "High-Intensity War" in cleaned
+    assert "Limited Armed Conflict" in cleaned
+    assert "Temporal Escalation Model" in cleaned
+    assert "Interstate Escalation Model" in cleaned
+
+
+def test_empty_evidence_references_removed_from_presentation():
+    from app.services.conflict_intelligence.report_presentation import (
+        _sanitize_value,
+    )
+
+    report = {
+        "key_drivers": [
+            {
+                "driver": "Air warfare",
+                "assessment": "Current strikes remain elevated.",
+                "evidence_refs": [
+                    "",
+                    "   ",
+                    "AP News, August 28, 2026",
+                ],
+            }
+        ]
+    }
+
+    cleaned = _sanitize_value(report)
+
+    assert cleaned["key_drivers"][0]["evidence_refs"] == [
+        "AP News, August 28, 2026"
+    ]
