@@ -25,9 +25,13 @@ def get_ai_gateway() -> AIGateway:
                 default_model=(
                     "nvidia/nemotron-3-ultra-550b-a55b"
                 ),
+                timeout_env="NVIDIA_TIMEOUT_SECONDS",
+                default_timeout_seconds=420.0,
             ),
 
-            GeminiProvider(),
+            GeminiProvider(
+                default_model="gemini-3.1-pro-preview",
+            ),
 
             OpenAICompatibleProvider(
                 provider_key="OPENAI",
@@ -38,6 +42,8 @@ def get_ai_gateway() -> AIGateway:
                 ),
                 model_env="OPENAI_REVIEW_MODEL",
                 default_model="gpt-5-mini",
+                timeout_env="OPENAI_TIMEOUT_SECONDS",
+                default_timeout_seconds=120.0,
             ),
         ]
     )

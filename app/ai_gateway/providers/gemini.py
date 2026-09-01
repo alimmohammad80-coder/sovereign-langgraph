@@ -25,9 +25,11 @@ class GeminiProvider(BaseAIProvider):
         *,
         api_key_env: str = "GEMINI_API_KEY",
         model_env: str = "GEMINI_MODEL",
+        default_model: str = "gemini-3.1-pro-preview",
     ) -> None:
         self.api_key_env = api_key_env
         self.model_env = model_env
+        self.default_model = default_model
 
     def is_configured(self) -> bool:
         return bool(
@@ -60,12 +62,9 @@ class GeminiProvider(BaseAIProvider):
         model = (
             request.preferred_model
             or os.getenv(self.model_env)
+            or os.getenv("GEMINI_ANALYST_MODEL")
+            or self.default_model
         )
-
-        if not model:
-            raise RuntimeError(
-                "GEMINI_MODEL is not configured"
-            )
 
         config_kwargs: dict[str, Any] = {
             "system_instruction":

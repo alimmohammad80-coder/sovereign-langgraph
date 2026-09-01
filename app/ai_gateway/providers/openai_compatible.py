@@ -8,14 +8,26 @@ from app.ai_gateway.providers.base import BaseAIProvider
 from app.ai_gateway.schemas import AIGatewayRequest, AIGatewayResponse, AIResponseFormat
 
 class OpenAICompatibleProvider(BaseAIProvider):
-    def __init__(self, *, provider_key: str, api_key_env: str, base_url_env: str,
-                 default_base_url: str, model_env: str, default_model: str) -> None:
+    def __init__(
+        self,
+        *,
+        provider_key: str,
+        api_key_env: str,
+        base_url_env: str,
+        default_base_url: str,
+        model_env: str,
+        default_model: str,
+        timeout_env: str | None = None,
+        default_timeout_seconds: float = 120.0,
+    ) -> None:
         self.provider_key = provider_key.upper()
         self.api_key_env = api_key_env
         self.base_url_env = base_url_env
         self.default_base_url = default_base_url
         self.model_env = model_env
         self.default_model = default_model
+        self.timeout_env = timeout_env
+        self.default_timeout_seconds = default_timeout_seconds
 
     def is_configured(self) -> bool:
         return bool(os.getenv(self.api_key_env))
@@ -24,10 +36,32 @@ class OpenAICompatibleProvider(BaseAIProvider):
         api_key = os.getenv(self.api_key_env)
         if not api_key:
             raise RuntimeError(f"{self.provider_key} missing {self.api_key_env}")
+        timeout_seconds = self.default_timeout_seconds
+
+        if self.timeout_env:
+            raw_timeout = os.getenv(self.timeout_env)
+
+            if raw_timeout:
+                try:
+                    timeout_seconds = float(raw_timeout)
+                except ValueError:
+                    raise RuntimeError(
+                        f"{self.provider_key} invalid "
+                        f"{self.timeout_env}: {raw_timeout}"
+                    )
+
+        if timeout_seconds <= 0:
+            raise RuntimeError(
+                f"{self.provider_key} timeout must be greater than zero."
+            )
+
         return OpenAI(
             api_key=api_key,
-            base_url=os.getenv(self.base_url_env, self.default_base_url),
-            timeout=120.0,
+            base_url=os.getenv(
+                self.base_url_env,
+                self.default_base_url,
+            ),
+            timeout=timeout_seconds,
             max_retries=1,
         )
 
