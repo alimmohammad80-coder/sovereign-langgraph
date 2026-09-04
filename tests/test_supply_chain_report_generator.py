@@ -4,8 +4,11 @@ import pytest
 
 from app.services.supply_chain_report_generator import (
     SupplyChainReportGenerationError,
+    _attach_verified_citations,
+    _build_source_register,
     _compact_value,
     _extract_json,
+    _format_chicago_citation,
     _validate_report,
 )
 
@@ -62,3 +65,76 @@ def test_compacts_large_context_without_losing_subject():
 
     assert compact["companies"][0]["entity_name"] == "TSMC"
     assert len(compact["companies"][0]["signals"]) == 10
+
+
+def test_formats_chicago_web_citation():
+    citation = _format_chicago_citation(
+        {
+            "name": "GDACS",
+            "title": "Flood Alert for Test Port",
+            "published_at": "2026-09-04T10:30:00+00:00",
+            "url": "https://example.test/alert",
+        }
+    )
+
+    assert citation == (
+        'GDACS. “Flood Alert for Test Port.” '
+        "September 4, 2026. https://example.test/alert."
+    )
+
+
+def test_builds_deduplicated_verified_source_register():
+    register = _build_source_register(
+        {
+            "external_evidence": [
+                {
+                    "source": "USGS",
+                    "title": "Magnitude 6 Earthquake",
+                    "published_at": "2026-09-04T10:30:00+00:00",
+                    "url": "https://example.test/quake",
+                },
+                {
+                    "source": "USGS",
+                    "title": "Magnitude 6 Earthquake",
+                    "published_at": "2026-09-04T10:30:00+00:00",
+                    "url": "https://example.test/quake",
+                },
+            ]
+        },
+        "Port of Test",
+    )
+
+    assert [source["number"] for source in register] == [1, 2]
+    assert register[0]["source_type"] == "internal"
+    assert register[1]["name"] == "USGS"
+
+
+def test_attaches_only_sources_cited_in_report():
+    report = {
+        "bluf": "Current conditions remain elevated.[1]",
+        "complete_analysis": "An external hazard was recorded.[2]",
+    }
+    register = [
+        {"number": 1, "citation": "Internal citation."},
+        {"number": 2, "citation": "External citation."},
+        {"number": 3, "citation": "Unused citation."},
+    ]
+
+    _attach_verified_citations(report, register)
+
+    assert [source["number"] for source in report["sources"]] == [1, 2]
+    assert report["citation_count"] == 2
+    assert report["citation_style"].startswith("Chicago")
+
+
+def test_rejects_unverified_source_number():
+    report = {
+        "bluf": "Current conditions remain elevated.[9]",
+        "complete_analysis": "Assessment text.",
+    }
+
+    with pytest.raises(SupplyChainReportGenerationError):
+        _attach_verified_citations(
+            report,
+            [{"number": 1, "citation": "Internal citation."}],
+        )
