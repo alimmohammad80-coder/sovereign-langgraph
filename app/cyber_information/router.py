@@ -14,10 +14,15 @@ from .collectors import (
 )
 from .collectors.base import CollectorError
 from .confidence import assess_confidence
+from .cyber_engine import CyberIntelligenceEngine
+from .graph_builder import CyberGraphBuilder
 from .models import CrossModuleEvent
 from .ontology import ontology_manifest
+from .phase3_models import CyberIncident
 
 router = APIRouter(prefix="/api/cyber-information", tags=["Cyber & Information Operations"])
+engine = CyberIntelligenceEngine()
+graph_builder = CyberGraphBuilder()
 
 
 def _upstream_error(exc: CollectorError) -> HTTPException:
@@ -29,14 +34,19 @@ def health() -> dict:
     return {
         "status": "ok",
         "module": "cyber_information_operations",
-        "phase": 2,
+        "phase": 3,
         "foundation_version": "cyber-info-foundation-v1",
         "collector_version": "cyber-info-collectors-v3",
+        "engine_version": "cyber-intelligence-engine-v1",
         "live_sources": [
             "cisa_kev", "cisa_advisories", "nvd", "mitre_attack",
             "gdelt", "urlhaus", "abuseipdb", "national_cert_csirt", "misp",
         ],
         "standards": ["stix_2_x", "taxii_2_x", "misp"],
+        "phase3_capabilities": [
+            "incident_normalization", "vulnerability_exposure",
+            "actor_campaign_relationships", "infrastructure_targeting", "graph_objects",
+        ],
     }
 
 
@@ -58,6 +68,47 @@ def confidence_example() -> dict:
 @router.post("/events/validate")
 def validate_cross_module_event(event: CrossModuleEvent) -> dict:
     return {"status": "success", "valid": True, "schema_version": event.schema_version, "event": event.model_dump(mode="json")}
+
+
+@router.post("/engine/incidents/normalize")
+def normalize_incident(record: dict) -> dict:
+    incident = engine.incident_from_record(record)
+    return {"status": "success", "data": incident.model_dump(mode="json")}
+
+
+@router.post("/engine/vulnerabilities/exposure")
+def assess_vulnerability_exposure(record: dict, target_criticality_score: float = Query(default=50, ge=0, le=100)) -> dict:
+    try:
+        result = engine.vulnerability_exposure(record, target_criticality_score=target_criticality_score)
+        return {"status": "success", "data": result.model_dump(mode="json")}
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.post("/engine/actor-campaign/link")
+def derive_actor_campaign_link(record: dict) -> dict:
+    link = engine.actor_campaign_link(record)
+    if link is None:
+        raise HTTPException(status_code=422, detail="record does not contain a usable actor/campaign relationship")
+    return {"status": "success", "data": link.model_dump(mode="json")}
+
+
+@router.post("/engine/infrastructure/target-profile")
+def infrastructure_target_profile(payload: dict) -> dict:
+    incidents = [CyberIncident.model_validate(i) for i in payload.get("incidents", [])]
+    result = engine.infrastructure_target_profile(
+        name=str(payload.get("name") or "Unnamed asset"),
+        sector=str(payload.get("sector") or "unknown"),
+        country_iso3=payload.get("country_iso3"),
+        criticality_score=float(payload.get("criticality_score", 50)),
+        incidents=incidents,
+    )
+    return {"status": "success", "data": result.model_dump(mode="json")}
+
+
+@router.post("/engine/graph/incident")
+def incident_graph(incident: CyberIncident) -> dict:
+    return {"status": "success", "data": graph_builder.incident_graph(incident)}
 
 
 @router.get("/collectors/cisa-kev")
