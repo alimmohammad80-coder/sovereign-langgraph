@@ -1,14 +1,14 @@
 from __future__ import annotations
 
 import asyncio
+import csv
+import io
 import os
 import re
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from typing import Any
-from urllib.parse import urlencode
-
 import feedparser
 import httpx
 
@@ -106,7 +106,13 @@ class GDELTSupplyChainCollector(BaseCollector):
                 ),
                 evidence_type="event",
                 title=_text(article.get("title"), 1000),
-                summary=_text(article.get("summary")),
+                summary=(
+                    ""
+                    if str(article.get("summary") or "").startswith(
+                        ("http://", "https://")
+                    )
+                    else _text(article.get("summary"))
+                ),
                 url=article.get("url"),
                 published_at=_iso(article.get("seendate")),
                 event_type="reported_disruption",
@@ -156,13 +162,18 @@ class PortWatchCollector(BaseCollector):
                 params=context.get("portwatch_params") or {},
             )
             response.raise_for_status()
-            payload = response.json()
-
-        rows = (
-            payload.get("data", [])
-            if isinstance(payload, dict)
-            else payload
-        )
+            content_type = response.headers.get("content-type", "")
+            if "json" in content_type:
+                payload = response.json()
+                rows = (
+                    payload.get("data", [])
+                    if isinstance(payload, dict)
+                    else payload
+                )
+            else:
+                rows = list(
+                    csv.DictReader(io.StringIO(response.text))
+                )
         records: list[SupplyChainEvidence] = []
         for row in rows[: int(context.get("max_records", 250))]:
             if not isinstance(row, dict):
