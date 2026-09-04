@@ -257,6 +257,7 @@ def generate_professional_supply_chain_report(
     context: dict[str, Any],
 ) -> dict[str, Any]:
     client, model = _client_config()
+    provider = "NVIDIA" if model.lower().startswith("nvidia/") else "OpenAI"
     evidence = _compact_value(context)
     user_payload = {
         "report_subject": {
@@ -302,6 +303,7 @@ def generate_professional_supply_chain_report(
                     "entity_type": entity_type,
                     "entity_name": entity_name,
                     "generated_at": datetime.now(timezone.utc).isoformat(),
+                    "provider": provider,
                     "model": model,
                     "generation_status": "validated",
                 }
