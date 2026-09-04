@@ -94,6 +94,186 @@ def _string_list(value: Any, limit: int = 8) -> list[str]:
     return result
 
 
+def _narrative(value: Any) -> str | None:
+    if isinstance(value, list):
+        parts = [
+            str(item).strip().rstrip(".")
+            for item in value
+            if str(item).strip()
+        ]
+        return "; ".join(parts) + ("." if parts else "") or None
+    text = str(value or "").strip()
+    return text or None
+
+
+def _chicago_date(value: Any) -> str | None:
+    if not value:
+        return None
+    text = str(value).strip()
+    try:
+        parsed = datetime.fromisoformat(
+            text.replace("Z", "+00:00")
+        )
+    except ValueError:
+        return None
+    return parsed.strftime("%B %-d, %Y")
+
+
+def _latest_context_timestamp(value: Any) -> str | None:
+    timestamps: list[str] = []
+    if isinstance(value, dict):
+        for key, item in value.items():
+            if (
+                key.lower()
+                in {
+                    "published_at",
+                    "updated_at",
+                    "last_calculated_at",
+                    "ingested_at",
+                }
+                and isinstance(item, str)
+            ):
+                timestamps.append(item)
+            nested = _latest_context_timestamp(item)
+            if nested:
+                timestamps.append(nested)
+    elif isinstance(value, list):
+        for item in value:
+            nested = _latest_context_timestamp(item)
+            if nested:
+                timestamps.append(nested)
+    return max(timestamps) if timestamps else None
+
+
+def _format_chicago_citation(source: dict[str, Any]) -> str:
+    name = str(source.get("name") or "Unknown source").strip()
+    title = str(source.get("title") or "Untitled evidence").strip()
+    published = _chicago_date(source.get("published_at"))
+    url = str(source.get("url") or "").strip()
+    source_type = source.get("source_type")
+
+    if source_type == "internal":
+        updated = f" Updated {published}." if published else ""
+        return (
+            f'{name}. “{title}.” Internal intelligence dataset.'
+            f"{updated}"
+        )
+
+    segments = [f'{name}. “{title}.”']
+    if published:
+        segments.append(f"{published}.")
+    elif url:
+        accessed = datetime.now(timezone.utc).strftime("%B %-d, %Y")
+        segments.append(f"Accessed {accessed}.")
+    if url:
+        segments.append(url.rstrip(".") + ".")
+    return " ".join(segments)
+
+
+def _build_source_register(
+    evidence: Any,
+    entity_name: str,
+) -> list[dict[str, Any]]:
+    candidates: list[dict[str, Any]] = [
+        {
+            "name": "Sovereign Intelligence AI",
+            "title": f"Supply Chain Structural Risk Registry: {entity_name}",
+            "published_at": _latest_context_timestamp(evidence),
+            "url": None,
+            "source_type": "internal",
+        }
+    ]
+
+    def visit(value: Any) -> None:
+        if isinstance(value, dict):
+            name = value.get("source") or value.get("publisher")
+            title = value.get("title")
+            url = value.get("url")
+            if name and (title or url):
+                candidates.append(
+                    {
+                        "name": str(name).strip(),
+                        "title": str(
+                            title or f"{name} supply-chain evidence"
+                        ).strip(),
+                        "published_at": (
+                            value.get("published_at")
+                            or value.get("date")
+                            or value.get("observed_at")
+                        ),
+                        "url": url,
+                        "source_type": value.get("evidence_type")
+                        or "external",
+                    }
+                )
+            for item in value.values():
+                visit(item)
+        elif isinstance(value, list):
+            for item in value:
+                visit(item)
+
+    visit(evidence)
+
+    register: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for candidate in candidates:
+        key = (
+            str(candidate.get("url") or "").strip().lower()
+            or "|".join(
+                str(candidate.get(field) or "").strip().lower()
+                for field in ("name", "title", "published_at")
+            )
+        )
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        numbered = {
+            **candidate,
+            "number": len(register) + 1,
+        }
+        numbered["citation"] = _format_chicago_citation(numbered)
+        register.append(numbered)
+        if len(register) >= 16:
+            break
+    return register
+
+
+def _attach_verified_citations(
+    report: dict[str, Any],
+    source_register: list[dict[str, Any]],
+) -> None:
+    cited_numbers = {
+        int(number)
+        for number in re.findall(
+            r"\[(\d{1,2})\]",
+            report["bluf"] + " " + report["complete_analysis"],
+        )
+    }
+    valid_numbers = {
+        int(source["number"])
+        for source in source_register
+    }
+    invalid = cited_numbers - valid_numbers
+    if invalid:
+        raise SupplyChainReportGenerationError(
+            "The analysis cited source numbers that are not in the "
+            f"verified register: {sorted(invalid)}."
+        )
+    if source_register and not cited_numbers:
+        raise SupplyChainReportGenerationError(
+            "The analysis must include numbered citations to the verified "
+            "source register."
+        )
+
+    report["sources"] = [
+        source
+        for source in source_register
+        if int(source["number"]) in cited_numbers
+    ]
+    report["citation_style"] = "Chicago Notes and Bibliography, 17th ed."
+    report["citation_count"] = len(report["sources"])
+
+
 def _sources(value: Any) -> list[dict[str, Any]]:
     if not isinstance(value, list):
         return []
@@ -177,8 +357,8 @@ def _validate_report(payload: dict[str, Any]) -> dict[str, Any]:
     return {
         "bluf": bluf,
         "complete_analysis": analysis,
-        "strategic_assessment": str(payload.get("strategic_assessment") or "").strip() or None,
-        "simulation_assessment": str(payload.get("simulation_assessment") or "").strip() or None,
+        "strategic_assessment": _narrative(payload.get("strategic_assessment")),
+        "simulation_assessment": _narrative(payload.get("simulation_assessment")),
         "key_judgments": _string_list(payload.get("key_judgments"), 6),
         "drivers": _string_list(payload.get("drivers"), 8),
         "early_warning_indicators": _string_list(payload.get("early_warning_indicators"), 8),
@@ -187,13 +367,13 @@ def _validate_report(payload: dict[str, Any]) -> dict[str, Any]:
         "goods_impact": _string_list(payload.get("goods_impact"), 8),
         "commodity_impact": _string_list(payload.get("commodity_impact"), 8),
         "company_impact": _string_list(payload.get("company_impact"), 8),
-        "market_impact": str(payload.get("market_impact") or "").strip() or None,
-        "supply_chain_impact": str(payload.get("supply_chain_impact") or "").strip() or None,
+        "market_impact": _narrative(payload.get("market_impact")),
+        "supply_chain_impact": _narrative(payload.get("supply_chain_impact")),
         "forecast": {
-            "7_day": str(forecast.get("7_day") or "").strip() or None,
-            "30_day": str(forecast.get("30_day") or "").strip() or None,
-            "90_day": str(forecast.get("90_day") or "").strip() or None,
-            "180_day": str(forecast.get("180_day") or "").strip() or None,
+            "7_day": _narrative(forecast.get("7_day")),
+            "30_day": _narrative(forecast.get("30_day")),
+            "90_day": _narrative(forecast.get("90_day")),
+            "180_day": _narrative(forecast.get("180_day")),
         },
         "confidence": str(payload.get("confidence") or "").strip(),
         "confidence_rationale": str(payload.get("confidence_rationale") or "").strip() or None,
@@ -248,7 +428,11 @@ evidence is thin, state the gap and lower confidence rather than filling it with
 Return only valid JSON. The BLUF must be 60-140 words. The complete_analysis must be 300-500 words
 of coherent, entity-specific prose. It must explain current conditions, causal drivers, exposure
 pathways, operational and market implications, alternative explanations, and the 7/30/90-day outlook.
-Do not use markdown inside JSON strings. Avoid generic boilerplate and comma-joined fragments.
+Do not use markdown except numbered source markers such as [1] inside the BLUF and complete_analysis.
+Cite material factual claims with the nearest matching number from source_register. Never cite a number
+that is not present in source_register. Use Chicago-style note placement: put the marker immediately
+after the supported sentence and before no additional commentary. Avoid generic boilerplate,
+comma-joined fragments, raw arrays rendered as prose, or a separate bibliography inside the analysis.
 
 Use exactly these top-level keys:
 bluf, complete_analysis, strategic_assessment, simulation_assessment, key_judgments, drivers,
@@ -257,8 +441,8 @@ second_order_effects, forecast, early_warning_indicators, recommended_actions, c
 confidence_rationale, intelligence_gaps, sources.
 
 forecast is an object with 7_day, 30_day, 90_day, and 180_day. Arrays contain concise standalone
-items. sources contains only sources present in the supplied evidence, using objects with name,
-title, published_at, and url where available."""
+items. sources contains only the integer source-register numbers actually cited. The application
+will generate the Chicago-formatted bibliography deterministically from those verified records."""
 
 
 def generate_professional_supply_chain_report(
@@ -270,12 +454,14 @@ def generate_professional_supply_chain_report(
     client, model = _client_config()
     provider = "NVIDIA" if model.lower().startswith("nvidia/") else "OpenAI"
     evidence = _compact_value(context)
+    source_register = _build_source_register(context, entity_name)
     user_payload = {
         "report_subject": {
             "entity_type": entity_type,
             "entity_name": entity_name,
         },
         "analytic_requirement": question,
+        "source_register": source_register,
         "evidence_context": evidence,
     }
     messages: list[dict[str, str]] = [
@@ -314,7 +500,7 @@ def generate_professional_supply_chain_report(
                 raise SupplyChainReportGenerationError(
                     "The analysis does not identify the requested report subject."
                 )
-            report["sources"] = _filter_verified_sources(report["sources"], evidence)
+            _attach_verified_citations(report, source_register)
             report.update(
                 {
                     "entity_type": entity_type,
