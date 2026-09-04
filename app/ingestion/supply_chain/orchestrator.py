@@ -102,18 +102,8 @@ class SupplyChainEvidenceRepository:
         self,
         records: list[dict[str, Any]],
     ) -> tuple[int, int]:
-        evidence_upserted = 0
-        live_events_upserted = 0
+        events: list[dict[str, Any]] = []
         for row in records:
-            (
-                self.db.table("sc_external_evidence")
-                .upsert(
-                    row,
-                    on_conflict="source,source_record_id",
-                )
-                .execute()
-            )
-            evidence_upserted += 1
             evidence = SupplyChainEvidence(
                 **{
                     key: value
@@ -123,13 +113,29 @@ class SupplyChainEvidenceRepository:
             )
             event = evidence.to_live_event_row()
             if event and event.get("url"):
-                (
-                    self.db.table("sc_live_disruption_events")
-                    .upsert(event, on_conflict="url")
-                    .execute()
+                events.append(event)
+
+        for start in range(0, len(records), 100):
+            (
+                self.db.table("sc_external_evidence")
+                .upsert(
+                    records[start : start + 100],
+                    on_conflict="source,source_record_id",
                 )
-                live_events_upserted += 1
-        return evidence_upserted, live_events_upserted
+                .execute()
+            )
+
+        for start in range(0, len(events), 100):
+            (
+                self.db.table("sc_live_disruption_events")
+                .upsert(
+                    events[start : start + 100],
+                    on_conflict="url",
+                )
+                .execute()
+            )
+
+        return len(records), len(events)
 
 
 class SupplyChainIngestionOrchestrator:
