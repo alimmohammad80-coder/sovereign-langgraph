@@ -6,7 +6,10 @@ from app.services.supply_chain_report_generator import (
     SupplyChainReportGenerationError,
     generate_professional_supply_chain_report,
 )
-from fastapi import APIRouter, HTTPException
+from app.services.supply_chain_analysis_job_service import (
+    SupplyChainAnalysisJobService,
+)
+from fastapi import APIRouter, BackgroundTasks, HTTPException
 from app.services.supply_chain_risk_history import (
     build_risk_snapshot,
     calculate_confidence,
@@ -2123,6 +2126,116 @@ async def run_supply_chain_investigation(payload: dict):
             "detail": str(e),
             "message": "run-investigation failed before model analysis"
         }
+
+
+def _resolve_supply_chain_report_subject(payload: dict) -> tuple[str, str]:
+    selected_entities = payload.get("selected_entities") or {}
+    selected_pairs = [
+        (group, str(name))
+        for group, names in selected_entities.items()
+        if isinstance(names, list)
+        for name in names
+        if name
+    ]
+    if not selected_pairs:
+        raise HTTPException(
+            status_code=400,
+            detail="At least one selected entity is required",
+        )
+
+    group_to_type = {
+        "ports": "port",
+        "companies": "company",
+        "chokepoints": "chokepoint",
+        "commodities": "commodity",
+        "countries": "country",
+        "shipping_corridors": "shipping_corridor",
+    }
+    if len(selected_pairs) == 1:
+        group, name = selected_pairs[0]
+        return group_to_type.get(group, group), name
+
+    return (
+        "multi_entity_investigation",
+        ", ".join(name for _, name in selected_pairs[:5]),
+    )
+
+
+async def _run_supply_chain_analysis_job(job_id: str) -> None:
+    service = SupplyChainAnalysisJobService()
+    job = service.get(job_id)
+    if not job:
+        return
+
+    service.mark_processing(job_id)
+    try:
+        result = await run_supply_chain_investigation(
+            job.get("request_json") or {}
+        )
+        if not isinstance(result, dict) or result.get("status") != "success":
+            raise RuntimeError("Supply-chain report generation did not complete.")
+        service.complete(job_id, result)
+    except Exception as exc:
+        service.fail(job_id, exc)
+
+
+@router.post("/analysis-jobs")
+def create_supply_chain_analysis_job(
+    payload: dict,
+    background_tasks: BackgroundTasks,
+):
+    entity_type, entity_name = _resolve_supply_chain_report_subject(payload)
+    service = SupplyChainAnalysisJobService()
+    job = service.create(
+        entity_type=entity_type,
+        entity_name=entity_name,
+        request_json=payload,
+    )
+    background_tasks.add_task(
+        _run_supply_chain_analysis_job,
+        str(job["id"]),
+    )
+    return {
+        "status": "success",
+        "data": {
+            "analysis_id": str(job["id"]),
+            "entity_type": entity_type,
+            "entity_name": entity_name,
+            "status": "queued",
+        },
+    }
+
+
+@router.get("/analysis-jobs/{analysis_id}")
+def get_supply_chain_analysis_job(analysis_id: str):
+    job = SupplyChainAnalysisJobService().get(analysis_id)
+    if not job:
+        raise HTTPException(
+            status_code=404,
+            detail="Supply-chain analysis job not found.",
+        )
+
+    response = {
+        "analysis_id": str(job["id"]),
+        "entity_type": job["entity_type"],
+        "entity_name": job["entity_name"],
+        "status": job["status"],
+        "provider": job.get("provider"),
+        "model": job.get("model"),
+        "created_at": job.get("created_at"),
+        "started_at": job.get("started_at"),
+        "completed_at": job.get("completed_at"),
+    }
+    if job["status"] == "completed":
+        response["result"] = job.get("result")
+        response["qa"] = job.get("qa")
+    elif job["status"] == "failed":
+        response["error"] = job.get("error_message")
+
+    return {
+        "status": "success",
+        "data": response,
+    }
 
 
 @router.get("/toolbox/{category}")
