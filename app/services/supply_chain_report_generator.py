@@ -25,7 +25,7 @@ def _word_count(value: str) -> int:
 
 def _compact_value(value: Any, depth: int = 0) -> Any:
     """Bound live context without discarding entity-specific evidence."""
-    if depth >= 5:
+    if depth >= 7:
         return None
     if isinstance(value, dict):
         compact: dict[str, Any] = {}
@@ -113,6 +113,35 @@ def _sources(value: Any) -> list[dict[str, Any]]:
                     }
                 )
     return result
+
+
+def _known_source_tokens(value: Any) -> set[str]:
+    known: set[str] = set()
+    if isinstance(value, dict):
+        for key, item in value.items():
+            if key.lower() in {"source", "publisher", "provider"} and isinstance(item, str):
+                token = item.strip().lower()
+                if token:
+                    known.add(token)
+            known.update(_known_source_tokens(item))
+    elif isinstance(value, list):
+        for item in value:
+            known.update(_known_source_tokens(item))
+    return known
+
+
+def _filter_verified_sources(
+    sources: list[dict[str, Any]],
+    evidence: Any,
+) -> list[dict[str, Any]]:
+    known = _known_source_tokens(evidence)
+    if not known:
+        return []
+    return [
+        source
+        for source in sources
+        if str(source.get("name") or "").strip().lower() in known
+    ]
 
 
 def _validate_report(payload: dict[str, Any]) -> dict[str, Any]:
@@ -240,15 +269,21 @@ def generate_professional_supply_chain_report(
 
     last_error: Exception | None = None
     for attempt in range(2):
-        response = client.chat.completions.create(
-            model=model,
-            messages=messages,
-            temperature=0.1,
-            max_tokens=3200,
-        )
+        try:
+            response = client.chat.completions.create(
+                model=model,
+                messages=messages,
+                temperature=0.1,
+                max_tokens=3200,
+            )
+        except Exception as exc:
+            raise SupplyChainReportGenerationError(
+                "The configured report provider did not complete the request."
+            ) from exc
         content = response.choices[0].message.content or ""
         try:
             report = _validate_report(_extract_json(content))
+            report["sources"] = _filter_verified_sources(report["sources"], evidence)
             report.update(
                 {
                     "entity_type": entity_type,
