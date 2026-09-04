@@ -2036,6 +2036,52 @@ async def run_supply_chain_investigation(payload: dict):
             "latest_ingested_at": matched_live_signals[0].get("ingested_at") if matched_live_signals else None
         }
 
+        # External evidence is optional so a missing migration or a temporarily
+        # unavailable source cannot block report generation.
+        contexts["external_evidence"] = []
+        try:
+            evidence_response = (
+                supabase.table("sc_external_evidence")
+                .select(
+                    "source,evidence_type,title,summary,url,published_at,"
+                    "country_iso3,matched_company,matched_port,"
+                    "matched_chokepoint,matched_commodity,matched_corridor,"
+                    "event_type,severity_score,confidence_score,"
+                    "metric_name,metric_value,metric_unit"
+                )
+                .order("published_at", desc=True)
+                .limit(250)
+                .execute()
+            )
+            selected_terms = {
+                str(name).strip().lower()
+                for name in selected_names
+                if str(name).strip()
+            }
+            for evidence in evidence_response.data or []:
+                matched_values = {
+                    str(evidence.get(field) or "").strip().lower()
+                    for field in (
+                        "matched_company",
+                        "matched_port",
+                        "matched_chokepoint",
+                        "matched_commodity",
+                        "matched_corridor",
+                    )
+                }
+                searchable = " ".join(
+                    str(evidence.get(field) or "")
+                    for field in ("title", "summary")
+                ).lower()
+                if selected_terms.intersection(matched_values) or any(
+                    term in searchable for term in selected_terms
+                ):
+                    contexts["external_evidence"].append(evidence)
+                    if len(contexts["external_evidence"]) >= 40:
+                        break
+        except Exception:
+            contexts["external_evidence"] = []
+
         selected_pairs = [
             (group, str(name))
             for group, names in selected_entities.items()
