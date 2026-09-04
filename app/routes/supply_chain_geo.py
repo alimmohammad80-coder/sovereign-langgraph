@@ -1,6 +1,4 @@
 import os
-import json
-from openai import OpenAI
 
 from dotenv import load_dotenv
 from app.services.intelligence_context_builder import build_supply_chain_context
@@ -1011,39 +1009,32 @@ async def recalculate_supply_chain_scores():
 async def investigate_supply_chain_entity(payload: dict):
     entity_type = payload.get("entity_type")
     entity_name = payload.get("entity_name")
-    question = payload.get("question") or "Assess supply chain disruption risk and decision implications."
+    question = payload.get("question") or (
+        "Produce a current, decision-relevant supply-chain intelligence assessment."
+    )
 
     if not entity_type or not entity_name:
         raise HTTPException(status_code=400, detail="entity_type and entity_name are required")
 
-    context = {}
-
     if entity_type == "chokepoint":
-        impact = await get_scenario_impact(entity_name)
-        context = impact
-
+        context = await get_scenario_impact(entity_name)
     elif entity_type == "company":
-        profile = await get_company_profile(entity_name)
-        context = profile
-
+        context = await get_company_profile(entity_name)
     elif entity_type == "port":
         context = build_supply_chain_context(
             supabase=supabase,
             entity_type="port",
-            entity_name=entity_name
+            entity_name=entity_name,
         )
-
     elif entity_type == "commodity":
         companies = (
-            supabase
-            .table("sc_commodity_company_exposure")
+            supabase.table("sc_commodity_company_exposure")
             .select("*")
             .ilike("commodity", entity_name)
             .execute()
         )
         suppliers = (
-            supabase
-            .table("sc_alternative_suppliers")
+            supabase.table("sc_alternative_suppliers")
             .select("*")
             .ilike("commodity", entity_name)
             .execute()
@@ -1051,18 +1042,61 @@ async def investigate_supply_chain_entity(payload: dict):
         context = {
             "commodity": entity_name,
             "companies": companies.data or [],
-            "alternative_suppliers": suppliers.data or []
+            "alternative_suppliers": suppliers.data or [],
         }
-
+    elif entity_type == "country":
+        ports = (
+            supabase.table("sc_master_ports")
+            .select("*")
+            .ilike("country", entity_name)
+            .execute()
+        )
+        companies = (
+            supabase.table("sc_companies")
+            .select("*")
+            .ilike("headquarters_country", entity_name)
+            .execute()
+        )
+        context = {
+            "country": entity_name,
+            "ports": ports.data or [],
+            "companies": companies.data or [],
+        }
+    elif entity_type in {"corridor", "shipping_corridor"}:
+        corridor = (
+            supabase.table("sc_shipping_corridors")
+            .select("*")
+            .ilike("corridor_name", entity_name)
+            .limit(1)
+            .execute()
+        )
+        context = {
+            "entity_type": "shipping_corridor",
+            "entity_name": entity_name,
+            "profile": corridor.data[0] if corridor.data else None,
+        }
+        entity_type = "shipping_corridor"
     else:
         raise HTTPException(status_code=400, detail="Unsupported entity_type")
 
-    analysis = generate_supply_chain_gpt_analysis(
-        entity_type=entity_type,
-        entity_name=entity_name,
-        question=question,
-        context=context
-    )
+    try:
+        analysis = generate_supply_chain_gpt_analysis(
+            entity_type=entity_type,
+            entity_name=entity_name,
+            question=question,
+            context=context,
+        )
+    except SupplyChainReportGenerationError as model_error:
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "code": "REPORT_QUALITY_GATE_FAILED",
+                "message": (
+                    "A publication-quality intelligence report could not be generated. "
+                    "No fallback report was published."
+                ),
+            },
+        ) from model_error
 
     return {
         "status": "success",
@@ -1071,16 +1105,27 @@ async def investigate_supply_chain_entity(payload: dict):
         "question": question,
         "context": context,
         "bluf": analysis.get("bluf"),
+        "report": analysis,
         "simulation": {
             "time_horizon": "30 days",
+            "complete_analysis": analysis.get("complete_analysis"),
+            "strategic_assessment": analysis.get("strategic_assessment"),
             "assessment": analysis.get("simulation_assessment"),
+            "key_judgments": analysis.get("key_judgments", []),
             "drivers": analysis.get("drivers", []),
             "forecast": analysis.get("forecast", {}),
+            "early_warning_indicators": analysis.get("early_warning_indicators", []),
             "recommended_actions": analysis.get("recommended_actions", []),
-            "next_simulation_questions": analysis.get("next_simulation_questions", []),
-            "confidence": analysis.get("confidence")
-        }
+            "confidence": analysis.get("confidence"),
+            "confidence_rationale": analysis.get("confidence_rationale"),
+            "intelligence_gaps": analysis.get("intelligence_gaps", []),
+            "sources": analysis.get("sources", []),
+            "analysis_word_count": analysis.get("analysis_word_count"),
+            "generated_at": analysis.get("generated_at"),
+            "generation_status": analysis.get("generation_status"),
+        },
     }
+
 @router.post("/recalculate-port-scores")
 async def recalculate_port_scores():
     """
