@@ -2,12 +2,15 @@ from fastapi import APIRouter, HTTPException, Query
 
 from .collectors import (
     AbuseIpDbCollector,
+    CertFeedCollector,
     CisaAdvisoryCollector,
     CisaKevCollector,
     GdeltCollector,
+    MispCollector,
     MitreAttackCollector,
     NvdCollector,
     UrlhausCollector,
+    cert_feed_registry,
 )
 from .collectors.base import CollectorError
 from .confidence import assess_confidence
@@ -28,12 +31,12 @@ def health() -> dict:
         "module": "cyber_information_operations",
         "phase": 2,
         "foundation_version": "cyber-info-foundation-v1",
-        "collector_version": "cyber-info-collectors-v2",
+        "collector_version": "cyber-info-collectors-v3",
         "live_sources": [
             "cisa_kev", "cisa_advisories", "nvd", "mitre_attack",
-            "gdelt", "urlhaus", "abuseipdb",
+            "gdelt", "urlhaus", "abuseipdb", "national_cert_csirt", "misp",
         ],
-        "standards": ["stix_2_x", "taxii_2_x"],
+        "standards": ["stix_2_x", "taxii_2_x", "misp"],
     }
 
 
@@ -109,5 +112,26 @@ async def collect_urlhaus(limit: int = Query(default=100, ge=1, le=1000)) -> dic
 async def check_abuseipdb(ip_address: str, max_age_days: int = Query(default=90, ge=1, le=365)) -> dict:
     try:
         return {"status": "success", "data": await AbuseIpDbCollector().check(ip_address=ip_address, max_age_days=max_age_days)}
+    except CollectorError as exc:
+        raise _upstream_error(exc) from exc
+
+
+@router.get("/collectors/cert-feeds")
+def list_cert_feeds() -> dict:
+    return {"status": "success", "data": cert_feed_registry()}
+
+
+@router.get("/collectors/cert-feeds/{feed_id}")
+async def collect_cert_feed(feed_id: str, limit: int = Query(default=100, ge=1, le=500)) -> dict:
+    try:
+        return {"status": "success", "data": await CertFeedCollector().collect_registered(feed_id=feed_id, limit=limit)}
+    except CollectorError as exc:
+        raise _upstream_error(exc) from exc
+
+
+@router.get("/collectors/misp")
+async def collect_misp(base_url: str = Query(min_length=8, max_length=500), limit: int = Query(default=100, ge=1, le=1000), published_only: bool = True) -> dict:
+    try:
+        return {"status": "success", "data": await MispCollector().collect_events(base_url=base_url, limit=limit, published_only=published_only)}
     except CollectorError as exc:
         raise _upstream_error(exc) from exc
