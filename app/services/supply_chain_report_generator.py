@@ -115,12 +115,16 @@ def _sources(value: Any) -> list[dict[str, Any]]:
     return result
 
 
+def _source_key(value: str) -> str:
+    return re.sub(r"\b(rss|feed|api)\b|[^a-z0-9]+", "", value.lower())
+
+
 def _known_source_tokens(value: Any) -> set[str]:
     known: set[str] = set()
     if isinstance(value, dict):
         for key, item in value.items():
             if key.lower() in {"source", "publisher", "provider"} and isinstance(item, str):
-                token = item.strip().lower()
+                token = _source_key(item)
                 if token:
                     known.add(token)
             known.update(_known_source_tokens(item))
@@ -140,7 +144,7 @@ def _filter_verified_sources(
     return [
         source
         for source in sources
-        if str(source.get("name") or "").strip().lower() in known
+        if _source_key(str(source.get("name") or "")) in known
     ]
 
 
@@ -209,7 +213,7 @@ def _client_config() -> tuple[OpenAI, str]:
             or os.getenv("NEMOTRON_MODEL")
             or "nvidia/llama-3.1-nemotron-ultra-253b-v1"
         )
-        return OpenAI(api_key=nvidia_key, base_url=base_url), model
+        return OpenAI(api_key=nvidia_key, base_url=base_url, timeout=60.0, max_retries=1), model
 
     openai_key = os.getenv("OPENAI_API_KEY")
     if openai_key:
@@ -219,7 +223,7 @@ def _client_config() -> tuple[OpenAI, str]:
             or os.getenv("OPENAI_MODEL")
             or "gpt-4.1-mini"
         )
-        return OpenAI(api_key=openai_key, base_url=base_url), model
+        return OpenAI(api_key=openai_key, base_url=base_url, timeout=60.0, max_retries=1), model
 
     raise SupplyChainReportGenerationError("No report-generation provider is configured.")
 
@@ -283,6 +287,15 @@ def generate_professional_supply_chain_report(
         content = response.choices[0].message.content or ""
         try:
             report = _validate_report(_extract_json(content))
+            if (
+                entity_type != "multi_entity_investigation"
+                and entity_name.lower() not in (
+                    report["bluf"] + " " + report["complete_analysis"]
+                ).lower()
+            ):
+                raise SupplyChainReportGenerationError(
+                    "The analysis does not identify the requested report subject."
+                )
             report["sources"] = _filter_verified_sources(report["sources"], evidence)
             report.update(
                 {
