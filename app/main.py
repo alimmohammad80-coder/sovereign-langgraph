@@ -1,6 +1,7 @@
 
 from app.routes.sews_causal_simulation import router as sews_causal_simulation_router
 from app.routes.supply_chain_geo import router as supply_chain_geo_router
+from app.routes.supply_chain_ingestion import router as supply_chain_ingestion_router
 from app.routes import global_risk
 from routers.context_memory import router as context_memory_router
 from routers.scenario_analysis import router as scenario_analysis_router
@@ -114,6 +115,7 @@ app.include_router(conflict_forecasting_router)
 app.include_router(conflict_intelligence_router)
 app.include_router(strategic_knowledge_graph_router)
 app.include_router(supply_chain_geo_router)
+app.include_router(supply_chain_ingestion_router)
 
 # Supply Chain Risk Engine router
 app.include_router(supply_chain_router)
