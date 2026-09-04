@@ -22,14 +22,14 @@ class MispCollector(BaseCollector):
             raise CollectorError("MISP API key is not configured")
 
         url = f"{base_url.rstrip('/')}/events/restSearch"
-        payload = await self.get_json(
+        payload = await self.post_json(
             url,
-            params={"limit": max(1, min(limit, 1000)), "published": str(published_only).lower()},
-            headers={
-                "Authorization": key,
-                "Accept": "application/json",
-                "Content-Type": "application/json",
+            payload={
+                "returnFormat": "json",
+                "limit": max(1, min(limit, 1000)),
+                "published": published_only,
             },
+            headers={"Authorization": key},
         )
         response = payload.get("response", payload)
         events = response if isinstance(response, list) else response.get("Event", [])
@@ -41,9 +41,8 @@ class MispCollector(BaseCollector):
         for wrapper in events[: max(1, min(limit, 1000))]:
             event = wrapper.get("Event", wrapper) if isinstance(wrapper, dict) else {}
             event_id = str(event.get("uuid") or event.get("id") or "")
-            attrs = event.get("Attribute") or []
             normalized_attributes = []
-            for attr in attrs:
+            for attr in event.get("Attribute") or []:
                 normalized_attributes.append({
                     "uuid": attr.get("uuid"),
                     "type": attr.get("type"),
@@ -55,7 +54,7 @@ class MispCollector(BaseCollector):
                     "tags": [tag.get("name") for tag in attr.get("Tag", []) if tag.get("name")],
                 })
 
-            record = {
+            records.append({
                 "source": "misp",
                 "record_type": "misp_event",
                 "source_record_id": event_id,
@@ -78,15 +77,13 @@ class MispCollector(BaseCollector):
                     "publisher": (event.get("Orgc") or {}).get("name"),
                     "collected_at": collected_at.isoformat(),
                     "source_record_id": event_id,
-                    "retrieval_method": "misp_rest_search",
+                    "retrieval_method": "misp_rest_search_post",
                     "content_hash": self.stable_hash(event),
                 },
-            }
-            records.append(record)
+            })
         return {"source": "misp", "count": len(records), "records": records}
 
     def normalize_event(self, event: dict[str, Any], *, source_url: str | None = None) -> dict[str, Any]:
-        """Normalize an already-retrieved MISP Event object for imports/tests."""
         wrapper = {"Event": event}
         collected_at = self.collected_at()
         event_id = str(event.get("uuid") or event.get("id") or "")
