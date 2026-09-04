@@ -426,8 +426,9 @@ sources, or company exposures. Clearly separate observed evidence from analytic 
 evidence is thin, state the gap and lower confidence rather than filling it with generic claims.
 
 Return only valid JSON. The BLUF must be 60-140 words. The complete_analysis must be 300-500 words
-of coherent, entity-specific prose. It must explain current conditions, causal drivers, exposure
-pathways, operational and market implications, alternative explanations, and the 7/30/90-day outlook.
+of coherent, entity-specific prose organized into four concise paragraphs separated by blank lines:
+current operating picture; causal drivers and exposure pathways; operational and market implications;
+and alternative explanations plus the 7/30/90-day outlook.
 Do not use markdown except numbered source markers such as [1] inside the BLUF and complete_analysis.
 Cite material factual claims with the nearest matching number from source_register. Never cite a number
 that is not present in source_register. Use Chicago-style note placement: put the marker immediately
