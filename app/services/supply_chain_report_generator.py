@@ -203,7 +203,18 @@ def _validate_report(payload: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _provider_timeout_seconds() -> float:
+    """Allow long-form report generation without an unbounded provider wait."""
+    raw = os.getenv("SUPPLY_CHAIN_REPORT_TIMEOUT_SECONDS", "240")
+    try:
+        timeout = float(raw)
+    except (TypeError, ValueError):
+        timeout = 240.0
+    return min(max(timeout, 60.0), 600.0)
+
+
 def _client_config() -> tuple[OpenAI, str]:
+    timeout = _provider_timeout_seconds()
     nvidia_key = os.getenv("NVIDIA_API_KEY") or os.getenv("NVIDIA_NIM_API_KEY")
     if nvidia_key:
         base_url = os.getenv("NVIDIA_BASE_URL") or "https://integrate.api.nvidia.com/v1"
@@ -213,7 +224,7 @@ def _client_config() -> tuple[OpenAI, str]:
             or os.getenv("NEMOTRON_MODEL")
             or "nvidia/llama-3.1-nemotron-ultra-253b-v1"
         )
-        return OpenAI(api_key=nvidia_key, base_url=base_url, timeout=60.0, max_retries=1), model
+        return OpenAI(api_key=nvidia_key, base_url=base_url, timeout=timeout, max_retries=1), model
 
     openai_key = os.getenv("OPENAI_API_KEY")
     if openai_key:
@@ -223,7 +234,7 @@ def _client_config() -> tuple[OpenAI, str]:
             or os.getenv("OPENAI_MODEL")
             or "gpt-4.1-mini"
         )
-        return OpenAI(api_key=openai_key, base_url=base_url, timeout=60.0, max_retries=1), model
+        return OpenAI(api_key=openai_key, base_url=base_url, timeout=timeout, max_retries=1), model
 
     raise SupplyChainReportGenerationError("No report-generation provider is configured.")
 
@@ -282,9 +293,15 @@ def generate_professional_supply_chain_report(
                 max_tokens=3200,
             )
         except Exception as exc:
-            raise SupplyChainReportGenerationError(
-                "The configured report provider did not complete the request."
-            ) from exc
+            detail = str(exc).lower()
+            if "timeout" in type(exc).__name__.lower() or "timed out" in detail:
+                message = (
+                    "The report provider exceeded the configured "
+                    f"{int(_provider_timeout_seconds())}-second generation window."
+                )
+            else:
+                message = "The configured report provider did not complete the request."
+            raise SupplyChainReportGenerationError(message) from exc
         content = response.choices[0].message.content or ""
         try:
             report = _validate_report(_extract_json(content))

@@ -2175,6 +2175,12 @@ async def _run_supply_chain_analysis_job(job_id: str) -> None:
         if not isinstance(result, dict) or result.get("status") != "success":
             raise RuntimeError("Supply-chain report generation did not complete.")
         service.complete(job_id, result)
+    except HTTPException as exc:
+        cause = exc.__cause__
+        service.fail(
+            job_id,
+            cause if isinstance(cause, Exception) else exc,
+        )
     except Exception as exc:
         service.fail(job_id, exc)
 
