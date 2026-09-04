@@ -77,6 +77,8 @@ class SupplyChainAnalysisJobService:
         qa = {
             "passed": report.get("generation_status") == "validated",
             "analysis_word_count": report.get("analysis_word_count"),
+            "citation_style": report.get("citation_style"),
+            "citation_count": report.get("citation_count"),
             "entity_type": report.get("entity_type"),
             "entity_name": report.get("entity_name"),
         }
