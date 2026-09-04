@@ -23,6 +23,7 @@ from app.routes.sews_runtime_initialization import router as sews_runtime_initia
 from app.routes.sews_operational_intelligence import router as sews_operational_intelligence_router
 from app.routes.sews_executive_brief import router as sews_executive_brief_router
 from app.routes.sews_operations import router as sews_operations_router
+from app.cyber_information import router as cyber_information_router
 load_dotenv()
 
 from app.routes.sews_warning_baselines import (
@@ -116,6 +117,7 @@ app.include_router(conflict_intelligence_router)
 app.include_router(strategic_knowledge_graph_router)
 app.include_router(supply_chain_geo_router)
 app.include_router(supply_chain_ingestion_router)
+app.include_router(cyber_information_router)
 
 # Supply Chain Risk Engine router
 app.include_router(supply_chain_router)
