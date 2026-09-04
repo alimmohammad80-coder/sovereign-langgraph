@@ -29,11 +29,29 @@ class BaseCollector:
             **(headers or {}),
         }
         try:
-            async with httpx.AsyncClient(
-                timeout=self.timeout_seconds,
-                follow_redirects=True,
-            ) as client:
+            async with httpx.AsyncClient(timeout=self.timeout_seconds, follow_redirects=True) as client:
                 response = await client.get(url, params=params, headers=request_headers)
+                response.raise_for_status()
+                return response.json()
+        except (httpx.HTTPError, ValueError) as exc:
+            raise CollectorError(f"{self.source_name} collection failed: {exc}") from exc
+
+    async def post_json(
+        self,
+        url: str,
+        *,
+        payload: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> Any:
+        request_headers = {
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+            "User-Agent": "SovereignIntelligenceAI/1.0 cyber-information-collector",
+            **(headers or {}),
+        }
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout_seconds, follow_redirects=True) as client:
+                response = await client.post(url, json=payload or {}, headers=request_headers)
                 response.raise_for_status()
                 return response.json()
         except (httpx.HTTPError, ValueError) as exc:
