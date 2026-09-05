@@ -5,9 +5,10 @@ from collections import Counter
 from datetime import datetime, timezone
 from typing import Any
 
-from .collectors import CisaKevCollector, GdeltCollector, NvdCollector
+from .collectors import CisaKevCollector, GdeltCollector, MitreAttackCollector, NvdCollector
 from .cyber_engine import CyberIntelligenceEngine
 from .information_engine import analyze_information_environment
+from .investigation_enrichment import enrich_investigation
 from .threat_context import build_threat_context
 
 
@@ -20,11 +21,24 @@ def _source_status(result: Any, source: str) -> dict[str, Any]:
     return {"source": source, "ok": True, "count": int(result.get("count") or 0)}
 
 
-def _priority_incidents(records: list[dict[str, Any]], limit: int = 12) -> list[dict[str, Any]]:
+def _priority_incidents(
+    records: list[dict[str, Any]],
+    mitre_records: list[dict[str, Any]],
+    limit: int = 12,
+) -> list[dict[str, Any]]:
     enriched = []
     for record in records:
         incident = engine.incident_from_record(record).model_dump(mode="json")
-        incident["threat_context"] = build_threat_context(record)
+        threat_context = build_threat_context(record)
+        investigation = enrich_investigation(
+            record=record,
+            incident=incident,
+            threat_context=threat_context,
+            mitre_records=mitre_records,
+        )
+        incident["threat_context"] = threat_context
+        incident["investigation"] = investigation
+        incident["attack_techniques"] = [item["attack_id"] for item in investigation["attack_techniques"]]
         enriched.append(incident)
     enriched.sort(
         key=lambda item: (
@@ -138,7 +152,7 @@ def _executive_judgment(
         "bluf": (
             f"Cyber and information operations posture is assessed as {level}. "
             "Prioritize confirmed exploitation, ransomware-linked vulnerabilities, and high-relevance narrative clusters; "
-            "coordination indicators are analytic signals and do not by themselves establish orchestration or attribution."
+            "coordination and ATT&CK overlap indicators are analytic signals and do not by themselves establish orchestration or attribution."
         ),
         "key_drivers": drivers,
     }
@@ -157,27 +171,30 @@ async def build_operational_overview(
             query='("cyber attack" OR ransomware OR malware OR disinformation OR "information operation" OR "influence operation")',
             max_records=gdelt_limit,
         ),
+        MitreAttackCollector().collect_intelligence_set(),
         return_exceptions=True,
     )
 
-    kev_result, nvd_result, gdelt_result = results
+    kev_result, nvd_result, gdelt_result, mitre_result = results
     kev = [] if isinstance(kev_result, Exception) else kev_result.get("records", [])
     nvd = [] if isinstance(nvd_result, Exception) else nvd_result.get("records", [])
     gdelt = [] if isinstance(gdelt_result, Exception) else gdelt_result.get("records", [])
+    mitre = [] if isinstance(mitre_result, Exception) else mitre_result.get("records", [])
 
     narratives = _information_products(gdelt)
-    incidents = _priority_incidents(kev + nvd)
+    incidents = _priority_incidents(kev + nvd, mitre)
     exposures = _priority_exposures(kev)
     executive = _executive_judgment(kev, nvd, narratives)
 
     return {
         "generated_at": datetime.now(timezone.utc).isoformat(),
-        "assessment_version": "cyber-info-operational-overview-v2",
+        "assessment_version": "cyber-info-operational-overview-v3",
         "executive_judgment": executive,
         "source_health": [
             _source_status(kev_result, "cisa_kev"),
             _source_status(nvd_result, "nvd"),
             _source_status(gdelt_result, "gdelt"),
+            _source_status(mitre_result, "mitre_attack"),
         ],
         "priority_incidents": incidents,
         "priority_vulnerabilities": exposures,
@@ -196,8 +213,10 @@ async def build_operational_overview(
             ),
         },
         "analytic_caveats": [
-            "The overview uses live public-source collections and deterministic Phase 3/4 engines.",
+            "The overview uses live public-source collections and deterministic intelligence engines.",
             "Threat context separates observed attribution from assessed likely targets and attacker objectives.",
+            "MITRE ATT&CK mappings are deterministic technique matches verified against official ATT&CK objects.",
+            "Actor and campaign candidates derived from technique overlap are comparative hypotheses, not attribution.",
             "A vulnerability's exploitation does not identify the responsible actor unless supported by direct source evidence.",
             "Narrative coordination indicators do not prove orchestration, common control, falsity, or actor attribution.",
             "The posture score is an operational prioritization score, not a calibrated forecast probability.",
