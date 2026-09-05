@@ -6,9 +6,9 @@ from datetime import datetime, timezone
 from typing import Any
 
 from .collectors import CisaKevCollector, GdeltCollector, NvdCollector
-from .collectors.base import CollectorError
 from .cyber_engine import CyberIntelligenceEngine
 from .information_engine import analyze_information_environment
+from .threat_context import build_threat_context
 
 
 engine = CyberIntelligenceEngine()
@@ -21,20 +21,32 @@ def _source_status(result: Any, source: str) -> dict[str, Any]:
 
 
 def _priority_incidents(records: list[dict[str, Any]], limit: int = 12) -> list[dict[str, Any]]:
-    incidents = [engine.incident_from_record(record) for record in records]
-    incidents.sort(key=lambda item: (item.severity_score, item.confidence.score), reverse=True)
-    return [item.model_dump(mode="json") for item in incidents[:limit]]
+    enriched = []
+    for record in records:
+        incident = engine.incident_from_record(record).model_dump(mode="json")
+        incident["threat_context"] = build_threat_context(record)
+        enriched.append(incident)
+    enriched.sort(
+        key=lambda item: (
+            item.get("severity_score", 0),
+            (item.get("confidence") or {}).get("score", 0),
+        ),
+        reverse=True,
+    )
+    return enriched[:limit]
 
 
 def _priority_exposures(records: list[dict[str, Any]], limit: int = 12) -> list[dict[str, Any]]:
     exposures = []
     for record in records:
         try:
-            exposures.append(engine.vulnerability_exposure(record, target_criticality_score=70.0))
+            exposure = engine.vulnerability_exposure(record, target_criticality_score=70.0).model_dump(mode="json")
+            exposure["threat_context"] = build_threat_context(record)
+            exposures.append(exposure)
         except ValueError:
             continue
-    exposures.sort(key=lambda item: (item.exposure_score, item.confidence.score), reverse=True)
-    return [item.model_dump(mode="json") for item in exposures[:limit]]
+    exposures.sort(key=lambda item: (item.get("exposure_score", 0), (item.get("confidence") or {}).get("score", 0)), reverse=True)
+    return exposures[:limit]
 
 
 def _vendor_pressure(kev_records: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -160,7 +172,7 @@ async def build_operational_overview(
 
     return {
         "generated_at": datetime.now(timezone.utc).isoformat(),
-        "assessment_version": "cyber-info-operational-overview-v1",
+        "assessment_version": "cyber-info-operational-overview-v2",
         "executive_judgment": executive,
         "source_health": [
             _source_status(kev_result, "cisa_kev"),
@@ -185,6 +197,8 @@ async def build_operational_overview(
         },
         "analytic_caveats": [
             "The overview uses live public-source collections and deterministic Phase 3/4 engines.",
+            "Threat context separates observed attribution from assessed likely targets and attacker objectives.",
+            "A vulnerability's exploitation does not identify the responsible actor unless supported by direct source evidence.",
             "Narrative coordination indicators do not prove orchestration, common control, falsity, or actor attribution.",
             "The posture score is an operational prioritization score, not a calibrated forecast probability.",
         ],
