@@ -9,12 +9,7 @@ class MitreAttackCollector(BaseCollector):
     source_name = "MITRE ATT&CK"
     enterprise_url = "https://raw.githubusercontent.com/mitre-attack/attack-stix-data/master/enterprise-attack/enterprise-attack.json"
 
-    async def collect(self, *, object_type: str | None = None, limit: int = 500) -> dict[str, Any]:
-        bundle = await self.get_json(self.enterprise_url)
-        objects = bundle.get("objects", [])
-        if object_type:
-            objects = [obj for obj in objects if obj.get("type") == object_type]
-        objects = objects[: max(1, min(limit, 5000))]
+    def _normalize(self, objects: list[dict[str, Any]]) -> list[dict[str, Any]]:
         collected_at = self.collected_at()
         records = []
         for obj in objects:
@@ -46,4 +41,24 @@ class MitreAttackCollector(BaseCollector):
                     "reliability_score": 0.98,
                 },
             })
+        return records
+
+    async def collect(self, *, object_type: str | None = None, limit: int = 500) -> dict[str, Any]:
+        bundle = await self.get_json(self.enterprise_url)
+        objects = bundle.get("objects", [])
+        if object_type:
+            objects = [obj for obj in objects if obj.get("type") == object_type]
+        objects = objects[: max(1, min(limit, 5000))]
+        records = self._normalize(objects)
+        return {"source": "mitre_attack", "count": len(records), "records": records}
+
+    async def collect_intelligence_set(self) -> dict[str, Any]:
+        """Fetch ATT&CK once and retain objects needed for technique and hypothesis correlation."""
+        bundle = await self.get_json(self.enterprise_url)
+        allowed = {"attack-pattern", "intrusion-set", "campaign", "relationship"}
+        objects = [
+            obj for obj in bundle.get("objects", [])
+            if obj.get("type") in allowed and not obj.get("revoked") and not obj.get("x_mitre_deprecated")
+        ]
+        records = self._normalize(objects)
         return {"source": "mitre_attack", "count": len(records), "records": records}
