@@ -18,6 +18,7 @@ from .cyber_engine import CyberIntelligenceEngine
 from .graph_builder import CyberGraphBuilder
 from .models import CrossModuleEvent
 from .ontology import ontology_manifest
+from .operational_overview import build_operational_overview
 from .phase3_models import CyberIncident
 
 router = APIRouter(prefix="/api/cyber-information", tags=["Cyber & Information Operations"])
@@ -34,20 +35,37 @@ def health() -> dict:
     return {
         "status": "ok",
         "module": "cyber_information_operations",
-        "phase": 3,
+        "phase": 7,
         "foundation_version": "cyber-info-foundation-v1",
         "collector_version": "cyber-info-collectors-v3",
         "engine_version": "cyber-intelligence-engine-v1",
+        "operational_overview_version": "cyber-info-operational-overview-v1",
         "live_sources": [
             "cisa_kev", "cisa_advisories", "nvd", "mitre_attack",
             "gdelt", "urlhaus", "abuseipdb", "national_cert_csirt", "misp",
         ],
         "standards": ["stix_2_x", "taxii_2_x", "misp"],
-        "phase3_capabilities": [
+        "capabilities": [
             "incident_normalization", "vulnerability_exposure",
             "actor_campaign_relationships", "infrastructure_targeting", "graph_objects",
+            "narrative_clustering", "information_campaign_assessment", "hybrid_fusion",
+            "forecasting", "cross_module_integration", "operational_overview",
         ],
     }
+
+
+@router.get("/operations/overview")
+async def operational_overview(
+    kev_limit: int = Query(default=80, ge=10, le=250),
+    nvd_limit: int = Query(default=80, ge=10, le=250),
+    gdelt_limit: int = Query(default=100, ge=20, le=250),
+) -> dict:
+    data = await build_operational_overview(
+        kev_limit=kev_limit,
+        nvd_limit=nvd_limit,
+        gdelt_limit=gdelt_limit,
+    )
+    return {"status": "success", "data": data}
 
 
 @router.get("/ontology")
