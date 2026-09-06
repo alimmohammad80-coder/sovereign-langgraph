@@ -40,7 +40,7 @@ class FinancialCorporateIntegratedTests(unittest.TestCase):
         self.assertIsNotNone(result["overall"]["overall_risk_score"])
         self.assertGreater(result["overall"]["confidence_score"], 80)
         self.assertIsNotNone(result["distress"]["distress_score"])
-        self.assertEqual(result["methodology"], "financial_corporate_integrated_snapshot_v2_missing_aware")
+        self.assertEqual(result["methodology"], "financial_corporate_integrated_snapshot_v3_dynamic_hazards")
         self.assertEqual(result["overall"]["assessment_status"], "complete")
 
     def test_missing_cross_module_inputs_reduce_confidence_and_remain_missing(self):
