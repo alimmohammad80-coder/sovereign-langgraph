@@ -5,6 +5,9 @@ from typing import Any, Dict, Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
+from services.financial_corporate.cross_module_edges import CrossModuleExposureBridge
+from services.financial_corporate.cross_module_repository import CrossModuleEvidenceRepository
+from services.financial_corporate.cross_module_scoring import CrossModuleRiskScorer
 from services.financial_corporate.market_credit import MarketCreditIntelligenceService
 from services.financial_corporate.orchestrator import FinancialCorporateOrchestrator
 from services.financial_corporate.sec_edgar import SECConfigurationError, SECEdgarCollector
@@ -20,6 +23,9 @@ orchestrator = FinancialCorporateOrchestrator()
 market_credit = MarketCreditIntelligenceService()
 sec = SECEdgarCollector()
 self_test_runner = FinancialCorporateSelfTest()
+cross_module_repository = CrossModuleEvidenceRepository()
+cross_module_bridge = CrossModuleExposureBridge()
+cross_module_scorer = CrossModuleRiskScorer()
 
 
 class IntegratedSnapshotRequest(BaseModel):
@@ -40,7 +46,7 @@ def integrated_status():
     return {
         "status": "ok",
         "module": "Financial & Corporate Risk Intelligence",
-        "orchestrator": "financial_corporate_integrated_snapshot_v1",
+        "orchestrator": "financial_corporate_integrated_snapshot_v2_missing_aware",
         "providers": {
             "sec_edgar": {"configured": sec.configured, "required_env": "SEC_USER_AGENT"},
             **provider_status,
@@ -55,9 +61,10 @@ def integrated_status():
         ],
         "scoring": {
             "ai_generated": False,
-            "corporate_risk": "deterministic_weighted_multifactor_v1",
+            "corporate_risk": "deterministic_weighted_multifactor_v2_missing_aware",
             "distress": "corporate_distress_signal_v1",
             "market_credit": "confidence_weighted_market_credit_v1",
+            "cross_module": "cross_module_evidence_weighted_risk_v1",
         },
     }
 
@@ -121,12 +128,49 @@ def live_integrated_snapshot(symbol: str):
     except Exception as exc:
         errors.append({"component": "credit_conditions", "error": str(exc)})
 
+    cross_module = None
+    cross_module_diagnostics = None
+    supply_chain_risk = None
+    geopolitical_risk = None
+    sanctions_risk = None
+    governance_operational_risk = None
+
+    try:
+        entity = orchestrator.entity_master.resolve(entity_reference)
+        company_entity_id = (entity or {}).get("entity_id") if isinstance(entity, dict) else None
+        if company_entity_id:
+            collected = cross_module_repository.collect_all(limit_per_module=1000)
+            built = cross_module_bridge.build(collected.get("payloads") or {})
+            cross_module = cross_module_scorer.score_company(
+                company_entity_id,
+                built.get("edges") or [],
+            )
+            cross_module_diagnostics = collected.get("diagnostics")
+            scores = cross_module.get("scores") or {}
+            supply_chain_risk = scores.get("supply_chain")
+            geopolitical_risk = scores.get("geopolitical")
+            sanctions_risk = scores.get("sanctions_compliance")
+            governance_operational_risk = scores.get("governance_operational")
+    except Exception as exc:
+        errors.append({"component": "cross_module_evidence", "error": str(exc)})
+
+    evidence = {
+        "sec": sec_evidence,
+        "cross_module": cross_module,
+        "cross_module_diagnostics": cross_module_diagnostics,
+        "collection_errors": errors,
+    }
+
     snapshot = orchestrator.build_snapshot(
         entity_reference=entity_reference,
         financial_observations=financial_observations,
         market_analysis=market_analysis,
         credit_analysis=credit_analysis,
-        evidence={"sec": sec_evidence, "collection_errors": errors},
+        supply_chain_risk=supply_chain_risk,
+        geopolitical_risk=geopolitical_risk,
+        sanctions_risk=sanctions_risk,
+        governance_operational_risk=governance_operational_risk,
+        evidence=evidence,
     )
 
     return {
