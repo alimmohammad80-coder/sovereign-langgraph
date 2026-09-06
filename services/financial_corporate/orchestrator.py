@@ -2,28 +2,24 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
-from .credit_conditions import CreditConditionsEngine
 from .distress import CorporateDistressEngine
 from .entity_master import CorporateEntityMaster
 from .fundamentals import CorporateFundamentalsAnalyzer
 from .market_credit import MarketCreditIntelligenceService
-from .market_data import MarketDataEngine
 from .risk_engine import CorporateRiskEngine
 
 
 class FinancialCorporateOrchestrator:
     """Compose normalized evidence into one corporate intelligence snapshot.
 
-    This service deliberately accepts already-normalized evidence so it is fully
-    testable without live external APIs. Live collectors are invoked by route-level
-    adapters and their output is passed into this orchestrator.
+    The orchestrator accepts normalized evidence so the full decision path can be
+    tested without live external APIs. Route-level adapters are responsible for
+    invoking SEC, market, credit, and cross-module collectors.
     """
 
     def __init__(self) -> None:
         self.entity_master = CorporateEntityMaster()
         self.fundamentals = CorporateFundamentalsAnalyzer()
-        self.market_engine = MarketDataEngine()
-        self.credit_engine = CreditConditionsEngine()
         self.market_credit = MarketCreditIntelligenceService()
         self.distress = CorporateDistressEngine()
         self.corporate_risk = CorporateRiskEngine()
@@ -52,23 +48,25 @@ class FinancialCorporateOrchestrator:
     ) -> Dict[str, Any]:
         entity = self.entity_master.resolve(entity_reference) if entity_reference else None
 
-        fundamentals = None
-        if financial_observations:
-            fundamentals = self.fundamentals.analyze(financial_observations)
-
-        combined_market_credit = self.market_credit.combine(
+        fundamentals = self.fundamentals.analyze(financial_observations) if financial_observations else None
+        combined_market_credit = self.market_credit.combined_score(
             market_analysis=market_analysis,
             credit_analysis=credit_analysis,
         )
 
-        financial_score = self._score((fundamentals or {}).get("financial_resilience_risk_score"))
-        market_score = self._score(combined_market_credit.get("market_credit_risk_score"))
-
+        ratios = (fundamentals or {}).get("ratios") or {}
         distress = self.distress.score(
-            financial_analysis=fundamentals or {},
-            market_analysis=market_analysis or {},
-            credit_analysis=credit_analysis or {},
+            liabilities_to_assets=ratios.get("liabilities_to_assets"),
+            current_ratio=ratios.get("current_ratio"),
+            interest_coverage=ratios.get("interest_coverage"),
+            net_margin=ratios.get("net_margin"),
+            operating_cash_flow_to_debt=ratios.get("operating_cash_flow_to_debt"),
+            market_stress_score=(market_analysis or {}).get("market_stress_score"),
+            credit_conditions_score=(credit_analysis or {}).get("credit_conditions_score"),
         )
+
+        financial_score = self._score((fundamentals or {}).get("financial_resilience_risk_score"))
+        market_score = self._score(combined_market_credit.get("market_credit_stress_score"))
 
         factors = {
             "financial_resilience": financial_score if financial_score is not None else 50.0,
