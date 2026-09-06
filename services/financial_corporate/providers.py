@@ -28,6 +28,7 @@ class FinancialCorporateProviderRegistry:
 
     def capabilities(self) -> List[Dict[str, object]]:
         sec_user_agent = os.getenv("SEC_USER_AGENT")
+        alpha_vantage_key = os.getenv("ALPHA_VANTAGE_API_KEY")
         capabilities = [
             ProviderCapability(
                 provider_id="sec_edgar",
@@ -44,6 +45,22 @@ class FinancialCorporateProviderRegistry:
                 enabled=True,
                 requires_key=False,
                 authoritative_for=["LEI", "legal_entity_identity", "entity_relationships"],
+            ),
+            ProviderCapability(
+                provider_id="fred_credit_conditions",
+                name="Federal Reserve Bank of St. Louis FRED",
+                role="Interest rates, Treasury curve and system credit/funding conditions",
+                enabled=True,
+                requires_key=False,
+                authoritative_for=["interest_rates", "treasury_curve", "credit_spreads", "funding_conditions"],
+            ),
+            ProviderCapability(
+                provider_id="alpha_vantage_market",
+                name="Alpha Vantage",
+                role="Optional global equity price history for company-specific market stress",
+                enabled=bool(alpha_vantage_key),
+                requires_key=True,
+                authoritative_for=["equity_prices", "OHLCV", "market_history"],
             ),
             ProviderCapability(
                 provider_id="ofac",
@@ -69,6 +86,8 @@ class FinancialCorporateProviderRegistry:
             "normalization_contract": {
                 "entity_identity": ["entity_id", "legal_name", "country_iso3", "identifiers", "source", "observed_at"],
                 "financial_observation": ["entity_id", "metric", "value", "unit", "period_end", "source", "observed_at"],
+                "market_observation": ["entity_id", "symbol", "date", "close", "volume", "source", "observed_at"],
+                "credit_observation": ["series_id", "date", "value", "source", "observed_at"],
                 "risk_evidence": ["entity_id", "dimension", "signal", "severity", "confidence", "source", "observed_at"],
                 "exposure_edge": ["source_entity_id", "target_id", "relationship_type", "weight", "source", "observed_at"],
             },
