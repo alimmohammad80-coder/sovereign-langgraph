@@ -5,7 +5,7 @@ from typing import Any, Dict, Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from services.financial_corporate.advanced_hazards import AdvancedCorporateHazardService
+from services.financial_corporate.calibrated_hazards import CalibratedCorporateHazardService
 from services.financial_corporate.cross_module_edges import CrossModuleExposureBridge
 from services.financial_corporate.cross_module_repository import CrossModuleEvidenceRepository
 from services.financial_corporate.cross_module_scoring import CrossModuleRiskScorer
@@ -26,7 +26,7 @@ sec = SECEdgarCollector()
 self_test_runner = FinancialCorporateSelfTest()
 cross_module_repository = CrossModuleEvidenceRepository()
 cross_module_bridge = CrossModuleExposureBridge()
-cross_module_hazards = AdvancedCorporateHazardService()
+cross_module_hazards = CalibratedCorporateHazardService()
 cross_module_scorer = CrossModuleRiskScorer()
 
 
@@ -55,10 +55,10 @@ def integrated_status():
             "country_intelligence": {"role": "stored deterministic country hazard by ISO3 with freshness decay"},
             "conflict_forecasting": {"role": "dynamic conflict/security hazard"},
             "ofac_sls": {"role": "direct sanctions designation screening"},
-            "trade_control_signals": {"role": "company-specific export-control and trade-restriction pressure"},
+            "trade_control_signals": {"role": "quality- and freshness-weighted company-specific export-control pressure"},
             "cisa_kev": {"role": "company-vendor known exploited vulnerability pressure"},
-            "nvd": {"role": "recent company/product vulnerability pressure"},
-            "cyber_media_signals": {"role": "company-specific cyber operational pressure"},
+            "nvd": {"role": "recently published company/product vulnerability pressure"},
+            "cyber_media_signals": {"role": "directness-, quality-, and freshness-weighted company cyber operational pressure"},
         },
         "optional_env": [
             "ALPHA_VANTAGE_API_KEY",
@@ -75,13 +75,15 @@ def integrated_status():
             "distress": "corporate_distress_signal_v1",
             "market_credit": "confidence_weighted_market_credit_v1",
             "cross_module": "cross_module_exposure_hazard_confidence_v2",
-            "dynamic_hazards": "cross_module_dynamic_hazard_enrichment_v2_production_hardened",
+            "dynamic_hazards": "cross_module_dynamic_hazard_enrichment_v3_calibrated_signal_quality",
         },
         "cross_module_formula": "risk_contribution = structural_exposure * dynamic_hazard * evidence_confidence",
         "evidence_rules": [
             "Country evidence confidence decays with age.",
             "Negative sanctions/cyber screening does not imply zero risk.",
             "Dynamic graph payloads are scoped to the requested company.",
+            "NVD current pressure uses CVE publication date, not modification date.",
+            "Media evidence is weighted by source quality, freshness, and directness.",
         ],
     }
 
