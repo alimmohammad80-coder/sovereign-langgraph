@@ -6,6 +6,7 @@ from routes.financial_corporate_intelligence import router as financial_corporat
 from routes.financial_corporate_universe import router as financial_corporate_universe_router
 from routes.financial_corporate_market_credit import router as financial_corporate_market_credit_router
 from routes.financial_corporate_distress_portfolio import router as financial_corporate_distress_portfolio_router
+from routes.financial_corporate_cross_module import router as financial_corporate_cross_module_router
 from routers.supply_chain import router as supply_chain_router
 from routers.optimization import router as optimization_router
 
@@ -33,6 +34,7 @@ app.include_router(financial_corporate_intelligence_router)
 app.include_router(financial_corporate_universe_router)
 app.include_router(financial_corporate_market_credit_router)
 app.include_router(financial_corporate_distress_portfolio_router)
+app.include_router(financial_corporate_cross_module_router)
 
 @app.get("/")
 def root():
