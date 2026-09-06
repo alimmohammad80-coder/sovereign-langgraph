@@ -38,8 +38,6 @@ class FinancialCorporateIntegratedTests(unittest.TestCase):
         self.assertEqual(result["entity"]["entity_id"], "corp_nvidia")
         self.assertFalse(result["ai_generated_score"])
         self.assertIsNotNone(result["overall"]["overall_risk_score"])
-        # Confidence reflects actual evidence quality/coverage rather than
-        # treating every present scalar score as 100%-covered evidence.
         self.assertGreater(result["overall"]["confidence_score"], 70)
         self.assertLess(result["overall"]["confidence_score"], 100)
         self.assertIsNotNone(result["distress"]["distress_score"])
