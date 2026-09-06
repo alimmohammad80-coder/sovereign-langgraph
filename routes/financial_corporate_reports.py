@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from collections import OrderedDict
 from threading import RLock
-from typing import Dict, List, Literal, Optional
+from typing import List, Literal, Optional
 from uuid import uuid4
 
 from fastapi import APIRouter, HTTPException, Query
@@ -23,14 +24,18 @@ router = APIRouter(
 
 report_generator = FinancialCorporateReportGenerator()
 narrative_refiner = FinancialCorporateNarrativeRefiner()
-_REPORT_STORE: Dict[str, Dict] = {}
+_REPORT_STORE: OrderedDict[str, dict] = OrderedDict()
 _REPORT_LOCK = RLock()
+_MAX_REPORTS_IN_MEMORY = 100
 
 
 class FinancialCorporateReportRequest(BaseModel):
     symbol: str = Field(..., min_length=1, max_length=16)
-    report_type: Literal["executive_intelligence", "due_diligence"] = "executive_intelligence"
-    depth: Literal["brief", "comprehensive", "deep"] = "comprehensive"
+    # v1 deliberately exposes only the report profile actually implemented by
+    # the generator. Additional profiles/depths should be enabled only when they
+    # materially alter content selection and export behavior.
+    report_type: Literal["executive_intelligence"] = "executive_intelligence"
+    depth: Literal["comprehensive"] = "comprehensive"
     forecast_horizons: List[Literal["30d", "90d", "180d"]] = Field(
         default_factory=lambda: ["30d", "90d", "180d"]
     )
@@ -50,6 +55,13 @@ def report_status():
         "ai_generated_score": False,
         "citation_style": "chicago_notes",
         "claim_validation": True,
+        "supported_report_types": ["executive_intelligence"],
+        "supported_depths": ["comprehensive"],
+        "in_memory_report_retention": {
+            "bounded": True,
+            "max_reports": _MAX_REPORTS_IN_MEMORY,
+            "persistence": False,
+        },
         "narrative_refinement": {
             "enabled": True,
             "mode": "validated_prose_overlay",
@@ -65,6 +77,7 @@ def report_status():
             "Model-generated evidence IDs, score fields, event probabilities, and unsupported attribution are rejected.",
             "Forecasts are directional unless an upstream model explicitly supplies calibrated probabilities.",
             "Negative screening is not converted into zero risk.",
+            "Collection/provider errors remain unknown evidence and are surfaced as evidence gaps.",
             "Downstream diversion is not represented as company misconduct.",
             "Cyber product and ecosystem evidence is not represented as a direct enterprise incident without victim attribution.",
             "If narrative validation or the model provider fails, the deterministic report is returned unchanged.",
@@ -117,6 +130,9 @@ def generate_report(payload: FinancialCorporateReportRequest):
 
     with _REPORT_LOCK:
         _REPORT_STORE[report_id] = report
+        _REPORT_STORE.move_to_end(report_id)
+        while len(_REPORT_STORE) > _MAX_REPORTS_IN_MEMORY:
+            _REPORT_STORE.popitem(last=False)
 
     return {
         "status": "success",
