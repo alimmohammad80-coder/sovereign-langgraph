@@ -40,9 +40,10 @@ class FinancialCorporateIntegratedTests(unittest.TestCase):
         self.assertIsNotNone(result["overall"]["overall_risk_score"])
         self.assertGreater(result["overall"]["confidence_score"], 80)
         self.assertIsNotNone(result["distress"]["distress_score"])
-        self.assertEqual(result["methodology"], "financial_corporate_integrated_snapshot_v1")
+        self.assertEqual(result["methodology"], "financial_corporate_integrated_snapshot_v2_missing_aware")
+        self.assertEqual(result["overall"]["assessment_status"], "complete")
 
-    def test_missing_cross_module_inputs_reduce_confidence_not_create_certainty(self):
+    def test_missing_cross_module_inputs_reduce_confidence_and_remain_missing(self):
         result = self.orchestrator.build_snapshot(
             entity_reference="AAPL",
             financial_observations=self.observations(),
@@ -51,8 +52,11 @@ class FinancialCorporateIntegratedTests(unittest.TestCase):
         )
         self.assertEqual(result["entity"]["entity_id"], "corp_apple")
         self.assertLess(result["overall"]["confidence_score"], 60)
-        self.assertEqual(result["overall"]["dimensions"]["supply_chain"], 50.0)
-        self.assertEqual(result["overall"]["dimensions"]["geopolitical"], 50.0)
+        self.assertIsNone(result["overall"]["dimensions"]["supply_chain"])
+        self.assertIsNone(result["overall"]["dimensions"]["geopolitical"])
+        self.assertIn("supply_chain", result["overall"]["missing_dimensions"])
+        self.assertIn("geopolitical", result["overall"]["missing_dimensions"])
+        self.assertEqual(result["overall"]["assessment_status"], "partial")
 
     def test_snapshot_uses_reported_ratios_for_distress(self):
         result = self.orchestrator.build_snapshot(
