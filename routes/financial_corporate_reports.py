@@ -9,6 +9,7 @@ from fastapi.responses import HTMLResponse, PlainTextResponse
 from pydantic import BaseModel, Field
 
 from routes.financial_corporate_integrated import live_integrated_snapshot
+from services.financial_corporate.narrative_refiner import FinancialCorporateNarrativeRefiner
 from services.financial_corporate.report_generator import (
     FinancialCorporateReportGenerator,
     ReportOptions,
@@ -21,6 +22,7 @@ router = APIRouter(
 )
 
 report_generator = FinancialCorporateReportGenerator()
+narrative_refiner = FinancialCorporateNarrativeRefiner()
 _REPORT_STORE: Dict[str, Dict] = {}
 _REPORT_LOCK = RLock()
 
@@ -34,6 +36,8 @@ class FinancialCorporateReportRequest(BaseModel):
     )
     citation_style: Literal["chicago"] = "chicago"
     include_methodology: bool = True
+    narrative_refinement: bool = True
+    preferred_narrative_provider: Optional[Literal["NVIDIA", "GEMINI", "OPENAI"]] = None
 
 
 @router.get("/status")
@@ -41,19 +45,29 @@ def report_status():
     return {
         "status": "ok",
         "module": "Financial & Corporate Risk Intelligence Reports",
-        "generator": "financial_corporate_evidence_grounded_report_v1",
+        "generator": "financial_corporate_evidence_grounded_report_v2_constrained_narrative",
         "score_authority": "integrated_snapshot",
         "ai_generated_score": False,
         "citation_style": "chicago_notes",
         "claim_validation": True,
+        "narrative_refinement": {
+            "enabled": True,
+            "mode": "validated_prose_overlay",
+            "default_route": "STRATEGIC_REVIEW",
+            "score_mutation_allowed": False,
+            "fallback": "deterministic_report",
+        },
         "exports": ["json", "markdown", "html"],
         "rules": [
             "Report generation cannot create or modify risk scores.",
             "Facts, judgments, and forecasts require evidence references.",
+            "Narrative refinement can synthesize only validated claims and registered evidence.",
+            "Model-generated evidence IDs, score fields, event probabilities, and unsupported attribution are rejected.",
             "Forecasts are directional unless an upstream model explicitly supplies calibrated probabilities.",
             "Negative screening is not converted into zero risk.",
             "Downstream diversion is not represented as company misconduct.",
             "Cyber product and ecosystem evidence is not represented as a direct enterprise incident without victim attribution.",
+            "If narrative validation or the model provider fails, the deterministic report is returned unchanged.",
         ],
     }
 
@@ -82,6 +96,18 @@ def generate_report(payload: FinancialCorporateReportRequest):
         )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    if payload.narrative_refinement:
+        report = narrative_refiner.refine(
+            report,
+            preferred_provider=payload.preferred_narrative_provider,
+        )
+    else:
+        report["narrative_refinement"] = {
+            "status": "disabled",
+            "score_authority": "integrated_snapshot",
+            "model_can_modify_scores": False,
+        }
 
     report_id = str(uuid4())
     report["report_id"] = report_id
@@ -121,6 +147,7 @@ def get_report_generation_status(report_id: str):
         "symbol": report.get("symbol"),
         "generated_at": report.get("generated_at"),
         "claim_validation": report.get("claim_validation"),
+        "narrative_refinement": report.get("narrative_refinement"),
     }
 
 
