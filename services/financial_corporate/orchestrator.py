@@ -10,12 +10,7 @@ from .risk_engine import CorporateRiskEngine
 
 
 class FinancialCorporateOrchestrator:
-    """Compose normalized evidence into one corporate intelligence snapshot.
-
-    The orchestrator accepts normalized evidence so the full decision path can be
-    tested without live external APIs. Route-level adapters are responsible for
-    invoking SEC, market, credit, and cross-module collectors.
-    """
+    """Compose normalized evidence into one corporate intelligence snapshot."""
 
     def __init__(self) -> None:
         self.entity_master = CorporateEntityMaster()
@@ -69,12 +64,12 @@ class FinancialCorporateOrchestrator:
         market_score = self._score(combined_market_credit.get("market_credit_stress_score"))
 
         factors = {
-            "financial_resilience": financial_score if financial_score is not None else 50.0,
-            "market_stress": market_score if market_score is not None else 50.0,
-            "supply_chain": self._score(supply_chain_risk) if supply_chain_risk is not None else 50.0,
-            "geopolitical": self._score(geopolitical_risk) if geopolitical_risk is not None else 50.0,
-            "sanctions_compliance": self._score(sanctions_risk) if sanctions_risk is not None else 50.0,
-            "governance_operational": self._score(governance_operational_risk) if governance_operational_risk is not None else 50.0,
+            "financial_resilience": financial_score,
+            "market_stress": market_score,
+            "supply_chain": self._score(supply_chain_risk),
+            "geopolitical": self._score(geopolitical_risk),
+            "sanctions_compliance": self._score(sanctions_risk),
+            "governance_operational": self._score(governance_operational_risk),
         }
 
         evidence_coverage = {
@@ -101,6 +96,6 @@ class FinancialCorporateOrchestrator:
                 "governance_operational_risk": governance_operational_risk,
             },
             "evidence": evidence or {},
-            "methodology": "financial_corporate_integrated_snapshot_v1",
+            "methodology": "financial_corporate_integrated_snapshot_v2_missing_aware",
             "ai_generated_score": False,
         }
