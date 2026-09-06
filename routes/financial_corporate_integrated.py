@@ -6,6 +6,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from services.financial_corporate.cross_module_edges import CrossModuleExposureBridge
+from services.financial_corporate.cross_module_hazards import CrossModuleDynamicHazardService
 from services.financial_corporate.cross_module_repository import CrossModuleEvidenceRepository
 from services.financial_corporate.cross_module_scoring import CrossModuleRiskScorer
 from services.financial_corporate.market_credit import MarketCreditIntelligenceService
@@ -25,6 +26,7 @@ sec = SECEdgarCollector()
 self_test_runner = FinancialCorporateSelfTest()
 cross_module_repository = CrossModuleEvidenceRepository()
 cross_module_bridge = CrossModuleExposureBridge()
+cross_module_hazards = CrossModuleDynamicHazardService()
 cross_module_scorer = CrossModuleRiskScorer()
 
 
@@ -46,10 +48,14 @@ def integrated_status():
     return {
         "status": "ok",
         "module": "Financial & Corporate Risk Intelligence",
-        "orchestrator": "financial_corporate_integrated_snapshot_v2_missing_aware",
+        "orchestrator": "financial_corporate_integrated_snapshot_v3_dynamic_hazards",
         "providers": {
             "sec_edgar": {"configured": sec.configured, "required_env": "SEC_USER_AGENT"},
             **provider_status,
+            "country_intelligence": {"role": "stored deterministic country hazard by ISO3"},
+            "conflict_forecasting": {"role": "dynamic conflict/security hazard"},
+            "ofac_sls": {"role": "direct sanctions designation screening"},
+            "cisa_kev": {"role": "company-vendor known exploited vulnerability pressure"},
         },
         "optional_env": [
             "ALPHA_VANTAGE_API_KEY",
@@ -64,8 +70,10 @@ def integrated_status():
             "corporate_risk": "deterministic_weighted_multifactor_v2_missing_aware",
             "distress": "corporate_distress_signal_v1",
             "market_credit": "confidence_weighted_market_credit_v1",
-            "cross_module": "cross_module_evidence_weighted_risk_v1",
+            "cross_module": "cross_module_exposure_hazard_confidence_v2",
+            "dynamic_hazards": "cross_module_dynamic_hazard_enrichment_v1",
         },
+        "cross_module_formula": "risk_contribution = structural_exposure * dynamic_hazard * evidence_confidence",
     }
 
 
@@ -130,6 +138,7 @@ def live_integrated_snapshot(symbol: str):
 
     cross_module = None
     cross_module_diagnostics = None
+    dynamic_hazards = None
     supply_chain_risk = None
     geopolitical_risk = None
     sanctions_risk = None
@@ -138,12 +147,17 @@ def live_integrated_snapshot(symbol: str):
     try:
         entity = orchestrator.entity_master.resolve(entity_reference)
         company_entity_id = (entity or {}).get("entity_id") if isinstance(entity, dict) else None
-        if company_entity_id:
+        if company_entity_id and isinstance(entity, dict):
             collected = cross_module_repository.collect_all(limit_per_module=1000)
             built = cross_module_bridge.build(collected.get("payloads") or {})
+            dynamic_hazards = cross_module_hazards.enrich(
+                company_entity_id=company_entity_id,
+                entity=entity,
+                edges=built.get("edges") or [],
+            )
             cross_module = cross_module_scorer.score_company(
                 company_entity_id,
-                built.get("edges") or [],
+                dynamic_hazards.get("edges") or [],
             )
             cross_module_diagnostics = collected.get("diagnostics")
             scores = cross_module.get("scores") or {}
@@ -158,6 +172,7 @@ def live_integrated_snapshot(symbol: str):
         "sec": sec_evidence,
         "cross_module": cross_module,
         "cross_module_diagnostics": cross_module_diagnostics,
+        "dynamic_hazards": dynamic_hazards,
         "collection_errors": errors,
     }
 
