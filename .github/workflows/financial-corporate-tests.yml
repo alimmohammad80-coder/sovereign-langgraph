@@ -1,0 +1,39 @@
+name: Financial Corporate Risk Tests
+
+on:
+  push:
+    branches:
+      - feature/financial-corporate-risk-command
+  pull_request:
+    paths:
+      - 'services/financial_corporate/**'
+      - 'routes/financial_corporate_*.py'
+      - 'tests/test_financial_corporate_*.py'
+      - 'main.py'
+      - '.github/workflows/financial-corporate-tests.yml'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Compile financial corporate backend
+        run: |
+          python -m py_compile \
+            services/financial_corporate/*.py \
+            routes/financial_corporate_*.py
+
+      - name: Run financial corporate test suite
+        run: python -m unittest discover -s tests -p 'test_financial_corporate_*.py' -v
