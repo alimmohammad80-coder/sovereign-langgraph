@@ -81,7 +81,9 @@ class MarketCreditIntelligenceService:
             return {
                 "market_credit_stress_score": None,
                 "confidence_score": 0.0,
-                "methodology": "confidence_weighted_market_credit_v1",
+                "assessment_status": "insufficient_evidence",
+                "evidence_coverage": 0.0,
+                "methodology": "confidence_weighted_market_credit_v2_coverage_aware",
                 "components": {},
                 "errors": errors,
                 "ai_generated_score": False,
@@ -95,17 +97,30 @@ class MarketCreditIntelligenceService:
             score = sum(item["score"] * item["base_weight"] for item in components.values()) / sum(
                 item["base_weight"] for item in components.values()
             )
-            confidence = 0.0
         else:
             score = sum(components[key]["score"] * weight for key, weight in effective_weights.items()) / denominator
-            confidence = sum(components[key]["confidence"] * components[key]["base_weight"] for key in components) / sum(
-                components[key]["base_weight"] for key in components
-            )
+
+        # Confidence measures coverage of the intended 65/35 evidence stack,
+        # not merely confidence conditional on whichever components happened to
+        # be available. Thus credit-only evidence with 100% source confidence
+        # yields 35% market-credit confidence rather than a misleading 100%.
+        confidence = sum(
+            item["confidence"] * item["base_weight"]
+            for item in components.values()
+        )
+        evidence_coverage = sum(item["base_weight"] for item in components.values()) * 100.0
+
+        if len(components) == 2:
+            assessment_status = "complete"
+        else:
+            assessment_status = "partial"
 
         return {
             "market_credit_stress_score": self._clamp(score),
             "confidence_score": self._clamp(confidence),
-            "methodology": "confidence_weighted_market_credit_v1",
+            "assessment_status": assessment_status,
+            "evidence_coverage": self._clamp(evidence_coverage),
+            "methodology": "confidence_weighted_market_credit_v2_coverage_aware",
             "components": components,
             "effective_weights": {key: round(value, 4) for key, value in effective_weights.items()},
             "errors": errors,
