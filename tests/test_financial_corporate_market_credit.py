@@ -55,6 +55,8 @@ class MarketCreditAggregationTests(unittest.TestCase):
         )
         self.assertEqual(result["market_credit_stress_score"], 66.0)
         self.assertEqual(result["confidence_score"], 100.0)
+        self.assertEqual(result["evidence_coverage"], 100.0)
+        self.assertEqual(result["assessment_status"], "complete")
         self.assertFalse(result["ai_generated_score"])
 
     def test_missing_equity_does_not_inject_neutral_fifty(self):
@@ -66,6 +68,9 @@ class MarketCreditAggregationTests(unittest.TestCase):
         self.assertEqual(result["market_credit_stress_score"], 20.0)
         self.assertNotIn("equity_market", result["components"])
         self.assertIn("credit_conditions", result["components"])
+        self.assertEqual(result["confidence_score"], 35.0)
+        self.assertEqual(result["evidence_coverage"], 35.0)
+        self.assertEqual(result["assessment_status"], "partial")
 
 
 if __name__ == "__main__":
