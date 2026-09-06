@@ -11,9 +11,9 @@ from pydantic import BaseModel, Field
 
 from routes.financial_corporate_integrated import live_integrated_snapshot
 from services.financial_corporate.narrative_refiner import FinancialCorporateNarrativeRefiner
-from services.financial_corporate.report_generator import (
-    FinancialCorporateReportGenerator,
-    ReportOptions,
+from services.financial_corporate.report_generator import ReportOptions
+from services.financial_corporate.report_generator_hardened import (
+    HardenedFinancialCorporateReportGenerator,
 )
 
 
@@ -22,7 +22,7 @@ router = APIRouter(
     tags=["Financial & Corporate Intelligence Reports"],
 )
 
-report_generator = FinancialCorporateReportGenerator()
+report_generator = HardenedFinancialCorporateReportGenerator()
 narrative_refiner = FinancialCorporateNarrativeRefiner()
 _REPORT_STORE: OrderedDict[str, dict] = OrderedDict()
 _REPORT_LOCK = RLock()
