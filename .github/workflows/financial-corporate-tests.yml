@@ -36,15 +36,14 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
       - name: Compile financial corporate backend
-        run: |
-          python -m py_compile services/financial_corporate/*.py routes/financial_corporate_*.py
+        run: python -m py_compile services/financial_corporate/*.py routes/financial_corporate_*.py
       - name: Test report pipeline
         run: python -m unittest tests.test_financial_corporate_report_generator tests.test_financial_corporate_narrative_refiner -v
-      - name: Test integrated deterministic snapshot
-        run: python -m unittest tests.test_financial_corporate_integrated.FinancialCorporateIntegratedTests.test_full_snapshot_is_deterministic_and_resolves_entity -v
-      - name: Test integrated missing inputs
-        run: python -m unittest tests.test_financial_corporate_integrated.FinancialCorporateIntegratedTests.test_missing_cross_module_inputs_reduce_confidence_and_remain_missing -v
-      - name: Test integrated distress ratios
-        run: python -m unittest tests.test_financial_corporate_integrated.FinancialCorporateIntegratedTests.test_snapshot_uses_reported_ratios_for_distress -v
+      - name: Test integrated snapshot
+        run: python -m unittest tests.test_financial_corporate_integrated -v
+      - name: Test market credit
+        run: python -m unittest tests.test_financial_corporate_market_credit -v
+      - name: Test production calibration
+        run: python -m unittest tests.test_financial_corporate_production_calibration -v
       - name: Run financial corporate test suite
         run: python -m unittest discover -s tests -p 'test_financial_corporate_*.py' -v
