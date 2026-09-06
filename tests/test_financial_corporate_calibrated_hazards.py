@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
 from services.financial_corporate.calibrated_hazards import CalibratedCorporateHazardService
+from services.financial_corporate.evidence_calibration import EvidenceCalibratedCorporateHazardService
 
 
 class _FakeResponse:
@@ -76,7 +77,7 @@ class CalibratedCorporateHazardTests(unittest.TestCase):
         self.assertGreater(result["score"], 0)
         self.assertEqual(result["date_basis"], "published")
 
-    def test_indirect_cyber_headline_is_downweighted(self):
+    def test_victim_attribution_rejects_supplier_incident_as_enterprise_incident(self):
         recent = (datetime.now(timezone.utc) - timedelta(days=2)).strftime("%a, %d %b %Y %H:%M:%S GMT")
         items = [
             {
@@ -90,12 +91,16 @@ class CalibratedCorporateHazardTests(unittest.TestCase):
                 "source": "The Register",
             },
         ]
-        result = self.service._weighted_media_pressure(entity=self.entity, items=items, cyber=True)
-        self.assertEqual(result["direct_count"], 1)
-        self.assertEqual(result["ecosystem_count"], 1)
-        direct = next(item for item in result["matched"] if item["relevance"] == "direct")
-        ecosystem = next(item for item in result["matched"] if item["relevance"] == "ecosystem")
-        self.assertGreater(direct["weighted_points"], ecosystem["weighted_points"])
+        contextual = self.service._weighted_media_pressure(entity=self.entity, items=items, cyber=True)
+        hardened = EvidenceCalibratedCorporateHazardService.direct_enterprise_incident_pressure(
+            self.entity,
+            {"matched_items": contextual["matched"]},
+        )
+        self.assertEqual(hardened["status"], "observed")
+        self.assertEqual(hardened["matched_count"], 1)
+        self.assertIn("NVIDIA confirms data breach", hardened["matched_items"][0]["title"])
+        rejected_titles = [item["title"] for item in hardened.get("rejected_co_mentions") or []]
+        self.assertTrue(any("Foxconn confirms ransomware" in title for title in rejected_titles))
 
 
 if __name__ == "__main__":
