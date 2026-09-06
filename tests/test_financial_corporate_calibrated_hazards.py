@@ -102,6 +102,19 @@ class CalibratedCorporateHazardTests(unittest.TestCase):
         rejected_titles = [item["title"] for item in hardened.get("rejected_co_mentions") or []]
         self.assertTrue(any("Foxconn confirms ransomware" in title for title in rejected_titles))
 
+    def test_third_party_guard_classifies_supplier_headline_as_ecosystem_context(self):
+        title = "Foxconn confirms ransomware attack involving files for NVIDIA and Apple"
+        self.assertFalse(
+            EvidenceCalibratedCorporateHazardService._is_direct_enterprise_incident_title(
+                self.entity,
+                title,
+            )
+        )
+        self.assertEqual(
+            EvidenceCalibratedCorporateHazardService._cyber_context_category(self.entity, title),
+            "ecosystem_incident",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
