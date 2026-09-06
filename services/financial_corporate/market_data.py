@@ -123,10 +123,14 @@ class MarketStressAnalyzer:
         closes = [float(item["close"]) for item in observations if item.get("close") is not None]
         if len(closes) < 3:
             return {
-                "market_stress_score": 50.0,
-                "confidence_score": 10.0,
-                "methodology": "equity_market_stress_v1",
+                "market_stress_score": None,
+                "confidence_score": 0.0,
+                "assessment_status": "missing",
+                "methodology": "equity_market_stress_v2_missing_aware",
                 "reason": "insufficient_price_history",
+                "observation_count": len(closes),
+                "interpretation": "Insufficient company-specific price history; no neutral 50 placeholder is imputed.",
+                "ai_generated_score": False,
             }
 
         daily_returns = self._returns(closes)
@@ -152,7 +156,8 @@ class MarketStressAnalyzer:
         return {
             "market_stress_score": score,
             "confidence_score": confidence,
-            "methodology": "equity_market_stress_v1",
+            "assessment_status": "observed",
+            "methodology": "equity_market_stress_v2_missing_aware",
             "metrics": {
                 "latest_close": closes[-1],
                 "annualized_volatility": round(annualized_vol, 6),
