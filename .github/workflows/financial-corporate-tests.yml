@@ -3,13 +3,22 @@ name: Financial Corporate Risk Tests
 on:
   push:
     branches:
+      - main
       - feature/financial-corporate-risk-command
+    paths:
+      - 'services/financial_corporate/**'
+      - 'routes/financial_corporate_*.py'
+      - 'tests/test_financial_corporate_*.py'
+      - 'main.py'
+      - 'app/main.py'
+      - '.github/workflows/financial-corporate-tests.yml'
   pull_request:
     paths:
       - 'services/financial_corporate/**'
       - 'routes/financial_corporate_*.py'
       - 'tests/test_financial_corporate_*.py'
       - 'main.py'
+      - 'app/main.py'
       - '.github/workflows/financial-corporate-tests.yml'
 
 jobs:
