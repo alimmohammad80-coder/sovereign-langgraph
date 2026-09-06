@@ -5,7 +5,7 @@ from typing import Any, Dict, Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from services.financial_corporate.calibrated_hazards import CalibratedCorporateHazardService
+from services.financial_corporate.production_calibration import ProductionCalibratedCorporateHazardService
 from services.financial_corporate.cross_module_edges import CrossModuleExposureBridge
 from services.financial_corporate.cross_module_repository import CrossModuleEvidenceRepository
 from services.financial_corporate.cross_module_scoring import CrossModuleRiskScorer
@@ -26,7 +26,7 @@ sec = SECEdgarCollector()
 self_test_runner = FinancialCorporateSelfTest()
 cross_module_repository = CrossModuleEvidenceRepository()
 cross_module_bridge = CrossModuleExposureBridge()
-cross_module_hazards = CalibratedCorporateHazardService()
+cross_module_hazards = ProductionCalibratedCorporateHazardService()
 cross_module_scorer = CrossModuleRiskScorer()
 
 
@@ -56,9 +56,10 @@ def integrated_status():
             "conflict_forecasting": {"role": "dynamic conflict/security hazard"},
             "ofac_sls": {"role": "direct sanctions designation screening"},
             "trade_control_signals": {"role": "quality- and freshness-weighted company-specific export-control pressure"},
+            "sec_material_cyber": {"role": "SEC Form 8-K Item 1.05 material cybersecurity incident disclosure"},
             "cisa_kev": {"role": "company-vendor known exploited vulnerability pressure"},
-            "nvd": {"role": "recently published company/product vulnerability pressure"},
-            "cyber_media_signals": {"role": "directness-, quality-, and freshness-weighted company cyber operational pressure"},
+            "nvd": {"role": "recently published product-security pressure, capped inside corporate operational risk"},
+            "cyber_media_signals": {"role": "direct enterprise incident and ecosystem cyber context with separate weights"},
         },
         "optional_env": [
             "ALPHA_VANTAGE_API_KEY",
@@ -75,7 +76,8 @@ def integrated_status():
             "distress": "corporate_distress_signal_v1",
             "market_credit": "confidence_weighted_market_credit_v1",
             "cross_module": "cross_module_exposure_hazard_confidence_v2",
-            "dynamic_hazards": "cross_module_dynamic_hazard_enrichment_v3_calibrated_signal_quality",
+            "dynamic_hazards": "cross_module_dynamic_hazard_enrichment_v4_semantic_operational_calibration",
+            "governance_operational": "governance_operational_semantic_composite_v1",
         },
         "cross_module_formula": "risk_contribution = structural_exposure * dynamic_hazard * evidence_confidence",
         "evidence_rules": [
@@ -83,7 +85,9 @@ def integrated_status():
             "Negative sanctions/cyber screening does not imply zero risk.",
             "Dynamic graph payloads are scoped to the requested company.",
             "NVD current pressure uses CVE publication date, not modification date.",
-            "Media evidence is weighted by source quality, freshness, and directness.",
+            "Product vulnerabilities are capped and separated from enterprise cyber incidents.",
+            "SEC Item 1.05 material cyber disclosures receive authoritative enterprise-incident weight.",
+            "Media evidence is weighted by source quality, freshness, directness, and incident ownership.",
         ],
     }
 
@@ -115,6 +119,7 @@ def live_integrated_snapshot(symbol: str):
     financial_observations = None
     entity_reference = symbol
     sec_evidence = None
+    resolved = None
 
     try:
         resolved = sec.resolve_ticker(symbol)
@@ -159,6 +164,12 @@ def live_integrated_snapshot(symbol: str):
         entity = orchestrator.entity_master.resolve(entity_reference)
         company_entity_id = (entity or {}).get("entity_id") if isinstance(entity, dict) else None
         if company_entity_id and isinstance(entity, dict):
+            entity = dict(entity)
+            identifiers = dict(entity.get("identifiers") or {})
+            if resolved and resolved.get("cik"):
+                identifiers["cik"] = resolved.get("cik")
+            entity["identifiers"] = identifiers
+
             collected = cross_module_repository.collect_all(limit_per_module=1000)
             built = cross_module_bridge.build(collected.get("payloads") or {})
             dynamic_hazards = cross_module_hazards.enrich(
