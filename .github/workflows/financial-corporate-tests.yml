@@ -28,22 +28,28 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.13'
           cache: 'pip'
+
       - name: Install dependencies
         run: pip install -r requirements.txt
+
       - name: Compile financial corporate backend
-        run: python -m py_compile services/financial_corporate/*.py routes/financial_corporate_*.py
-      - name: Test report pipeline
-        run: python -m unittest tests.test_financial_corporate_report_generator tests.test_financial_corporate_narrative_refiner -v
-      - name: Test integrated snapshot
-        run: python -m unittest tests.test_financial_corporate_integrated -v
-      - name: Test market credit
-        run: python -m unittest tests.test_financial_corporate_market_credit -v
-      - name: Test production calibration
-        run: python -m unittest tests.test_financial_corporate_production_calibration -v
+        run: |
+          python -m py_compile \
+            services/financial_corporate/*.py \
+            routes/financial_corporate_*.py
+
+      - name: Run report pipeline tests
+        run: |
+          python -m unittest \
+            tests.test_financial_corporate_report_generator \
+            tests.test_financial_corporate_narrative_refiner \
+            -v
+
       - name: Run financial corporate test suite
         run: python -m unittest discover -s tests -p 'test_financial_corporate_*.py' -v
