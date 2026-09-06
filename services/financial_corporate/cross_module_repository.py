@@ -84,6 +84,19 @@ class CrossModuleEvidenceRepository:
         "type",
     )
 
+    CRITICALITY_SCORES = {
+        "none": 0.0,
+        "minimal": 10.0,
+        "low": 25.0,
+        "guarded": 35.0,
+        "moderate": 50.0,
+        "medium": 50.0,
+        "elevated": 60.0,
+        "high": 75.0,
+        "severe": 85.0,
+        "critical": 95.0,
+    }
+
     def __init__(self, client=None) -> None:
         self.client = client
         self.entity_master = CorporateEntityMaster()
@@ -111,6 +124,44 @@ class CrossModuleEvidenceRepository:
             columns.update(str(key) for key in row.keys())
         return sorted(columns)[:cap]
 
+    @staticmethod
+    def _sample_values(rows: List[Mapping[str, Any]], keys: List[str], cap: int = 10) -> Dict[str, List[str]]:
+        samples: Dict[str, List[str]] = {}
+        for key in keys:
+            values: List[str] = []
+            seen = set()
+            for row in rows[:100]:
+                raw = row.get(key)
+                if raw is None:
+                    continue
+                value = str(raw).strip()
+                if not value or value in seen:
+                    continue
+                seen.add(value)
+                values.append(value)
+                if len(values) >= cap:
+                    break
+            if values:
+                samples[key] = values
+        return samples
+
+    @classmethod
+    def _criticality_score(cls, value: Any) -> Optional[float]:
+        if value is None:
+            return None
+        try:
+            number = float(value)
+        except (TypeError, ValueError):
+            number = None
+        if number is not None:
+            if 0.0 <= number <= 1.0:
+                number *= 100.0
+            return max(0.0, min(100.0, number))
+        text = str(value).strip().lower()
+        if not text:
+            return None
+        return cls.CRITICALITY_SCORES.get(text)
+
     def _resolve_company_entity_id(self, row: Mapping[str, Any]) -> Optional[str]:
         for key in self.COMPANY_REFERENCE_KEYS:
             raw = row.get(key)
@@ -130,7 +181,6 @@ class CrossModuleEvidenceRepository:
         return None
 
     def _row_matches_module(self, module: str, row: Mapping[str, Any], table: str) -> bool:
-        # Dedicated tables are already module-scoped.
         if table != "corporate_exposures":
             return True
 
@@ -140,8 +190,6 @@ class CrossModuleEvidenceRepository:
             if value is not None and str(value).strip():
                 discriminator_values.append(str(value).strip().lower())
 
-        # A shared table without any domain discriminator cannot safely be assigned
-        # to country/conflict/sanctions/cyber. Keep it diagnostic-only.
         if not discriminator_values:
             return False
 
@@ -163,9 +211,13 @@ class CrossModuleEvidenceRepository:
             return None
         normalized["company_entity_id"] = company_entity_id
 
-        # Normalize common alternate field names without fabricating relationships.
         if module == "country":
-            normalized.setdefault("country_iso3", normalized.get("country_code") or normalized.get("iso3"))
+            normalized.setdefault(
+                "country_iso3",
+                normalized.get("country_code") or normalized.get("iso3"),
+            )
+            if normalized.get("country_iso3") is None and normalized.get("country_id") is not None:
+                normalized["country_entity_id"] = str(normalized.get("country_id"))
         elif module == "conflict":
             normalized.setdefault("conflict_id", normalized.get("event_id") or normalized.get("scenario_id"))
         elif module == "sanctions":
@@ -179,8 +231,10 @@ class CrossModuleEvidenceRepository:
                 normalized.get("cyber_incident_id") or normalized.get("campaign_id") or normalized.get("event_id") or normalized.get("source_entity_id"),
             )
         elif module == "supply_chain":
-            normalized.setdefault(
-                "dependency_entity_id",
+            commodity_code = normalized.get("commodity_code")
+            commodity_name = normalized.get("commodity_name")
+            supplier_country = normalized.get("supplier_country")
+            dependency_id = (
                 normalized.get("dependency_id")
                 or normalized.get("supplier_id")
                 or normalized.get("supplier_entity_id")
@@ -188,10 +242,34 @@ class CrossModuleEvidenceRepository:
                 or normalized.get("port_id")
                 or normalized.get("chokepoint_id")
                 or normalized.get("commodity_id")
-                or normalized.get("source_entity_id"),
+                or normalized.get("source_entity_id")
             )
+            if not dependency_id and commodity_code:
+                dependency_id = f"commodity:{commodity_code}"
+            if not dependency_id and commodity_name:
+                dependency_id = f"commodity:{str(commodity_name).strip().lower().replace(' ', '_')}"
+            if not dependency_id and supplier_country:
+                dependency_id = f"country:{str(supplier_country).strip()}"
+            if dependency_id:
+                normalized["dependency_entity_id"] = str(dependency_id)
+
             if normalized.get("dependency_share") is None:
-                normalized["dependency_share"] = normalized.get("exposure_share") or normalized.get("share") or normalized.get("weight")
+                normalized["dependency_share"] = (
+                    normalized.get("dependency_pct")
+                    if normalized.get("dependency_pct") is not None
+                    else normalized.get("exposure_share")
+                    or normalized.get("share")
+                    or normalized.get("weight")
+                )
+
+            if normalized.get("severity_score") is None and normalized.get("risk_score") is None:
+                criticality_score = self._criticality_score(normalized.get("criticality"))
+                if criticality_score is not None:
+                    normalized["severity_score"] = criticality_score
+                    normalized["severity_source"] = "stored_criticality_category"
+
+            normalized.setdefault("relationship_type", "commodity_dependency")
+            normalized.setdefault("confidence", 75.0)
 
         return normalized
 
@@ -201,7 +279,7 @@ class CrossModuleEvidenceRepository:
             return False
         module_keys = {
             "supply_chain": ["dependency_entity_id", "supplier_entity_id", "facility_id", "port_id", "chokepoint_id", "commodity_id", "source_entity_id"],
-            "country": ["country_iso3", "iso3", "country_code"],
+            "country": ["country_iso3", "country_entity_id", "iso3", "country_code"],
             "conflict": ["conflict_id", "scenario_id", "event_id", "source_entity_id"],
             "sanctions": ["counterparty_entity_id", "sanctioned_entity_id", "counterparty_id", "source_entity_id"],
             "cyber": ["incident_id", "cyber_incident_id", "campaign_id", "actor_id", "event_id", "source_entity_id"],
@@ -226,7 +304,7 @@ class CrossModuleEvidenceRepository:
                 if normalized is not None and self._compatible(module, normalized):
                     normalized_rows.append(normalized)
 
-            diagnostic = {
+            diagnostic: Dict[str, Any] = {
                 "table": table,
                 "status": "ok",
                 "row_count": len(rows),
@@ -235,6 +313,20 @@ class CrossModuleEvidenceRepository:
             }
             if rows:
                 diagnostic["available_columns"] = self._available_columns(rows)
+                samples = self._sample_values(
+                    rows,
+                    [
+                        "company_name",
+                        "company_id",
+                        "country_id",
+                        "exposure_type",
+                        "exposure_level",
+                        "criticality",
+                        "dependency_pct",
+                    ],
+                )
+                if samples:
+                    diagnostic["sample_values"] = samples
             diagnostics.append(diagnostic)
 
             if normalized_rows:
