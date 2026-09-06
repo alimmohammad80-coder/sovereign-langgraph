@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, List, Mapping
+from typing import Dict, List, Mapping, Optional
 
 
 @dataclass(frozen=True)
@@ -14,9 +14,10 @@ class RiskDimension:
 class CorporateRiskEngine:
     """Deterministic multi-factor corporate risk engine.
 
-    All input factors are normalized to 0-100 where 100 represents maximum risk.
-    The engine does not use an LLM to generate scores. AI models may explain the
-    resulting score, drivers, uncertainty, and evidence in a separate layer.
+    All observed input factors are normalized to 0-100 where 100 represents
+    maximum risk. Missing factors are treated as unknown evidence, never as a
+    synthetic neutral score. The overall score is reweighted across observed
+    dimensions and confidence captures evidence coverage.
     """
 
     DIMENSIONS: List[RiskDimension] = [
@@ -44,32 +45,54 @@ class CorporateRiskEngine:
             return "Guarded"
         return "Low"
 
-    def score(self, factors: Mapping[str, float], evidence_coverage: Mapping[str, float] | None = None) -> Dict[str, object]:
-        normalized: Dict[str, float] = {}
-        weighted_components: Dict[str, float] = {}
+    def score(
+        self,
+        factors: Mapping[str, Optional[float]],
+        evidence_coverage: Mapping[str, float] | None = None,
+    ) -> Dict[str, object]:
+        normalized: Dict[str, Optional[float]] = {}
+        weighted_components: Dict[str, Optional[float]] = {}
+        effective_weights: Dict[str, float] = {}
         missing: List[str] = []
+        observed_dimensions: List[RiskDimension] = []
 
         for dimension in self.DIMENSIONS:
-            if dimension.key not in factors:
+            raw_value = factors.get(dimension.key)
+            if raw_value is None:
                 missing.append(dimension.key)
-                value = 50.0
-            else:
-                value = self._clamp(factors[dimension.key])
-
+                normalized[dimension.key] = None
+                weighted_components[dimension.key] = None
+                continue
+            value = self._clamp(raw_value)
             normalized[dimension.key] = value
-            weighted_components[dimension.key] = round(value * dimension.weight, 3)
+            observed_dimensions.append(dimension)
 
-        score = self._clamp(sum(weighted_components.values()))
+        observed_weight = sum(d.weight for d in observed_dimensions)
+        if observed_weight > 0:
+            score_total = 0.0
+            for dimension in observed_dimensions:
+                effective_weight = dimension.weight / observed_weight
+                effective_weights[dimension.key] = round(effective_weight, 4)
+                contribution = float(normalized[dimension.key]) * effective_weight
+                weighted_components[dimension.key] = round(contribution, 3)
+                score_total += contribution
+            score = self._clamp(score_total)
+        else:
+            score = None
+
+        for dimension in self.DIMENSIONS:
+            if dimension.key not in effective_weights:
+                effective_weights[dimension.key] = 0.0
 
         if evidence_coverage:
-            coverage_values = [
-                self._clamp(evidence_coverage.get(dimension.key, 0.0))
-                for dimension in self.DIMENSIONS
-            ]
-            confidence = self._clamp(sum(coverage_values) / len(coverage_values))
+            confidence = self._clamp(
+                sum(
+                    dimension.weight * self._clamp(evidence_coverage.get(dimension.key, 0.0))
+                    for dimension in self.DIMENSIONS
+                )
+            )
         else:
-            observed = len(self.DIMENSIONS) - len(missing)
-            confidence = self._clamp((observed / len(self.DIMENSIONS)) * 100.0)
+            confidence = self._clamp(observed_weight * 100.0)
 
         ranked_drivers = sorted(
             (
@@ -77,24 +100,29 @@ class CorporateRiskEngine:
                     "dimension": dimension.key,
                     "score": normalized[dimension.key],
                     "weight": dimension.weight,
+                    "effective_weight": effective_weights[dimension.key],
                     "weighted_contribution": weighted_components[dimension.key],
                     "description": dimension.description,
                 }
-                for dimension in self.DIMENSIONS
+                for dimension in observed_dimensions
             ),
-            key=lambda item: item["weighted_contribution"],
+            key=lambda item: float(item["weighted_contribution"] or 0.0),
             reverse=True,
         )
 
         return {
             "overall_risk_score": score,
-            "risk_level": self.risk_level(score),
+            "risk_level": self.risk_level(score) if score is not None else "Unknown",
+            "assessment_status": "complete" if not missing else ("partial" if observed_dimensions else "insufficient_evidence"),
             "confidence_score": confidence,
-            "methodology": "deterministic_weighted_multifactor_v1",
+            "methodology": "deterministic_weighted_multifactor_v2_missing_aware",
             "dimensions": normalized,
             "weighted_components": weighted_components,
+            "effective_weights": effective_weights,
             "top_drivers": ranked_drivers[:3],
             "missing_dimensions": missing,
+            "observed_dimension_count": len(observed_dimensions),
+            "total_dimension_count": len(self.DIMENSIONS),
             "weights": {dimension.key: dimension.weight for dimension in self.DIMENSIONS},
         }
 
@@ -106,11 +134,7 @@ class CorporateRiskEngine:
         substitutability: float,
         recovery_difficulty: float,
     ) -> Dict[str, object]:
-        """Translate a supply-chain shock into incremental corporate financial risk.
-
-        Inputs are 0-100 except dependency_share, which is also represented as a
-        percentage. Higher substitutability reduces the propagated shock.
-        """
+        """Translate a supply-chain shock into incremental corporate financial risk."""
         base = self._clamp(base_score)
         dependency = self._clamp(dependency_share) / 100.0
         probability = self._clamp(disruption_probability) / 100.0
