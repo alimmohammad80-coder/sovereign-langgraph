@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from routes.financial_risk import router as financial_risk_router
 from routes.corporate_exposure import router as corporate_exposure_router
+from routes.financial_corporate_intelligence import router as financial_corporate_intelligence_router
 from routers.supply_chain import router as supply_chain_router
 from routers.optimization import router as optimization_router
 
@@ -25,6 +26,7 @@ app.add_middleware(
 
 app.include_router(financial_risk_router)
 app.include_router(corporate_exposure_router)
+app.include_router(financial_corporate_intelligence_router)
 
 @app.get("/")
 def root():
