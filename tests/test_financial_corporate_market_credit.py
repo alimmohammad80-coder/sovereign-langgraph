@@ -15,12 +15,15 @@ class MarketStressAnalyzerTests(unittest.TestCase):
         result = MarketStressAnalyzer().analyze({"observations": observations})
         self.assertGreater(result["market_stress_score"], 25)
         self.assertEqual(result["confidence_score"], 100.0)
+        self.assertEqual(result["assessment_status"], "observed")
         self.assertFalse(result["ai_generated_score"])
 
-    def test_insufficient_history_returns_low_confidence(self):
+    def test_insufficient_history_is_missing_not_neutral_fifty(self):
         result = MarketStressAnalyzer().analyze({"observations": [{"close": 100}, {"close": 99}]})
-        self.assertEqual(result["market_stress_score"], 50.0)
-        self.assertEqual(result["confidence_score"], 10.0)
+        self.assertIsNone(result["market_stress_score"])
+        self.assertEqual(result["confidence_score"], 0.0)
+        self.assertEqual(result["assessment_status"], "missing")
+        self.assertEqual(result["reason"], "insufficient_price_history")
 
 
 class CreditConditionsAnalyzerTests(unittest.TestCase):
@@ -53,6 +56,16 @@ class MarketCreditAggregationTests(unittest.TestCase):
         self.assertEqual(result["market_credit_stress_score"], 66.0)
         self.assertEqual(result["confidence_score"], 100.0)
         self.assertFalse(result["ai_generated_score"])
+
+    def test_missing_equity_does_not_inject_neutral_fifty(self):
+        service = MarketCreditIntelligenceService()
+        result = service.combined_score(
+            market_analysis={"market_stress_score": None, "confidence_score": 0.0, "assessment_status": "missing"},
+            credit_analysis={"credit_conditions_score": 20, "confidence_score": 100},
+        )
+        self.assertEqual(result["market_credit_stress_score"], 20.0)
+        self.assertNotIn("equity_market", result["components"])
+        self.assertIn("credit_conditions", result["components"])
 
 
 if __name__ == "__main__":
