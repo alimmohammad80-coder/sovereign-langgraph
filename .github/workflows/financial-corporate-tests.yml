@@ -44,5 +44,8 @@ jobs:
             services/financial_corporate/*.py \
             routes/financial_corporate_*.py
 
+      - name: Run report generator tests
+        run: python -m unittest tests.test_financial_corporate_report_generator -v
+
       - name: Run financial corporate test suite
         run: python -m unittest discover -s tests -p 'test_financial_corporate_*.py' -v
