@@ -20,7 +20,7 @@ class EvidenceCalibratedCorporateHazardService(ProductionCalibratedCorporateHaza
        company-level regulatory pressure score is produced.
     """
 
-    DIRECT_INCIDENT_METHODOLOGY = "direct_enterprise_cyber_incident_attribution_v2"
+    DIRECT_INCIDENT_METHODOLOGY = "direct_enterprise_cyber_incident_attribution_v3"
     TRADE_CONTROL_METHODOLOGY = "company_trade_control_semantic_attribution_v3"
     CYBER_CONTEXT_METHODOLOGY = "company_cyber_media_semantic_context_v3"
 
@@ -32,10 +32,45 @@ class EvidenceCalibratedCorporateHazardService(ProductionCalibratedCorporateHaza
         return "(?:" + "|".join(re.escape(name) for name in names) + ")"
 
     @classmethod
+    def _is_third_party_cyber_comention(cls, entity: Mapping[str, Any], title: Any) -> bool:
+        """Detect a third-party incident where the company is only contextual.
+
+        Headlines such as "Foxconn confirms ransomware attack involving files for
+        NVIDIA" must never become NVIDIA enterprise incidents. The guard is
+        intentionally evaluated before permissive incident syntax.
+        """
+        text = " ".join(str(title or "").lower().split())
+        company = cls._company_name_pattern(entity)
+        if not text or not company:
+            return False
+
+        third_party_subject = (
+            r"(?:openai|foxconn|supplier|customer|partner|vendor|manufacturer|"
+            r"distributor|reseller|contractor|third[- ]party)"
+        )
+        incident = r"(?:cyberattack|breach|data breach|ransomware|hacked|security incident)"
+        context_link = (
+            r"(?:involving|including|containing|files? for|data for|data belonging to|"
+            r"mentions?|affecting files? for|customer files? for)"
+        )
+
+        patterns = [
+            rf"\b{third_party_subject}\b.{{0,70}}\b{incident}\b.{{0,100}}\b{context_link}\b.{{0,60}}\b{company}\b",
+            rf"\b{third_party_subject}\b.{{0,70}}\b(?:confirms?|confirmed|reports?|reported|suffers?|suffered|hit by)\b.{{0,45}}\b{incident}\b.{{0,100}}\b{company}\b",
+            rf"\b{incident}\b.{{0,60}}\b(?:at|hits?|hit)\b.{{0,35}}\b{third_party_subject}\b.{{0,100}}\b{company}\b",
+        ]
+        return any(re.search(pattern, text, flags=re.IGNORECASE) for pattern in patterns)
+
+    @classmethod
     def _is_direct_enterprise_incident_title(cls, entity: Mapping[str, Any], title: Any) -> bool:
         text = " ".join(str(title or "").lower().split())
         company = cls._company_name_pattern(entity)
         if not text or not company:
+            return False
+
+        # A named supplier/customer/partner incident with a company co-mention is
+        # ecosystem evidence, not victim attribution for the requested company.
+        if cls._is_third_party_cyber_comention(entity, title):
             return False
 
         company_led = [
@@ -85,6 +120,8 @@ class EvidenceCalibratedCorporateHazardService(ProductionCalibratedCorporateHaza
     @classmethod
     def _cyber_context_category(cls, entity: Mapping[str, Any], title: Any) -> str:
         text = " ".join(str(title or "").lower().split())
+        if cls._is_third_party_cyber_comention(entity, title):
+            return "ecosystem_incident"
         if cls._is_direct_enterprise_incident_title(entity, title):
             return "direct_enterprise_incident"
         if cls._is_product_security_title(entity, title):
@@ -125,10 +162,15 @@ class EvidenceCalibratedCorporateHazardService(ProductionCalibratedCorporateHaza
 
         for item in cyber_media.get("matched_items") or []:
             title = str(item.get("title") or "")
-            if str(item.get("relevance") or "") == "ecosystem":
+            lower = title.lower()
+            if str(item.get("relevance") or "") == "ecosystem" or cls._is_third_party_cyber_comention(entity, title):
+                if any(name in lower for name in cls._company_tokens(entity)):
+                    rejected.append({
+                        "title": title,
+                        "reason": "third_party_incident_company_is_context_not_victim",
+                    })
                 continue
             if not cls._is_direct_enterprise_incident_title(entity, title):
-                lower = title.lower()
                 if any(name in lower for name in cls._company_tokens(entity)):
                     rejected.append({
                         "title": title,
