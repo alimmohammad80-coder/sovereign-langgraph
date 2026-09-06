@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Mapping, Optional
 
 from .distress import CorporateDistressEngine
 from .entity_master import CorporateEntityMaster
@@ -27,6 +27,39 @@ class FinancialCorporateOrchestrator:
             return max(0.0, min(100.0, float(value)))
         except (TypeError, ValueError):
             return None
+
+    @classmethod
+    def _cross_module_confidence(
+        cls,
+        evidence: Optional[Mapping[str, Any]],
+        dimension: str,
+        *,
+        score_present: bool,
+    ) -> float:
+        """Return evidence confidence for one cross-module risk dimension.
+
+        Risk presence and evidence confidence are intentionally separate. A
+        dimension can be scored while still relying on aging, indirect, or
+        partial evidence. Live cross-module edges carry their own confidence and
+        are averaged here instead of granting every observed dimension 100%.
+        """
+        cross_module = (evidence or {}).get("cross_module") if isinstance(evidence, Mapping) else None
+        dimension_evidence = (cross_module or {}).get("evidence") if isinstance(cross_module, Mapping) else None
+        rows = (dimension_evidence or {}).get(dimension) if isinstance(dimension_evidence, Mapping) else None
+
+        confidences = []
+        for row in rows or []:
+            if not isinstance(row, Mapping):
+                continue
+            value = cls._score(row.get("confidence"))
+            if value is not None:
+                confidences.append(value)
+
+        if confidences:
+            return round(sum(confidences) / len(confidences), 2)
+        # Direct/manual risk inputs without provenance should not be treated as
+        # fully evidenced. Preserve them as usable but explicitly moderate.
+        return 60.0 if score_present else 0.0
 
     def build_snapshot(
         self,
@@ -75,13 +108,25 @@ class FinancialCorporateOrchestrator:
         evidence_coverage = {
             "financial_resilience": self._score((fundamentals or {}).get("evidence_coverage")) or 0.0,
             "market_stress": self._score(combined_market_credit.get("confidence_score")) or 0.0,
-            "supply_chain": 100.0 if supply_chain_risk is not None else 0.0,
-            "geopolitical": 100.0 if geopolitical_risk is not None else 0.0,
-            "sanctions_compliance": 100.0 if sanctions_risk is not None else 0.0,
-            "governance_operational": 100.0 if governance_operational_risk is not None else 0.0,
+            "supply_chain": self._cross_module_confidence(
+                evidence, "supply_chain", score_present=supply_chain_risk is not None
+            ),
+            "geopolitical": self._cross_module_confidence(
+                evidence, "geopolitical", score_present=geopolitical_risk is not None
+            ),
+            "sanctions_compliance": self._cross_module_confidence(
+                evidence, "sanctions_compliance", score_present=sanctions_risk is not None
+            ),
+            "governance_operational": self._cross_module_confidence(
+                evidence, "governance_operational", score_present=governance_operational_risk is not None
+            ),
         }
 
         risk = self.corporate_risk.score(factors, evidence_coverage)
+        risk["dimension_confidence"] = evidence_coverage
+        risk["confidence_interpretation"] = (
+            "Weighted evidence confidence across all six risk dimensions; dimensional coverage and source confidence are distinct."
+        )
 
         return {
             "entity": entity,
@@ -96,6 +141,6 @@ class FinancialCorporateOrchestrator:
                 "governance_operational_risk": governance_operational_risk,
             },
             "evidence": evidence or {},
-            "methodology": "financial_corporate_integrated_snapshot_v3_dynamic_hazards",
+            "methodology": "financial_corporate_integrated_snapshot_v4_evidence_confidence",
             "ai_generated_score": False,
         }
