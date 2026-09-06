@@ -5,7 +5,7 @@ from typing import Any, Dict, Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from services.financial_corporate.production_calibration import ProductionCalibratedCorporateHazardService
+from services.financial_corporate.evidence_calibration import EvidenceCalibratedCorporateHazardService
 from services.financial_corporate.cross_module_edges import CrossModuleExposureBridge
 from services.financial_corporate.cross_module_repository import CrossModuleEvidenceRepository
 from services.financial_corporate.cross_module_scoring import CrossModuleRiskScorer
@@ -26,7 +26,7 @@ sec = SECEdgarCollector()
 self_test_runner = FinancialCorporateSelfTest()
 cross_module_repository = CrossModuleEvidenceRepository()
 cross_module_bridge = CrossModuleExposureBridge()
-cross_module_hazards = ProductionCalibratedCorporateHazardService()
+cross_module_hazards = EvidenceCalibratedCorporateHazardService()
 cross_module_scorer = CrossModuleRiskScorer()
 
 
@@ -48,7 +48,7 @@ def integrated_status():
     return {
         "status": "ok",
         "module": "Financial & Corporate Risk Intelligence",
-        "orchestrator": "financial_corporate_integrated_snapshot_v3_dynamic_hazards",
+        "orchestrator": "financial_corporate_integrated_snapshot_v4_evidence_confidence",
         "providers": {
             "sec_edgar": {"configured": sec.configured, "required_env": "SEC_USER_AGENT"},
             **provider_status,
@@ -59,7 +59,7 @@ def integrated_status():
             "sec_material_cyber": {"role": "SEC Form 8-K Item 1.05 material cybersecurity incident disclosure"},
             "cisa_kev": {"role": "company-vendor known exploited vulnerability pressure"},
             "nvd": {"role": "recently published product-security pressure, capped inside corporate operational risk"},
-            "cyber_media_signals": {"role": "direct enterprise incident and ecosystem cyber context with separate weights"},
+            "cyber_media_signals": {"role": "victim-attributed enterprise incidents plus separately weighted ecosystem cyber context"},
         },
         "optional_env": [
             "ALPHA_VANTAGE_API_KEY",
@@ -74,10 +74,11 @@ def integrated_status():
             "ai_generated": False,
             "corporate_risk": "deterministic_weighted_multifactor_v2_missing_aware",
             "distress": "corporate_distress_signal_v1",
-            "market_credit": "confidence_weighted_market_credit_v1",
+            "market_credit": "confidence_weighted_market_credit_v2_coverage_aware",
             "cross_module": "cross_module_exposure_hazard_confidence_v2",
-            "dynamic_hazards": "cross_module_dynamic_hazard_enrichment_v4_semantic_operational_calibration",
+            "dynamic_hazards": "cross_module_dynamic_hazard_enrichment_v5_evidence_attribution",
             "governance_operational": "governance_operational_semantic_composite_v1",
+            "enterprise_cyber_attribution": "direct_enterprise_cyber_incident_attribution_v2",
         },
         "cross_module_formula": "risk_contribution = structural_exposure * dynamic_hazard * evidence_confidence",
         "evidence_rules": [
@@ -87,7 +88,9 @@ def integrated_status():
             "NVD current pressure uses CVE publication date, not modification date.",
             "Product vulnerabilities are capped and separated from enterprise cyber incidents.",
             "SEC Item 1.05 material cyber disclosures receive authoritative enterprise-incident weight.",
-            "Media evidence is weighted by source quality, freshness, directness, and incident ownership.",
+            "Company co-mention is insufficient for enterprise cyber attribution; victim or affected-entity syntax is required.",
+            "Market-credit confidence measures coverage of the intended equity-plus-credit evidence stack rather than renormalizing over available components.",
+            "Overall confidence propagates source-level cross-module confidence instead of assuming every observed dimension is 100% evidenced.",
         ],
     }
 
