@@ -8,6 +8,7 @@ from routes.financial_corporate_market_credit import router as financial_corpora
 from routes.financial_corporate_distress_portfolio import router as financial_corporate_distress_portfolio_router
 from routes.financial_corporate_cross_module import router as financial_corporate_cross_module_router
 from routes.financial_corporate_integrated import router as financial_corporate_integrated_router
+from routes.financial_corporate_reports import router as financial_corporate_reports_router
 from routers.supply_chain import router as supply_chain_router
 from routers.optimization import router as optimization_router
 
@@ -37,6 +38,7 @@ app.include_router(financial_corporate_market_credit_router)
 app.include_router(financial_corporate_distress_portfolio_router)
 app.include_router(financial_corporate_cross_module_router)
 app.include_router(financial_corporate_integrated_router)
+app.include_router(financial_corporate_reports_router)
 
 @app.get("/")
 def root():
@@ -60,4 +62,3 @@ def list_routes():
 app.include_router(personal_agent_router, prefix="/api/agent", tags=["Personal Agent"])
 app.include_router(module_access_router, prefix="/api", tags=["Module Access"])
 app.include_router(usage_router, prefix="/api/usage", tags=["Usage"])
-
