@@ -6,6 +6,7 @@ from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from services.financial_corporate import CorporateEntityMaster, CorporateRiskEngine
+from services.financial_corporate.providers import FinancialCorporateProviderRegistry
 
 
 router = APIRouter(
@@ -15,6 +16,7 @@ router = APIRouter(
 
 entity_master = CorporateEntityMaster()
 risk_engine = CorporateRiskEngine()
+provider_registry = FinancialCorporateProviderRegistry()
 
 
 class CorporateRiskScoreRequest(BaseModel):
@@ -82,7 +84,19 @@ def architecture():
             "Portfolio and Contagion Layer",
             "AI Explanation and Reporting Layer",
         ],
-        "next_providers": ["SEC EDGAR/XBRL", "GLEIF", "OFAC", "macro/market feeds"],
+        "providers": provider_registry.capabilities(),
+        "provider_contract": provider_registry.architecture(),
+    }
+
+
+@router.get("/providers")
+def providers():
+    capabilities = provider_registry.capabilities()
+    return {
+        "status": "success",
+        "count": len(capabilities),
+        "data": capabilities,
+        "contract": provider_registry.architecture(),
     }
 
 
