@@ -4,21 +4,45 @@ import os
 from typing import Any, Dict, List, Mapping, Optional
 
 from services.supabase_client import get_supabase_client
+from .entity_master import CorporateEntityMaster
 
 
 class CrossModuleEvidenceRepository:
-    """Read cross-module evidence from Supabase without coupling to one table layout.
+    """Read and normalize cross-module evidence from existing Supabase tables.
 
-    Table names can be overridden with environment variables. Missing tables are
-    reported as diagnostics and never converted into fabricated evidence.
+    The repository deliberately adapts to the platform's existing schema rather
+    than creating duplicate Financial/Corporate tables. Missing or incompatible
+    records are surfaced as diagnostics and are never converted into fabricated
+    risk evidence.
     """
 
     DEFAULT_TABLES = {
-        "supply_chain": ["supply_chain_company_exposures", "supply_chain_exposures", "supply_chain_risk_scores"],
-        "country": ["corporate_country_exposures", "country_corporate_exposures"],
-        "conflict": ["corporate_conflict_exposures", "conflict_corporate_exposures"],
-        "sanctions": ["corporate_sanctions_exposures", "sanctions_corporate_exposures"],
-        "cyber": ["corporate_cyber_exposures", "cyber_corporate_exposures"],
+        "supply_chain": [
+            "sc_company_exposure",
+            "supply_chain_company_exposures",
+            "supply_chain_exposures",
+            "supply_chain_risk_scores",
+        ],
+        "country": [
+            "corporate_exposures",
+            "corporate_country_exposures",
+            "country_corporate_exposures",
+        ],
+        "conflict": [
+            "corporate_exposures",
+            "corporate_conflict_exposures",
+            "conflict_corporate_exposures",
+        ],
+        "sanctions": [
+            "corporate_exposures",
+            "corporate_sanctions_exposures",
+            "sanctions_corporate_exposures",
+        ],
+        "cyber": [
+            "corporate_exposures",
+            "corporate_cyber_exposures",
+            "cyber_corporate_exposures",
+        ],
     }
 
     ENV_KEYS = {
@@ -29,8 +53,40 @@ class CrossModuleEvidenceRepository:
         "cyber": "FINCORP_CYBER_EXPOSURE_TABLE",
     }
 
+    MODULE_ALIASES = {
+        "supply_chain": {"supply_chain", "supply-chain", "supply chain", "logistics", "supplier"},
+        "country": {"country", "country_risk", "country risk", "geopolitical", "geo", "political"},
+        "conflict": {"conflict", "conflict_forecasting", "conflict forecasting", "war", "security"},
+        "sanctions": {"sanctions", "sanction", "trade", "trade_controls", "export_control", "export controls"},
+        "cyber": {"cyber", "cybersecurity", "information_ops", "information operations", "operational"},
+    }
+
+    COMPANY_REFERENCE_KEYS = (
+        "company_entity_id",
+        "target_entity_id",
+        "company_id",
+        "corporate_entity_id",
+        "ticker",
+        "symbol",
+        "company_ticker",
+        "company_name",
+        "company",
+    )
+
+    MODULE_DISCRIMINATOR_KEYS = (
+        "module",
+        "source_module",
+        "domain",
+        "risk_domain",
+        "risk_type",
+        "exposure_type",
+        "category",
+        "type",
+    )
+
     def __init__(self, client=None) -> None:
         self.client = client
+        self.entity_master = CorporateEntityMaster()
 
     def _client(self):
         if self.client is not None:
@@ -49,16 +105,106 @@ class CrossModuleEvidenceRepository:
         return [dict(row) for row in data if isinstance(row, Mapping)]
 
     @staticmethod
+    def _available_columns(rows: List[Mapping[str, Any]], cap: int = 80) -> List[str]:
+        columns = set()
+        for row in rows[:25]:
+            columns.update(str(key) for key in row.keys())
+        return sorted(columns)[:cap]
+
+    def _resolve_company_entity_id(self, row: Mapping[str, Any]) -> Optional[str]:
+        for key in self.COMPANY_REFERENCE_KEYS:
+            raw = row.get(key)
+            if raw is None:
+                continue
+            reference = str(raw).strip()
+            if not reference:
+                continue
+            if reference.startswith("corp_"):
+                return reference
+            try:
+                resolved = self.entity_master.resolve(reference)
+            except Exception:
+                resolved = None
+            if isinstance(resolved, Mapping) and resolved.get("entity_id"):
+                return str(resolved["entity_id"])
+        return None
+
+    def _row_matches_module(self, module: str, row: Mapping[str, Any], table: str) -> bool:
+        # Dedicated tables are already module-scoped.
+        if table != "corporate_exposures":
+            return True
+
+        discriminator_values: List[str] = []
+        for key in self.MODULE_DISCRIMINATOR_KEYS:
+            value = row.get(key)
+            if value is not None and str(value).strip():
+                discriminator_values.append(str(value).strip().lower())
+
+        # A shared table without any domain discriminator cannot safely be assigned
+        # to country/conflict/sanctions/cyber. Keep it diagnostic-only.
+        if not discriminator_values:
+            return False
+
+        aliases = self.MODULE_ALIASES[module]
+        for value in discriminator_values:
+            if value in aliases:
+                return True
+            if any(alias in value for alias in aliases):
+                return True
+        return False
+
+    def _normalize_row(self, module: str, row: Mapping[str, Any], table: str) -> Optional[Dict[str, Any]]:
+        if not self._row_matches_module(module, row, table):
+            return None
+
+        normalized = dict(row)
+        company_entity_id = self._resolve_company_entity_id(normalized)
+        if not company_entity_id:
+            return None
+        normalized["company_entity_id"] = company_entity_id
+
+        # Normalize common alternate field names without fabricating relationships.
+        if module == "country":
+            normalized.setdefault("country_iso3", normalized.get("country_code") or normalized.get("iso3"))
+        elif module == "conflict":
+            normalized.setdefault("conflict_id", normalized.get("event_id") or normalized.get("scenario_id"))
+        elif module == "sanctions":
+            normalized.setdefault(
+                "counterparty_entity_id",
+                normalized.get("sanctioned_entity_id") or normalized.get("counterparty_id") or normalized.get("source_entity_id"),
+            )
+        elif module == "cyber":
+            normalized.setdefault(
+                "incident_id",
+                normalized.get("cyber_incident_id") or normalized.get("campaign_id") or normalized.get("event_id") or normalized.get("source_entity_id"),
+            )
+        elif module == "supply_chain":
+            normalized.setdefault(
+                "dependency_entity_id",
+                normalized.get("dependency_id")
+                or normalized.get("supplier_id")
+                or normalized.get("supplier_entity_id")
+                or normalized.get("facility_id")
+                or normalized.get("port_id")
+                or normalized.get("chokepoint_id")
+                or normalized.get("commodity_id")
+                or normalized.get("source_entity_id"),
+            )
+            if normalized.get("dependency_share") is None:
+                normalized["dependency_share"] = normalized.get("exposure_share") or normalized.get("share") or normalized.get("weight")
+
+        return normalized
+
+    @staticmethod
     def _compatible(module: str, row: Mapping[str, Any]) -> bool:
-        company_present = bool(row.get("company_entity_id") or row.get("target_entity_id"))
-        if not company_present:
+        if not row.get("company_entity_id"):
             return False
         module_keys = {
             "supply_chain": ["dependency_entity_id", "supplier_entity_id", "facility_id", "port_id", "chokepoint_id", "commodity_id", "source_entity_id"],
-            "country": ["country_iso3", "iso3"],
-            "conflict": ["conflict_id", "scenario_id", "source_entity_id"],
-            "sanctions": ["counterparty_entity_id", "sanctioned_entity_id", "source_entity_id"],
-            "cyber": ["incident_id", "campaign_id", "actor_id", "source_entity_id"],
+            "country": ["country_iso3", "iso3", "country_code"],
+            "conflict": ["conflict_id", "scenario_id", "event_id", "source_entity_id"],
+            "sanctions": ["counterparty_entity_id", "sanctioned_entity_id", "counterparty_id", "source_entity_id"],
+            "cyber": ["incident_id", "cyber_incident_id", "campaign_id", "actor_id", "event_id", "source_entity_id"],
         }
         return any(row.get(key) for key in module_keys[module])
 
@@ -71,18 +217,31 @@ class CrossModuleEvidenceRepository:
                 diagnostics.append({"table": table, "status": "unavailable", "detail": str(exc)[:240]})
                 continue
 
-            compatible = [row for row in rows if self._compatible(module, row)]
-            diagnostics.append({
+            normalized_rows: List[Dict[str, Any]] = []
+            module_match_count = 0
+            for row in rows:
+                if self._row_matches_module(module, row, table):
+                    module_match_count += 1
+                normalized = self._normalize_row(module, row, table)
+                if normalized is not None and self._compatible(module, normalized):
+                    normalized_rows.append(normalized)
+
+            diagnostic = {
                 "table": table,
                 "status": "ok",
                 "row_count": len(rows),
-                "compatible_row_count": len(compatible),
-            })
-            if compatible:
+                "module_match_count": module_match_count,
+                "compatible_row_count": len(normalized_rows),
+            }
+            if rows:
+                diagnostic["available_columns"] = self._available_columns(rows)
+            diagnostics.append(diagnostic)
+
+            if normalized_rows:
                 return {
                     "module": module,
                     "table": table,
-                    "rows": compatible,
+                    "rows": normalized_rows,
                     "diagnostics": diagnostics,
                 }
 
@@ -101,5 +260,5 @@ class CrossModuleEvidenceRepository:
         return {
             "payloads": payloads,
             "diagnostics": diagnostics,
-            "rule": "Only explicitly compatible stored exposure records are ingested; absent relationships are not inferred.",
+            "rule": "Existing platform tables are adapted in place. Only explicitly compatible records are ingested; absent relationships or severity are not inferred.",
         }
