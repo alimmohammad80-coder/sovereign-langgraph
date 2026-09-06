@@ -68,8 +68,6 @@ class EvidenceCalibratedCorporateHazardService(ProductionCalibratedCorporateHaza
         if not text or not company:
             return False
 
-        # A named supplier/customer/partner incident with a company co-mention is
-        # ecosystem evidence, not victim attribution for the requested company.
         if cls._is_third_party_cyber_comention(entity, title):
             return False
 
