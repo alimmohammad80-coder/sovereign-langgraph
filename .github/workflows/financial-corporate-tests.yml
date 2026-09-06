@@ -47,38 +47,14 @@ jobs:
       - name: Test report generator
         run: python -m unittest tests.test_financial_corporate_report_generator -v
 
-      - name: Test advanced hazards
-        run: python -m unittest tests.test_financial_corporate_advanced_hazards -v
+      - name: Calibrated hazard - old CVE freshness
+        run: python -m unittest tests.test_financial_corporate_calibrated_hazards.CalibratedCorporateHazardTests.test_old_cve_modified_recently_does_not_count_as_current_pressure -v
 
-      - name: Test calibrated hazards
-        run: python -m unittest tests.test_financial_corporate_calibrated_hazards -v
+      - name: Calibrated hazard - recent CVE
+        run: python -m unittest tests.test_financial_corporate_calibrated_hazards.CalibratedCorporateHazardTests.test_recent_published_cve_counts_as_current_pressure -v
 
-      - name: Test core
-        run: python -m unittest tests.test_financial_corporate_core -v
-
-      - name: Test cross module
-        run: python -m unittest tests.test_financial_corporate_cross_module -v
-
-      - name: Test distress portfolio
-        run: python -m unittest tests.test_financial_corporate_distress_portfolio -v
-
-      - name: Test dynamic hazards
-        run: python -m unittest tests.test_financial_corporate_dynamic_hazards -v
-
-      - name: Test evidence calibration
-        run: python -m unittest tests.test_financial_corporate_evidence_calibration -v
-
-      - name: Test ingestion
-        run: python -m unittest tests.test_financial_corporate_ingestion -v
-
-      - name: Test integrated
-        run: python -m unittest tests.test_financial_corporate_integrated -v
-
-      - name: Test market credit
-        run: python -m unittest tests.test_financial_corporate_market_credit -v
-
-      - name: Test production calibration
-        run: python -m unittest tests.test_financial_corporate_production_calibration -v
+      - name: Calibrated hazard - victim attribution
+        run: python -m unittest tests.test_financial_corporate_calibrated_hazards.CalibratedCorporateHazardTests.test_victim_attribution_rejects_supplier_incident_as_enterprise_incident -v
 
       - name: Run financial corporate test suite
         run: python -m unittest discover -s tests -p 'test_financial_corporate_*.py' -v
