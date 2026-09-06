@@ -96,6 +96,6 @@ class FinancialCorporateOrchestrator:
                 "governance_operational_risk": governance_operational_risk,
             },
             "evidence": evidence or {},
-            "methodology": "financial_corporate_integrated_snapshot_v2_missing_aware",
+            "methodology": "financial_corporate_integrated_snapshot_v3_dynamic_hazards",
             "ai_generated_score": False,
         }
