@@ -62,6 +62,75 @@ class EvidenceAttributionTests(unittest.TestCase):
             )
         )
 
+    def test_product_security_is_not_enterprise_incident_context(self):
+        title = "NVIDIA Triton Inference Server vulnerability allows authentication bypass"
+        self.assertEqual(self.service._cyber_context_category(self.entity, title), "product_security")
+        self.assertLess(self.service._direct_cyber_relevance(self.entity, title), 0.8)
+
+    def test_openai_attack_is_ecosystem_or_context_not_direct(self):
+        title = "Nvidia, SpaceX, Microsoft launch AI safety initiative as OpenAI cyberattack fallout continues"
+        self.assertNotEqual(self.service._cyber_context_category(self.entity, title), "direct_enterprise_incident")
+        self.assertLess(self.service._direct_cyber_relevance(self.entity, title), 0.8)
+
+
+class TradeControlSemanticCalibrationTests(unittest.TestCase):
+    def setUp(self):
+        self.service = EvidenceCalibratedCorporateHazardService()
+        self.entity = {
+            "entity_id": "corp_nvidia",
+            "common_name": "NVIDIA",
+            "legal_name": "NVIDIA Corporation",
+            "identifiers": {},
+        }
+
+    def test_downstream_diversion_is_not_company_enforcement(self):
+        title = "Moonshot AI accessed Nvidia chips despite Chinese export ban, official says"
+        category = self.service._trade_control_category(self.entity, title)
+        self.assertEqual(category, "downstream_diversion_risk")
+        self.assertLess(self.service._trade_category_weight(category), 0.5)
+
+    def test_direct_company_restriction_is_separate_category(self):
+        title = "Nvidia cuts Asian customers due to export controls and tightens customer approvals"
+        category = self.service._trade_control_category(self.entity, title)
+        self.assertEqual(category, "direct_export_control_exposure")
+        self.assertGreater(self.service._trade_category_weight(category), 0.5)
+
+    def test_direct_sanctions_designation_is_high_weight(self):
+        title = "NVIDIA sanctioned and added to entity list under new restrictions"
+        category = self.service._trade_control_category(self.entity, title)
+        self.assertEqual(category, "direct_sanctions_designation")
+        self.assertGreater(self.service._trade_category_weight(category), 1.0)
+
+    def test_trade_pressure_returns_semantic_buckets(self):
+        self.service._fetch_google_news = lambda query, limit=20: {
+            "status": "ok",
+            "count": 3,
+            "items": [
+                {
+                    "title": "Moonshot AI accessed Nvidia chips despite Chinese export ban, official says",
+                    "published": "Mon, 27 Jul 2026 07:00:00 GMT",
+                    "source": "CNBC",
+                },
+                {
+                    "title": "Nvidia cuts Asian customers due to export controls and tightens customer approvals",
+                    "published": "Tue, 14 Jul 2026 07:00:00 GMT",
+                    "source": "Yahoo Finance",
+                },
+                {
+                    "title": "US officials discuss broader semiconductor export controls as Nvidia CEO visits Washington",
+                    "published": "Wed, 29 Jul 2026 07:00:00 GMT",
+                    "source": "Reuters",
+                },
+            ],
+        }
+        result = self.service.trade_control_pressure(self.entity)
+        self.assertEqual(result["status"], "observed")
+        self.assertEqual(result["signal_buckets"]["downstream_diversion_risk"], 1)
+        self.assertEqual(result["signal_buckets"]["direct_export_control_exposure"], 1)
+        self.assertEqual(result["signal_buckets"]["policy_context"], 1)
+        self.assertEqual(result["direct_company_signal_count"], 1)
+        self.assertEqual(result["methodology"], "company_trade_control_semantic_attribution_v3")
+
 
 class CorporateEvidenceConfidenceTests(unittest.TestCase):
     def test_cross_module_source_confidence_is_propagated(self):
