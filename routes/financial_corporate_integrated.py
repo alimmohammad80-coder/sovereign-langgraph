@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, HTTPException
@@ -9,6 +8,7 @@ from pydantic import BaseModel, Field
 from services.financial_corporate.market_credit import MarketCreditIntelligenceService
 from services.financial_corporate.orchestrator import FinancialCorporateOrchestrator
 from services.financial_corporate.sec_edgar import SECConfigurationError, SECEdgarCollector
+from services.financial_corporate.self_test import FinancialCorporateSelfTest
 
 
 router = APIRouter(
@@ -19,6 +19,7 @@ router = APIRouter(
 orchestrator = FinancialCorporateOrchestrator()
 market_credit = MarketCreditIntelligenceService()
 sec = SECEdgarCollector()
+self_test_runner = FinancialCorporateSelfTest()
 
 
 class IntegratedSnapshotRequest(BaseModel):
@@ -58,6 +59,15 @@ def integrated_status():
             "distress": "corporate_distress_signal_v1",
             "market_credit": "confidence_weighted_market_credit_v1",
         },
+    }
+
+
+@router.get("/self-test")
+def integrated_self_test():
+    result = self_test_runner.run()
+    return {
+        "status": "success" if result["status"] == "pass" else "degraded",
+        "data": result,
     }
 
 
