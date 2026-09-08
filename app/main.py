@@ -199,7 +199,11 @@ REQUIRED_ROUTE_PREFIXES = [
     "/api/simulation",
 ]
 
-registered_paths = {route.path for route in app.routes}
+registered_paths = {
+    route.path
+    for route in app.routes
+    if hasattr(route, "path")
+}
 
 missing_route_prefixes = [
     prefix
@@ -230,7 +234,11 @@ def platform_health():
         "personal_agent": "/api/agent",
     }
 
-    paths = {route.path for route in app.routes}
+    paths = {
+        route.path
+        for route in app.routes
+        if hasattr(route, "path")
+    }
 
     modules = {
         name: {
