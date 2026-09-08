@@ -199,23 +199,29 @@ REQUIRED_ROUTE_PREFIXES = [
     "/api/simulation",
 ]
 
-registered_paths = {
-    route.path
-    for route in app.routes
-    if hasattr(route, "path")
-}
-
-missing_route_prefixes = [
-    prefix
-    for prefix in REQUIRED_ROUTE_PREFIXES
-    if not any(path.startswith(prefix) for path in registered_paths)
-]
-
-if missing_route_prefixes:
-    raise RuntimeError(
-        "Canonical Sovereign Intelligence API is missing critical route families: "
-        + ", ".join(missing_route_prefixes)
+def validate_canonical_routes() -> set[str]:
+    # Rebuild OpenAPI after all application routes have been registered.
+    app.openapi_schema = None
+    paths = set(
+        app.openapi().get("paths", {}).keys()
     )
+
+    missing_route_prefixes = [
+        prefix
+        for prefix in REQUIRED_ROUTE_PREFIXES
+        if not any(
+            path.startswith(prefix)
+            for path in paths
+        )
+    ]
+
+    if missing_route_prefixes:
+        raise RuntimeError(
+            "Canonical Sovereign Intelligence API is missing critical route families: "
+            + ", ".join(missing_route_prefixes)
+        )
+
+    return paths
 
 
 @app.get("/api/platform/health", tags=["Platform"])
@@ -234,11 +240,10 @@ def platform_health():
         "personal_agent": "/api/agent",
     }
 
-    paths = {
-        route.path
-        for route in app.routes
-        if hasattr(route, "path")
-    }
+    app.openapi_schema = None
+    paths = set(
+        app.openapi().get("paths", {}).keys()
+    )
 
     modules = {
         name: {
@@ -265,6 +270,12 @@ from app.services.strategic_agents.scheduled_runner import strategic_agent_sched
 
 @app.on_event("startup")
 async def start_strategic_agent_scheduler() -> None:
+    paths = validate_canonical_routes()
+    print(
+        "[Platform] Canonical route validation passed:",
+        len(paths),
+        "OpenAPI paths",
+    )
     await strategic_agent_scheduled_runner.start()
 
 @app.on_event("shutdown")
