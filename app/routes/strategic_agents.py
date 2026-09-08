@@ -452,13 +452,3 @@ async def get_agent_output_history(
     }
 
 
-@router.get("/scheduler/status")
-async def get_scheduler_status() -> dict[str, Any]:
-    from app.services.strategic_agents.scheduled_runner import (
-        strategic_agent_scheduled_runner,
-    )
-
-    return {
-        "status": "success",
-        "data": strategic_agent_scheduled_runner.status(),
-    }

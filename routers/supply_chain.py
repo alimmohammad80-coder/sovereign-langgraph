@@ -878,25 +878,3 @@ def get_external_marine_weather(
         )
     }
 
-@router.get("/live-signals")
-def get_live_supply_chain_signals(query: str = "Strait of Hormuz shipping oil sanctions"):
-    gdelt = fetch_gdelt_signals(query=query, maxrecords=10)
-    ofac = fetch_ofac_sanctions(limit=10)
-    eia = fetch_eia_energy_signals()
-    marine_weather = fetch_marine_weather_signal(
-        latitude=26.5667,
-        longitude=56.2500,
-        location_name="Strait of Hormuz"
-    )
-
-    return {
-        "status": "success",
-        "query": query,
-        "sources_used": ["gdelt", "ofac", "eia", "open_meteo_marine_weather"],
-        "data": {
-            "gdelt_signals": gdelt,
-            "ofac_signals": ofac,
-            "eia_signals": eia,
-            "marine_weather_signals": marine_weather
-        }
-    }
