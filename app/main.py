@@ -54,7 +54,6 @@ from app.routes.early_warning_agents import router as early_warning_agents_route
 from app.routes.simulation_lab import router as simulation_lab_router
 from app.routes.fusion import router as fusion_router
 from app.routes import scenario
-from app.routes import simulation_lab
 from app.routes import simulation
 from app.routes.strategic_agents import router as strategic_agents_router
 from app.routes.strategic_reports import router as strategic_reports_router
@@ -154,7 +153,6 @@ def list_routes():
 app.include_router(signals.router)
 app.include_router(intelligence_retrieval_router)
 app.include_router(scenario.router)
-app.include_router(simulation_lab.router)
 app.include_router(simulation.router)
 app.include_router(alert_orchestrator_router)
 app.include_router(ingestion_router)
