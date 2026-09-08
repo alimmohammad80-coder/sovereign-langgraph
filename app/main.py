@@ -181,6 +181,78 @@ app.include_router(sews_operational_intelligence_router)
 app.include_router(sews_executive_brief_router)
 app.include_router(sews_operations_router)
 
+
+# ---------------------------------------------------------------------------
+# Canonical platform route guard
+# Prevent partial deployments where critical module families disappear.
+# ---------------------------------------------------------------------------
+
+REQUIRED_ROUTE_PREFIXES = [
+    "/api/country-intelligence",
+    "/api/conflict",
+    "/api/conflict-intelligence",
+    "/api/cyber-information",
+    "/api/sews",
+    "/api/supply-chain",
+    "/api/financial",
+    "/api/scenario",
+    "/api/simulation",
+]
+
+registered_paths = {route.path for route in app.routes}
+
+missing_route_prefixes = [
+    prefix
+    for prefix in REQUIRED_ROUTE_PREFIXES
+    if not any(path.startswith(prefix) for path in registered_paths)
+]
+
+if missing_route_prefixes:
+    raise RuntimeError(
+        "Canonical Sovereign Intelligence API is missing critical route families: "
+        + ", ".join(missing_route_prefixes)
+    )
+
+
+@app.get("/api/platform/health", tags=["Platform"])
+def platform_health():
+    checks = {
+        "country_intelligence": "/api/country-intelligence",
+        "conflict_forecasting": "/api/conflict",
+        "conflict_intelligence": "/api/conflict-intelligence",
+        "cyber_information": "/api/cyber-information",
+        "strategic_early_warning": "/api/sews",
+        "supply_chain": "/api/supply-chain",
+        "financial_corporate": "/api/financial",
+        "scenario": "/api/scenario",
+        "simulation": "/api/simulation",
+        "global_risk": "/api/global",
+        "personal_agent": "/api/agent",
+    }
+
+    paths = {route.path for route in app.routes}
+
+    modules = {
+        name: {
+            "registered": any(path.startswith(prefix) for path in paths),
+            "prefix": prefix,
+        }
+        for name, prefix in checks.items()
+    }
+
+    healthy = all(
+        module["registered"]
+        for module in modules.values()
+    )
+
+    return {
+        "status": "healthy" if healthy else "degraded",
+        "service": "Sovereign Intelligence API",
+        "canonical_app": "app.main:app",
+        "route_count": len(paths),
+        "modules": modules,
+    }
+
 from app.services.strategic_agents.scheduled_runner import strategic_agent_scheduled_runner
 
 @app.on_event("startup")
