@@ -7,9 +7,17 @@ import requests
 from fastapi import HTTPException
 
 
+# Analytical/intelligence Supabase. Existing backend collectors and persistence
+# continue to use these variables.
 SUPABASE_URL = os.getenv("SUPABASE_URL", "").rstrip("/")
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
 SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY", "")
+
+# Application identity/control-plane Supabase (Lovable Cloud). Incoming browser
+# sessions are issued here, and user/account authorization data is read here
+# under the authenticated user's RLS context.
+AUTH_SUPABASE_URL = os.getenv("AUTH_SUPABASE_URL", "").rstrip("/")
+AUTH_SUPABASE_PUBLISHABLE_KEY = os.getenv("AUTH_SUPABASE_PUBLISHABLE_KEY", "")
 
 ALL_MODULES = [
     "country_intelligence",
@@ -43,6 +51,7 @@ PLAN_MODULES = {
 
 
 def _headers(service_role: bool = True) -> Dict[str, str]:
+    """Headers for the analytical/intelligence Supabase project."""
     key = SUPABASE_SERVICE_ROLE_KEY if service_role else SUPABASE_ANON_KEY
     if not SUPABASE_URL or not key:
         raise HTTPException(status_code=500, detail="Supabase environment variables are missing")
@@ -53,19 +62,34 @@ def _headers(service_role: bool = True) -> Dict[str, str]:
     }
 
 
-def verify_supabase_token(access_token: str) -> Dict[str, Any]:
+def _auth_headers(access_token: str) -> Dict[str, str]:
+    """Headers for xady control-plane reads using the caller's RLS identity."""
+    if not AUTH_SUPABASE_URL or not AUTH_SUPABASE_PUBLISHABLE_KEY:
+        raise HTTPException(status_code=500, detail="Auth Supabase environment variables are missing")
     if not access_token:
         raise HTTPException(status_code=401, detail="Missing access token")
+    return {
+        "apikey": AUTH_SUPABASE_PUBLISHABLE_KEY,
+        "Authorization": f"Bearer {access_token}",
+        "Content-Type": "application/json",
+    }
 
-    key = SUPABASE_ANON_KEY or SUPABASE_SERVICE_ROLE_KEY
-    res = requests.get(
-        f"{SUPABASE_URL}/auth/v1/user",
-        headers={
-            "apikey": key,
-            "Authorization": f"Bearer {access_token}",
-        },
-        timeout=15,
-    )
+
+def verify_supabase_token(access_token: str) -> Dict[str, Any]:
+    """Validate an application access token against its issuing auth project."""
+    if not access_token:
+        raise HTTPException(status_code=401, detail="Missing access token")
+    if not AUTH_SUPABASE_URL or not AUTH_SUPABASE_PUBLISHABLE_KEY:
+        raise HTTPException(status_code=500, detail="Auth Supabase environment variables are missing")
+
+    try:
+        res = requests.get(
+            f"{AUTH_SUPABASE_URL}/auth/v1/user",
+            headers=_auth_headers(access_token),
+            timeout=15,
+        )
+    except requests.RequestException as exc:
+        raise HTTPException(status_code=503, detail="Auth provider unavailable") from exc
 
     if res.status_code != 200:
         raise HTTPException(status_code=401, detail="Invalid Supabase access token")
@@ -73,7 +97,34 @@ def verify_supabase_token(access_token: str) -> Dict[str, Any]:
     return res.json()
 
 
+def auth_table_select(access_token: str, table: str, query: str = "") -> List[Dict[str, Any]]:
+    """Read application/account data from xady under the user's RLS context."""
+    if not AUTH_SUPABASE_URL:
+        raise HTTPException(status_code=500, detail="Auth Supabase environment variables are missing")
+
+    url = f"{AUTH_SUPABASE_URL}/rest/v1/{table}"
+    if query:
+        url += f"?{query}"
+
+    try:
+        res = requests.get(url, headers=_auth_headers(access_token), timeout=20)
+    except requests.RequestException:
+        return []
+
+    if res.status_code in (200, 206):
+        try:
+            data = res.json()
+        except ValueError:
+            return []
+        return data if isinstance(data, list) else []
+
+    # Some context tables are optional or may intentionally be hidden by RLS.
+    # A missing optional packet must not crash authentication for the account.
+    return []
+
+
 def table_select(table: str, query: str = "") -> List[Dict[str, Any]]:
+    """Read from the analytical/intelligence Supabase project."""
     url = f"{SUPABASE_URL}/rest/v1/{table}"
     if query:
         url += f"?{query}"
@@ -113,7 +164,7 @@ def first(rows: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
     return rows[0] if rows else None
 
 
-def get_enabled_modules(user_id: str, profile: Dict[str, Any]) -> List[str]:
+def get_enabled_modules(user_id: str, profile: Dict[str, Any], access_token: str) -> List[str]:
     role = profile.get("role")
     plan = profile.get("plan")
     subscription_status = profile.get("subscription_status")
@@ -121,7 +172,8 @@ def get_enabled_modules(user_id: str, profile: Dict[str, Any]) -> List[str]:
     if role == "admin" or plan == "internal" or subscription_status == "internal":
         return ALL_MODULES
 
-    rows = table_select(
+    rows = auth_table_select(
+        access_token,
         "module_access",
         f"select=module_key,enabled&user_id=eq.{quote(user_id)}&enabled=eq.true",
     )
@@ -241,11 +293,18 @@ def build_recommendations(context: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def build_user_context(user_id: str) -> Dict[str, Any]:
-    profile = first(table_select("profiles", f"select=*&id=eq.{quote(user_id)}"))
+def build_user_context(user_id: str, access_token: str) -> Dict[str, Any]:
+    """Build authorization/personalization context from the xady control plane."""
+    profile = first(
+        auth_table_select(access_token, "profiles", f"select=*&id=eq.{quote(user_id)}")
+    )
 
     if not profile:
         raise HTTPException(status_code=404, detail="Profile not found for authenticated user")
+
+    # Never allow a caller to use a valid token to request another user's context.
+    if str(profile.get("id")) != str(user_id):
+        raise HTTPException(status_code=403, detail="Authenticated user mismatch")
 
     plan = profile.get("plan")
     role = profile.get("role")
@@ -254,7 +313,7 @@ def build_user_context(user_id: str) -> Dict[str, Any]:
     is_admin = role == "admin"
     is_internal = plan == "internal" or subscription_status == "internal"
 
-    allowed_modules = get_enabled_modules(user_id, profile)
+    allowed_modules = get_enabled_modules(user_id, profile, access_token)
 
     if not is_admin and not is_internal and subscription_status != "active":
         return {
@@ -278,37 +337,53 @@ def build_user_context(user_id: str) -> Dict[str, Any]:
         }
 
     intelligence_profile = first(
-        table_select("user_intelligence_profiles", f"select=*&user_id=eq.{quote(user_id)}")
+        auth_table_select(
+            access_token,
+            "user_intelligence_profiles",
+            f"select=*&user_id=eq.{quote(user_id)}",
+        )
     ) or {}
 
-    limits = first(table_select("plan_limits", f"select=*&plan=eq.{quote(plan or '')}")) or {}
+    limits = first(
+        auth_table_select(
+            access_token,
+            "plan_limits",
+            f"select=*&plan=eq.{quote(plan or '')}",
+        )
+    ) or {}
 
-    subscriptions = table_select(
+    subscriptions = auth_table_select(
+        access_token,
         "subscriptions",
         f"select=*&user_id=eq.{quote(user_id)}&order=updated_at.desc&limit=1",
     )
 
-    watchlist = table_select(
+    watchlist = auth_table_select(
+        access_token,
         "user_watchlists",
         f"select=*&user_id=eq.{quote(user_id)}&order=created_at.desc",
     )
 
-    portfolios = table_select(
+    portfolios = auth_table_select(
+        access_token,
         "user_portfolios",
         f"select=*&user_id=eq.{quote(user_id)}&order=created_at.desc",
     )
 
-    saved_reports = table_select(
+    saved_reports = auth_table_select(
+        access_token,
         "saved_reports",
         f"select=*&user_id=eq.{quote(user_id)}&order=created_at.desc&limit=10",
     )
 
-    recent_activity = table_select(
+    recent_activity = auth_table_select(
+        access_token,
         "module_usage_events",
         f"select=*&user_id=eq.{quote(user_id)}&order=created_at.desc&limit=20",
     )
 
-    agent_memory = table_select(
+    agent_memory = auth_table_select(
+        access_token,
         "personal_agent_memory",
         f"select=*&user_id=eq.{quote(user_id)}&active=eq.true&order=updated_at.desc&limit=20",
     )
