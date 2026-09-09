@@ -9,7 +9,7 @@ from fastapi import Request
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 
-from services.agent_context_service import build_user_context, verify_supabase_token
+from services.control_plane_auth import build_user_context, verify_supabase_token
 
 
 PUBLIC_PATHS = frozenset({"/", "/health", "/api/platform/health"})
