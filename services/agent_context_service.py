@@ -22,6 +22,8 @@ ALL_MODULES = [
     "portfolio_intelligence",
     "corporate_exposure",
     "knowledge_graph",
+    "cyber",
+    "strategic_agent",
 ]
 
 PLAN_MODULES = {

@@ -17,12 +17,10 @@ router = APIRouter(
 
 def _authorize(token: str | None) -> None:
     expected = os.getenv("SUPPLY_CHAIN_INGESTION_TOKEN")
-    if expected and (
-        not token or not secrets.compare_digest(token, expected)
-    ):
+    if not expected or not token or not secrets.compare_digest(token, expected):
         raise HTTPException(
             status_code=403,
-            detail="Invalid Supply Chain ingestion token.",
+            detail="Supply Chain ingestion is not authorized.",
         )
 
 

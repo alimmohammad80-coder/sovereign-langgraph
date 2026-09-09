@@ -8,6 +8,8 @@ from routers.country_intelligence import router as country_intelligence_router
 from app.routes.ingestion import router as ingestion_router
 from app.routes.alert_orchestrator import router as alert_orchestrator_router
 from fastapi import FastAPI
+import os
+from app.security import PlatformSecurityMiddleware
 from app.routers import signals
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
@@ -49,6 +51,7 @@ from routes.financial_corporate_market_credit import router as financial_corpora
 from routes.financial_corporate_distress_portfolio import router as financial_corporate_distress_portfolio_router
 from routes.financial_corporate_cross_module import router as financial_corporate_cross_module_router
 from routes.financial_corporate_integrated import router as financial_corporate_integrated_router
+from routes.financial_corporate_reports import router as financial_corporate_reports_router
 from app.routes.early_warning import router as early_warning_router
 from app.routes.early_warning_agents import router as early_warning_agents_router
 from app.routes.simulation_lab import router as simulation_lab_router
@@ -70,13 +73,19 @@ app = FastAPI(
     description="Sovereign Intelligence backend for geopolitical, security, energy, dashboard, signals, ingestion, supply chain, and financial/corporate risk intelligence."
 )
 
+allowed_origins = [
+    origin.strip()
+    for origin in os.getenv("CORS_ALLOWED_ORIGINS", "").split(",")
+    if origin.strip()
+]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=allowed_origins,
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(PlatformSecurityMiddleware)
 
 # Core platform routers
 app.include_router(sews_causal_simulation_router)
@@ -112,6 +121,7 @@ app.include_router(financial_corporate_market_credit_router)
 app.include_router(financial_corporate_distress_portfolio_router)
 app.include_router(financial_corporate_cross_module_router)
 app.include_router(financial_corporate_integrated_router)
+app.include_router(financial_corporate_reports_router)
 
 app.include_router(early_warning_router)
 app.include_router(early_warning_agents_router)
