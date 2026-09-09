@@ -89,7 +89,9 @@ class PlatformSecurityMiddleware(BaseHTTPMiddleware):
             return JSONResponse({"detail": "Invalid bearer token"}, status_code=401)
 
         try:
-            context = build_user_context(str(user_id))
+            # Authorization/account context must be read from the same application
+            # control plane that issued the session, under the caller's RLS identity.
+            context = build_user_context(str(user_id), token)
         except Exception:
             # A verified identity without a usable account context has no access.
             return JSONResponse({"detail": "Account context unavailable"}, status_code=403)
