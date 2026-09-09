@@ -78,6 +78,8 @@ allowed_origins = [
     for origin in os.getenv("CORS_ALLOWED_ORIGINS", "").split(",")
     if origin.strip()
 ]
+app.add_middleware(PlatformSecurityMiddleware)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
@@ -85,7 +87,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-app.add_middleware(PlatformSecurityMiddleware)
 
 # Core platform routers
 app.include_router(sews_causal_simulation_router)
