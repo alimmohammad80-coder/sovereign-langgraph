@@ -7,6 +7,9 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
+SEWS_OFFICIAL_ASSESSMENT_FORMAT = "SEWS-OA/2.0"
+
+
 class ProductGenerationRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -20,6 +23,27 @@ class ProductGenerationRequest(BaseModel):
     preferred_model: str | None = None
 
 
+class OfficialAssessmentForecast(BaseModel):
+    near_term_0_30_days: str = ""
+    medium_term_31_90_days: str = ""
+    longer_term_91_180_days: str = ""
+
+
+class OfficialAssessmentSections(BaseModel):
+    """Canonical reader-facing structure shared by every SEWS warning problem."""
+
+    key_judgment: str
+    why_it_matters: str
+    what_is_happening: str
+    why_we_assess_this: str
+    countervailing_evidence: str
+    escalation_pathway: str
+    implications: str
+    uncertainty_and_gaps: str
+    what_to_watch_next: list[str] = Field(default_factory=list)
+    forecast: OfficialAssessmentForecast = Field(default_factory=OfficialAssessmentForecast)
+
+
 class StrategicIntelligenceProduct(BaseModel):
     product_id: UUID | None = None
     product_key: str
@@ -27,6 +51,11 @@ class StrategicIntelligenceProduct(BaseModel):
     problem_key: str
     assessment_id: UUID
     ai_review_id: UUID | None = None
+
+    # New products use the versioned Official Assessment contract. Legacy rows
+    # remain valid and readable; they are never silently relabeled as OA/2.0.
+    report_format_version: str = "SEWS-LEGACY/1.0"
+    report_sections: OfficialAssessmentSections | None = None
 
     title: str
     bluf: str
