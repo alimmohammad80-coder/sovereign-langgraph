@@ -7,15 +7,15 @@ from app.schemas.sews_operations import EvidencePipelineResponse, IndicatorPipel
 from app.sews_bridge.orchestrator import SEWSExistingSourcesBridge
 from app.sews_bridge.schemas import BridgeRunRequest
 from app.services.sews_deterministic_matcher import SEWSDeterministicIndicatorMatcher
-from app.services.sews_evidence_service import (
-    SEWSEvidenceService,
-)
+from app.services.sews_evidence_service import SEWSEvidenceService
 from app.services.sews_observation_service import SEWSObservationService
 from app.services.sews_indicator_state_service import SEWSIndicatorStateService
 from app.services.sews_warning_scoring_service import SEWSWarningScoringService
 from app.services.sews_material_change_service import SEWSMaterialChangeService
 from app.services.sews_ai_review_service import SEWSAIReviewService
-from app.services.strategic_intelligence_product_service import StrategicIntelligenceProductService
+from app.services.evidence_grounded_strategic_product_service import (
+    EvidenceGroundedStrategicIntelligenceProductService,
+)
 
 from app.schemas.sews_evidence import (
     EvidenceNormalizeRequest,
@@ -29,6 +29,7 @@ from app.schemas.sews_evidence import (
 from app.schemas.sews_warning_scoring import WarningAssessmentRequest
 from app.schemas.sews_ai_review import AIReviewRequest
 from app.schemas.strategic_intelligence_product import ProductGenerationRequest
+
 
 class SEWSWarningSupervisor:
     def __init__(self, db: Client):
@@ -71,19 +72,23 @@ class SEWSWarningSupervisor:
             problem_key=request.problem_key,
         )
 
-        bridge = await SEWSExistingSourcesBridge(self.db).run(
-            BridgeRunRequest(
-                problem_keys=[request.problem_key],
-                source_keys=["GOOGLE_NEWS_RSS", "GDELT", "NEWSAPI"],
-                limit_per_query=request.limit_per_query,
-                persist=not request.dry_run,
-                dry_run=request.dry_run,
+        if request.collect_sources:
+            bridge = await SEWSExistingSourcesBridge(self.db).run(
+                BridgeRunRequest(
+                    problem_keys=[request.problem_key],
+                    source_keys=["GOOGLE_NEWS_RSS", "GDELT", "NEWSAPI"],
+                    limit_per_query=request.limit_per_query,
+                    persist=not request.dry_run,
+                    dry_run=request.dry_run,
+                )
             )
-        )
 
-        response.records_received = bridge.total_records_received
-        response.records_persisted = bridge.total_records_persisted
-        response.metadata["source_results"] = bridge.model_dump(mode="json")["source_results"]
+            response.records_received = bridge.total_records_received
+            response.records_persisted = bridge.total_records_persisted
+            response.metadata["source_results"] = bridge.model_dump(mode="json")["source_results"]
+        else:
+            response.metadata["source_collection_skipped"] = True
+            response.metadata["source_results"] = []
 
         if request.dry_run:
             return response
@@ -108,12 +113,7 @@ class SEWSWarningSupervisor:
         matched = set()
         evidence_object_ids: dict[str, UUID] = {}
 
-        # Rank indicators from the perspective of each evidence record.
-        # One evidence item may affect no more than four indicators.
-        selected_pairs: dict[
-            str,
-            list[tuple[dict, object]],
-        ] = {}
+        selected_pairs: dict[str, list[tuple[dict, object]]] = {}
 
         for evidence in evidence_rows:
             ranked_matches = self.matcher.rank_for_evidence(
@@ -123,27 +123,15 @@ class SEWSWarningSupervisor:
             )
 
             for selected_mapping, match in ranked_matches:
-                selected_indicator_key = selected_mapping[
-                    "indicator_key"
-                ]
-
-                selected_pairs.setdefault(
-                    selected_indicator_key,
-                    [],
-                ).append(
-                    (evidence, match)
-                )
+                selected_indicator_key = selected_mapping["indicator_key"]
+                selected_pairs.setdefault(selected_indicator_key, []).append((evidence, match))
 
         for mapping in mappings:
             indicator = mapping.get("sews_indicator_definitions") or {}
             indicator_key = mapping["indicator_key"]
             item = IndicatorPipelineSummary(indicator_key=indicator_key)
 
-            pairs = selected_pairs.get(
-                indicator_key,
-                [],
-            )
-
+            pairs = selected_pairs.get(indicator_key, [])
             item.matched_evidence_count = len(pairs)
             if not pairs:
                 response.indicator_results.append(item)
@@ -153,14 +141,9 @@ class SEWSWarningSupervisor:
 
             for evidence, match in pairs[:25]:
                 try:
-                    raw_evidence_id = UUID(
-                        str(evidence["id"])
-                    )
-
+                    raw_evidence_id = UUID(str(evidence["id"]))
                     evidence_cache_key = str(raw_evidence_id)
-                    evidence_object_id = evidence_object_ids.get(
-                        evidence_cache_key
-                    )
+                    evidence_object_id = evidence_object_ids.get(evidence_cache_key)
 
                     if evidence_object_id is None:
                         normalized = evidence_service.normalize(
@@ -168,9 +151,7 @@ class SEWSWarningSupervisor:
                                 raw_evidence_id=raw_evidence_id,
                                 evidence_type="OPEN_SOURCE_REPORT",
                                 event_type=(
-                                    evidence.get("metadata", {}).get(
-                                        "event_type"
-                                    )
+                                    evidence.get("metadata", {}).get("event_type")
                                     or "CURRENT_EVENT"
                                 ),
                                 summary=(
@@ -187,65 +168,45 @@ class SEWSWarningSupervisor:
                                     or evidence.get("published_at")
                                     or evidence.get("collected_at")
                                 ),
-                                country_iso3=evidence.get(
-                                    "country_iso3"
-                                ),
-                                region_key=evidence.get(
-                                    "region_key"
-                                ),
+                                country_iso3=evidence.get("country_iso3"),
+                                region_key=evidence.get("region_key"),
                                 polarity=EvidencePolarity.NEUTRAL,
                                 source_reliability=float(
-                                    indicator.get(
-                                        "default_source_reliability",
-                                        70,
-                                    )
+                                    indicator.get("default_source_reliability", 70)
                                 ),
                                 extraction_confidence=min(
                                     95.0,
-                                    max(
-                                        40.0,
-                                        50.0
-                                        + match.score * 45.0,
-                                    ),
+                                    max(40.0, 50.0 + match.score * 45.0),
                                 ),
-                                extractor_version=(
-                                    "sews-deterministic-"
-                                    "normalizer-v1"
-                                ),
+                                extractor_version="sews-deterministic-normalizer-v1",
                                 attributes={
-                                    "warning_problem_key": (
-                                        request.problem_key
-                                    ),
+                                    "warning_problem_key": request.problem_key,
                                     "indicator_key": indicator_key,
                                     "match_score": match.score,
-                                    "matched_terms": (
-                                        match.matched_terms
-                                    ),
+                                    "matched_terms": match.matched_terms,
                                 },
                             )
                         )
-
                         evidence_object_id = normalized.id
-                        evidence_object_ids[
-                            evidence_cache_key
-                        ] = evidence_object_id
+                        evidence_object_ids[evidence_cache_key] = evidence_object_id
 
                     confidence = min(
                         95.0,
-                        max(
-                            40.0,
-                            50.0 + match.score * 45.0,
-                        ),
+                        max(40.0, 50.0 + match.score * 45.0),
                     )
 
                     polarity = (
-                        EvidencePolarity.SUPPORTING if match.polarity == "SUPPORTING"
-                        else EvidencePolarity.CONTRADICTING if match.polarity == "CONTRADICTING"
+                        EvidencePolarity.SUPPORTING
+                        if match.polarity == "SUPPORTING"
+                        else EvidencePolarity.CONTRADICTING
+                        if match.polarity == "CONTRADICTING"
                         else EvidencePolarity.NEUTRAL
                     )
                     trend = (
-                        ObservationTrend.RISING if match.polarity == "SUPPORTING"
-                        else ObservationTrend.FALLING if match.polarity == "CONTRADICTING"
+                        ObservationTrend.RISING
+                        if match.polarity == "SUPPORTING"
+                        else ObservationTrend.FALLING
+                        if match.polarity == "CONTRADICTING"
                         else ObservationTrend.UNKNOWN
                     )
 
@@ -256,14 +217,12 @@ class SEWSWarningSupervisor:
                             10.0,
                             max(
                                 0.1,
-                                float(mapping.get("weight") or 1.0)
-                                * match.score,
+                                float(mapping.get("weight") or 1.0) * match.score,
                             ),
                         ),
                         confidence=confidence,
                         rationale=(
-                            "Ranked deterministic evidence-to-indicator "
-                            "match. Matched terms: "
+                            "Ranked deterministic evidence-to-indicator match. Matched terms: "
                             + ", ".join(match.matched_terms)
                         ),
                     )
@@ -277,8 +236,13 @@ class SEWSWarningSupervisor:
                             normalized_value=round(match.score, 6),
                             polarity=polarity,
                             trend=trend,
-                            confidence=min(95.0, max(40.0, 50.0 + match.score * 45.0)),
-                            observed_at=evidence.get("observed_at") or evidence.get("published_at") or evidence.get("collected_at") or datetime.now(timezone.utc),
+                            confidence=confidence,
+                            observed_at=(
+                                evidence.get("observed_at")
+                                or evidence.get("published_at")
+                                or evidence.get("collected_at")
+                                or datetime.now(timezone.utc)
+                            ),
                             country_iso3=evidence.get("country_iso3"),
                             region_key=evidence.get("region_key"),
                             status=ObservationStatus.VALIDATED,
@@ -290,23 +254,9 @@ class SEWSWarningSupervisor:
                                 "score_breakdown": match.score_breakdown,
                                 "mapping_rationale": mapping.get("rationale"),
                                 "ranking_version": "sews-hybrid-ranking-v1",
-                                "duplicate_cluster_key": (
-                                    evidence.get("metadata", {}).get(
-                                        "duplicate_cluster_key"
-                                    )
-                                ),
-                                "corroboration_count": (
-                                    evidence.get("metadata", {}).get(
-                                        "corroboration_count",
-                                        1,
-                                    )
-                                ),
-                                "source_diversity_count": (
-                                    evidence.get("metadata", {}).get(
-                                        "source_diversity_count",
-                                        1,
-                                    )
-                                ),
+                                "duplicate_cluster_key": evidence.get("metadata", {}).get("duplicate_cluster_key"),
+                                "corroboration_count": evidence.get("metadata", {}).get("corroboration_count", 1),
+                                "source_diversity_count": evidence.get("metadata", {}).get("source_diversity_count", 1),
                                 "canonical_evidence_id": evidence.get("id"),
                             },
                             evidence_links=[link],
@@ -338,7 +288,6 @@ class SEWSWarningSupervisor:
             response.indicator_results.append(item)
 
         response.indicators_matched = len(matched)
-
         previous = self._previous_assessment(request.problem_key)
 
         try:
@@ -382,7 +331,7 @@ class SEWSWarningSupervisor:
                 response.errors.append(f"AI review failed: {type(exc).__name__}: {exc}")
 
             try:
-                product = StrategicIntelligenceProductService(self.db).generate(
+                product = EvidenceGroundedStrategicIntelligenceProductService(self.db).generate(
                     request.problem_key,
                     ProductGenerationRequest(
                         assessment_id=UUID(response.assessment_id),
