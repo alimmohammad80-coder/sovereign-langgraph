@@ -17,7 +17,7 @@ from app.services.sews_evidence_context_service import SEWSEvidenceContextServic
 from app.services.sews_portfolio_supervisor import SEWSPortfolioSupervisor
 
 
-REFRESH_VERSION = "sews-portfolio-refresh-v2.0.0"
+REFRESH_VERSION = "sews-portfolio-refresh-v2.0.1"
 QUERY_SAFE_SOURCE_KEYS = [
     "GOOGLE_NEWS_RSS",
     "GDELT",
@@ -35,11 +35,10 @@ QUERY_SAFE_SOURCE_KEYS = [
 class SEWSPortfolioRefreshService:
     """Refresh SEWS evidence, assessments, and OA/2.0 products coherently.
 
-    The legacy warning supervisor remains responsible for deterministic matching,
-    observation/state recalculation, and scoring. This coordinator broadens source
-    collection before that run and then creates the canonical evidence-grounded
-    Official Assessment after scoring. An Official Assessment is never generated
-    when the warning has no canonical evidence context.
+    Collection happens once for the requested portfolio. Warning supervisors then
+    process the persisted evidence into canonical evidence, observations, states,
+    and deterministic assessments without re-querying the same live sources.
+    Published Official Assessments are generated only from canonical evidence.
     """
 
     def __init__(self, db: Client):
@@ -66,10 +65,6 @@ class SEWSPortfolioRefreshService:
         keys = problem_keys or self.active_problem_keys()
         started_at = datetime.now(timezone.utc)
 
-        # Use source families whose callable contract accepts a warning/search
-        # query. Low-level time-series adapters (FRED/EIA/IMF/World Bank) require
-        # explicit series identifiers and are intentionally reached through the
-        # authoritative SEWS aggregate adapters instead of being called blindly.
         bridge = await SEWSExistingSourcesBridge(self.db).run(
             BridgeRunRequest(
                 problem_keys=keys,
@@ -86,6 +81,7 @@ class SEWSPortfolioRefreshService:
                 dry_run=False,
                 concurrency=max(1, min(concurrency, 4)),
                 limit_per_query=max(1, min(limit_per_query, 20)),
+                collect_sources=False,
             )
         )
 
@@ -120,9 +116,6 @@ class SEWSPortfolioRefreshService:
                 coverage.append(item)
                 continue
 
-            # Citation-integrity gate: a published Official Assessment must have
-            # at least one canonical evidence document. Low diversity is exposed
-            # as confidence/evidence quality; zero evidence blocks publication.
             if not documents:
                 products_blocked_no_evidence += 1
                 item["official_assessment_blocked"] = "NO_CANONICAL_EVIDENCE"
