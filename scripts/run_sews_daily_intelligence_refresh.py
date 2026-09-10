@@ -1,134 +1,50 @@
 from __future__ import annotations
 
-import os
-import subprocess
-import sys
+import argparse
+import asyncio
 from datetime import datetime, timezone
-from pathlib import Path
+from pprint import pprint
+
+from app.routes.sews_evidence import get_sews_supabase_client
+from app.services.sews_portfolio_refresh_service import SEWSPortfolioRefreshService
 
 
-def load_environment() -> dict[str, str]:
-    env = os.environ.copy()
-    env_path = Path(".env")
-
-    if env_path.exists():
-        for raw_line in env_path.read_text().splitlines():
-            line = raw_line.strip()
-
-            if not line or line.startswith("#") or "=" not in line:
-                continue
-
-            key, value = line.split("=", 1)
-            key = key.strip()
-            value = value.strip().strip('"').strip("'")
-
-            if key:
-                env[key] = value
-
-    return env
-
-
-def run_step(
-    name: str,
-    command: list[str],
-    env: dict[str, str],
-) -> None:
-    print("\n" + "=" * 100)
-    print(name)
-    print("=" * 100)
-    print("COMMAND:", " ".join(command))
-    print("STARTED:", datetime.now(timezone.utc).isoformat())
-
-    result = subprocess.run(
-        command,
-        check=False,
-        env=env,
-    )
-
-    if result.returncode != 0:
-        raise SystemExit(
-            f"{name} failed with return code "
-            f"{result.returncode}"
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description=(
+            "Run the production SEWS daily portfolio refresh: collect evidence once, "
+            "create canonical evidence/observations, recalculate states, reassess, "
+            "and publish evidence-grounded OA/2.0 products."
         )
-
-    print(
-        "FINISHED:",
-        datetime.now(timezone.utc).isoformat(),
     )
+    parser.add_argument("--concurrency", type=int, default=2)
+    parser.add_argument("--limit-per-query", type=int, default=5)
+    return parser.parse_args()
 
 
-def main() -> None:
-    python = sys.executable
-    env = load_environment()
-
-    required = (
-        "SUPABASE_URL",
-        "SUPABASE_SERVICE_ROLE_KEY",
-    )
-
-    missing = [
-        key
-        for key in required
-        if not env.get(key)
-    ]
-
-    if missing:
-        raise SystemExit(
-            "Missing required environment variables: "
-            + ", ".join(missing)
-        )
+async def main() -> None:
+    args = parse_args()
+    db = get_sews_supabase_client()
 
     print("=" * 100)
-    print("SEWS DAILY INTELLIGENCE REFRESH")
+    print("SEWS DAILY PRODUCTION REFRESH — OA/2.0")
     print("=" * 100)
-    print(
-        "Started:",
-        datetime.now(timezone.utc).isoformat(),
-    )
+    print("Started:", datetime.now(timezone.utc).isoformat())
 
-    # 1. Refresh every indicator state from current evidence.
-    run_step(
-        "STEP 1 — RECALCULATE INDICATOR STATES",
-        [
-            python,
-            "scripts/recalculate_all_sews_indicator_states.py",
-        ],
-        env,
-    )
-
-    # 2. Reassess the complete warning portfolio.
-    #
-    # This performs the deterministic assessment and AI strategic
-    # review pipeline using the newly refreshed indicator states.
-    run_step(
-        "STEP 2 — RUN ALL WARNING SUPERVISORS",
-        [
-            python,
-            "scripts/run_all_sews_warning_supervisors.py",
-        ],
-        env,
-    )
-
-    # 3. Publish a current intelligence product for the complete
-    # portfolio. Daily products are intentionally refreshed even
-    # where the warning judgment remains unchanged.
-    run_step(
-        "STEP 3 — GENERATE INTELLIGENCE PRODUCTS",
-        [
-            python,
-            "scripts/generate_all_sews_intelligence_products.py",
-        ],
-        env,
+    result = await SEWSPortfolioRefreshService(db).refresh(
+        concurrency=max(1, min(args.concurrency, 4)),
+        limit_per_query=max(1, min(args.limit_per_query, 20)),
     )
 
     print("\n" + "=" * 100)
-    print("SEWS DAILY INTELLIGENCE REFRESH COMPLETE")
+    print("SEWS DAILY PRODUCTION REFRESH SUMMARY")
     print("=" * 100)
-    print(
-        "Finished:",
-        datetime.now(timezone.utc).isoformat(),
-    )
+    pprint(result)
+    print("Finished:", datetime.now(timezone.utc).isoformat())
+
+    if result.get("status") not in {"success", "partial"}:
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
