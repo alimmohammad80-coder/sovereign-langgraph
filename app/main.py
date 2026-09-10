@@ -143,7 +143,7 @@ app.include_router(early_warning_agents_router)
 app.include_router(fusion_router)
 
 @app.get("/")
-def root():
+async def root():
     return {
         "status": "ok",
         "message": "Sovereign Intelligence API running",
@@ -158,7 +158,7 @@ def root():
     }
 
 @app.get("/health")
-def health():
+async def health():
     return {
         "health": "healthy",
         "status": "ok",
@@ -213,9 +213,18 @@ REQUIRED_ROUTE_PREFIXES = [
     "/api/simulation",
 ]
 
+def _registered_paths() -> set[str]:
+    return {
+        route.path
+        for route in app.routes
+        if getattr(route, "path", None)
+    }
+
+
 def validate_canonical_routes() -> set[str]:
-    app.openapi_schema = None
-    paths = set(app.openapi().get("paths", {}).keys())
+    # Validate registered FastAPI routes directly. Rebuilding the entire OpenAPI
+    # schema during startup is unnecessary and can be expensive on a large app.
+    paths = _registered_paths()
     missing_route_prefixes = [
         prefix
         for prefix in REQUIRED_ROUTE_PREFIXES
@@ -229,7 +238,7 @@ def validate_canonical_routes() -> set[str]:
     return paths
 
 @app.get("/api/platform/health", tags=["Platform"])
-def platform_health():
+async def platform_health():
     checks = {
         "country_intelligence": "/api/country-intelligence",
         "conflict_forecasting": "/api/conflict",
@@ -243,8 +252,7 @@ def platform_health():
         "global_risk": "/api/global",
         "personal_agent": "/api/agent",
     }
-    app.openapi_schema = None
-    paths = set(app.openapi().get("paths", {}).keys())
+    paths = _registered_paths()
     modules = {
         name: {"registered": any(path.startswith(prefix) for path in paths), "prefix": prefix}
         for name, prefix in checks.items()
@@ -263,7 +271,7 @@ from app.services.strategic_agents.scheduled_runner import strategic_agent_sched
 @app.on_event("startup")
 async def start_strategic_agent_scheduler() -> None:
     paths = validate_canonical_routes()
-    print("[Platform] Canonical route validation passed:", len(paths), "OpenAPI paths")
+    print("[Platform] Canonical route validation passed:", len(paths), "registered paths")
     await strategic_agent_scheduled_runner.start()
 
 @app.on_event("shutdown")
