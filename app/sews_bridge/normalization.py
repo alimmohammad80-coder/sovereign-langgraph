@@ -1,6 +1,7 @@
 import hashlib, json
 from datetime import datetime, timezone
 
+
 def _first(record, *keys):
     for key in keys:
         value = record.get(key)
@@ -8,7 +9,14 @@ def _first(record, *keys):
             return value
     return None
 
-def _dt(value, *, default_now=True):
+
+def _dt(value, *, default_now=False):
+    """Normalize a timestamp without inventing freshness.
+
+    Missing publication/observation times must remain null. Assigning the
+    current time to undated evidence makes stale or timeless records appear
+    freshly observed and corrupts downstream freshness/confidence metrics.
+    """
     if value is None:
         return (
             datetime.now(timezone.utc).isoformat()
@@ -20,6 +28,7 @@ def _dt(value, *, default_now=True):
             value = value.replace(tzinfo=timezone.utc)
         return value.astimezone(timezone.utc).isoformat()
     return str(value)
+
 
 def normalize_existing_record(*, source_key, raw_record, problem_key, country_iso3, region_key, query):
     record = raw_record.model_dump(mode="json") if hasattr(raw_record, "model_dump") else (
@@ -50,5 +59,6 @@ def normalize_existing_record(*, source_key, raw_record, problem_key, country_is
             "collection_query": query,
             "bridge_source": source_key,
             "existing_platform_record": record,
+            "timestamp_quality": "observed" if _first(record, "published_at", "published", "date", "seendate", "updated_at", "observed_at", "timestamp") else "unknown",
         },
     }
