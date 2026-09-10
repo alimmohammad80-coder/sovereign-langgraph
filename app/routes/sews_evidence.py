@@ -6,6 +6,7 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from supabase import Client, create_client
+from supabase.client import ClientOptions
 
 from app.schemas.sews_evidence import (
     EvidenceIngestRequest,
@@ -38,14 +39,31 @@ router = APIRouter(prefix="/api/sews", tags=["SEWS Evidence"])
 @lru_cache(maxsize=1)
 def get_sews_supabase_client() -> Client:
     url = os.getenv("SUPABASE_URL")
-    # Backend must use the service-role key because RLS intentionally blocks
-    # client writes to analytical tables.
     key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
     if not url or not key:
         raise RuntimeError(
             "SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be configured."
         )
-    return create_client(url, key)
+
+    # SEWS production cycles can generate sustained PostgREST traffic. A stalled
+    # database read must fail quickly instead of holding a FastAPI worker thread
+    # long enough to starve unrelated platform requests.
+    try:
+        postgrest_timeout = float(os.getenv("SEWS_POSTGREST_TIMEOUT_SECONDS", "8"))
+    except ValueError:
+        postgrest_timeout = 8.0
+    postgrest_timeout = max(2.0, min(postgrest_timeout, 30.0))
+
+    return create_client(
+        url,
+        key,
+        options=ClientOptions(
+            postgrest_client_timeout=postgrest_timeout,
+            storage_client_timeout=15,
+            function_client_timeout=15,
+            schema="public",
+        ),
+    )
 
 
 DB = Annotated[Client, Depends(get_sews_supabase_client)]
@@ -104,7 +122,7 @@ def list_evidence(
     response_model=ObservationResponse,
     status_code=status.HTTP_201_CREATED,
 )
-def create_observation(payload: ObservationCreateRequest, db: DB):
+def create_observation(payload: EvidenceNormalizeRequest, db: DB):
     try:
         return SEWSObservationService(db).create(payload)
     except SEWSObservationError as exc:
