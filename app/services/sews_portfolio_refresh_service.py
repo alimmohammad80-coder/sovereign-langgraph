@@ -18,6 +18,18 @@ from app.services.sews_portfolio_supervisor import SEWSPortfolioSupervisor
 
 
 REFRESH_VERSION = "sews-portfolio-refresh-v2.0.0"
+QUERY_SAFE_SOURCE_KEYS = [
+    "GOOGLE_NEWS_RSS",
+    "GDELT",
+    "NEWSAPI",
+    "SEWS_ECONOMIC",
+    "SEWS_ENERGY",
+    "SEWS_CONFLICT",
+    "SEWS_POLITICAL",
+    "SEWS_TRADE_SANCTIONS",
+    "RELIEFWEB",
+    "OFAC",
+]
 
 
 class SEWSPortfolioRefreshService:
@@ -54,13 +66,14 @@ class SEWSPortfolioRefreshService:
         keys = problem_keys or self.active_problem_keys()
         started_at = datetime.now(timezone.utc)
 
-        # First collect across every discoverable source family. The bridge's
-        # per-warning source policy decides which families are relevant. Source
-        # adapters that cannot serve a warning are isolated in their own errors.
+        # Use source families whose callable contract accepts a warning/search
+        # query. Low-level time-series adapters (FRED/EIA/IMF/World Bank) require
+        # explicit series identifiers and are intentionally reached through the
+        # authoritative SEWS aggregate adapters instead of being called blindly.
         bridge = await SEWSExistingSourcesBridge(self.db).run(
             BridgeRunRequest(
                 problem_keys=keys,
-                source_keys=None,
+                source_keys=QUERY_SAFE_SOURCE_KEYS,
                 limit_per_query=max(1, min(limit_per_query, 20)),
                 persist=True,
                 dry_run=False,
@@ -107,9 +120,9 @@ class SEWSPortfolioRefreshService:
                 coverage.append(item)
                 continue
 
-            # Citation integrity gate: an Official Assessment must have at least
-            # one canonical evidence document. Low diversity is reported through
-            # confidence/quality metadata; zero evidence blocks publication.
+            # Citation-integrity gate: a published Official Assessment must have
+            # at least one canonical evidence document. Low diversity is exposed
+            # as confidence/evidence quality; zero evidence blocks publication.
             if not documents:
                 products_blocked_no_evidence += 1
                 item["official_assessment_blocked"] = "NO_CANONICAL_EVIDENCE"
