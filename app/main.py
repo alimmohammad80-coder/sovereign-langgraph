@@ -73,16 +73,33 @@ app = FastAPI(
     description="Sovereign Intelligence backend for geopolitical, security, energy, dashboard, signals, ingestion, supply chain, and financial/corporate risk intelligence."
 )
 
-allowed_origins = [
+# Production origins are always allowed so a missing/stale Render environment
+# variable cannot take the entire browser platform offline. Additional origins
+# (for example temporary staging hosts) can still be supplied through
+# CORS_ALLOWED_ORIGINS without replacing these stable defaults.
+DEFAULT_ALLOWED_ORIGINS = {
+    "https://sovereignintel.ai",
+    "https://www.sovereignintel.ai",
+    "https://sovereignintelligence.app",
+    "https://www.sovereignintelligence.app",
+    "http://localhost:8080",
+    "http://localhost:5173",
+}
+configured_origins = {
     origin.strip()
     for origin in os.getenv("CORS_ALLOWED_ORIGINS", "").split(",")
     if origin.strip()
-]
+}
+allowed_origins = sorted(DEFAULT_ALLOWED_ORIGINS | configured_origins)
+
 app.add_middleware(PlatformSecurityMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
+    # Lovable preview hosts change over time. Permit only HTTPS subdomains of
+    # Lovable's preview zones; production remains explicitly allow-listed above.
+    allow_origin_regex=r"^https://([a-z0-9-]+\.)*(lovable\.app|lovableproject\.com|lovableproject-dev\.com|gpt-eng\.com|gptengineer\.run)$",
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
