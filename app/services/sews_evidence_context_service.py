@@ -55,26 +55,26 @@ class SEWSEvidenceContextService:
             or []
         )
 
+        empty_quality = {
+            "document_count": 0,
+            "linked_observation_count": len(observations),
+            "unique_source_count": 0,
+            "mean_reliability": None,
+            "mean_freshness": None,
+            "validated_document_count": 0,
+        }
         if not observations:
-            return {
-                "problem_key": problem_key,
-                "documents": [],
-                "quality": {
-                    "document_count": 0,
-                    "linked_observation_count": 0,
-                    "unique_source_count": 0,
-                    "mean_reliability": None,
-                    "mean_freshness": None,
-                    "validated_document_count": 0,
-                },
-            }
+            return {"problem_key": problem_key, "documents": [], "quality": empty_quality}
 
         observation_by_id = {str(row["id"]): row for row in observations}
         observation_ids = list(observation_by_id)
 
         links = (
             self.db.table("sews_observation_evidence_links")
-            .select("observation_id,evidence_object_id,relationship_type,weight,notes")
+            .select(
+                "observation_id,evidence_object_id,polarity,"
+                "contribution_weight,confidence,rationale"
+            )
             .in_("observation_id", observation_ids)
             .execute()
             .data
@@ -85,24 +85,15 @@ class SEWSEvidenceContextService:
             {str(row["evidence_object_id"]) for row in links if row.get("evidence_object_id")}
         )
         if not evidence_object_ids:
-            return {
-                "problem_key": problem_key,
-                "documents": [],
-                "quality": {
-                    "document_count": 0,
-                    "linked_observation_count": len(observations),
-                    "unique_source_count": 0,
-                    "mean_reliability": None,
-                    "mean_freshness": None,
-                    "validated_document_count": 0,
-                },
-            }
+            return {"problem_key": problem_key, "documents": [], "quality": empty_quality}
 
         evidence_objects = (
             self.db.table("sews_evidence_objects")
             .select(
-                "id,raw_evidence_id,evidence_object_key,evidence_type,status,event_time,"
-                "source_reliability,validation_confidence,country_iso3,region_key"
+                "id,raw_evidence_id,evidence_object_key,evidence_type,event_type,"
+                "summary,normalized_text,status,event_time,polarity,"
+                "source_reliability,extraction_confidence,validation_confidence,"
+                "corroboration_count,country_iso3,region_key"
             )
             .in_("id", evidence_object_ids)
             .execute()
@@ -167,6 +158,24 @@ class SEWSEvidenceContextService:
                 for item in linked
                 if item["observation"].get("statement")
             ]
+            link_assessments = [
+                {
+                    "indicator_key": item["observation"].get("indicator_key"),
+                    "polarity": item.get("polarity"),
+                    "contribution_weight": (
+                        float(item["contribution_weight"])
+                        if item.get("contribution_weight") is not None
+                        else None
+                    ),
+                    "confidence": (
+                        float(item["confidence"])
+                        if item.get("confidence") is not None
+                        else None
+                    ),
+                    "rationale": item.get("rationale"),
+                }
+                for item in linked
+            ]
 
             timestamp = (
                 evo.get("event_time")
@@ -189,19 +198,32 @@ class SEWSEvidenceContextService:
                     "source_name": source.get("name") or source.get("source_key"),
                     "source_status": source.get("status"),
                     "title": raw.get("title"),
-                    "summary": raw.get("raw_text") or (statements[0] if statements else None),
+                    "summary": (
+                        evo.get("summary")
+                        or evo.get("normalized_text")
+                        or raw.get("raw_text")
+                        or (statements[0] if statements else None)
+                    ),
                     "url": raw.get("canonical_url"),
                     "published_at": raw.get("published_at"),
                     "event_time": evo.get("event_time") or raw.get("observed_at"),
                     "collected_at": raw.get("collected_at"),
                     "status": evo.get("status"),
                     "evidence_type": evo.get("evidence_type"),
+                    "event_type": evo.get("event_type"),
+                    "polarity": evo.get("polarity"),
                     "reliability": float(reliability) if reliability is not None else None,
+                    "extraction_confidence": (
+                        float(evo["extraction_confidence"])
+                        if evo.get("extraction_confidence") is not None
+                        else None
+                    ),
                     "validation_confidence": (
                         float(evo["validation_confidence"])
                         if evo.get("validation_confidence") is not None
                         else None
                     ),
+                    "corroboration_count": evo.get("corroboration_count"),
                     "freshness": self._freshness_score(self._iso(timestamp)),
                     "country_iso3": evo.get("country_iso3") or raw.get("country_iso3"),
                     "region_key": evo.get("region_key") or raw.get("region_key"),
@@ -209,14 +231,16 @@ class SEWSEvidenceContextService:
                     "observation_keys": observation_keys,
                     "observation_count": len(linked),
                     "observation_statements": statements[:6],
+                    "link_assessments": link_assessments,
                 }
             )
 
-        def sort_key(row: dict[str, Any]) -> tuple[float, float, str]:
+        def sort_key(row: dict[str, Any]) -> tuple[float, float, float, str]:
             validated = 1.0 if str(row.get("status") or "").upper() == "VALIDATED" else 0.0
             reliability = float(row.get("reliability") or 0)
+            confidence = float(row.get("validation_confidence") or row.get("extraction_confidence") or 0)
             timestamp = str(row.get("published_at") or row.get("event_time") or row.get("collected_at") or "")
-            return (validated, reliability, timestamp)
+            return (validated, reliability, confidence, timestamp)
 
         documents.sort(key=sort_key, reverse=True)
 
