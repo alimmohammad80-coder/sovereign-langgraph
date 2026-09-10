@@ -9,12 +9,18 @@ from pydantic import BaseModel, Field
 from routes.financial_corporate_integrated import integrated_status, live_integrated_snapshot
 from routes.financial_corporate_reports import FinancialCorporateReportRequest, generate_report
 from services.financial_corporate.financial_depth import FinancialDepthService
+from services.financial_corporate.financial_forecast import FinancialRiskForecastEngine
+from services.financial_corporate.resilience_calibration import FinancialResilienceCalibrationEngine
 from services.financial_corporate.risk_engine import CorporateRiskEngine
+from services.financial_corporate.sector_calibration import SectorRelativeCalibrationEngine
 
 
 router = APIRouter(prefix="/api/financial", tags=["Financial Risk Command"])
 risk_engine = CorporateRiskEngine()
 financial_depth = FinancialDepthService()
+forecast_engine = FinancialRiskForecastEngine()
+sector_calibration = SectorRelativeCalibrationEngine()
+resilience_calibration = FinancialResilienceCalibrationEngine()
 
 
 DIMENSION_LABELS = {
@@ -39,6 +45,12 @@ class CommandReportRequest(BaseModel):
     symbol: str = Field(..., min_length=1, max_length=16)
     narrative_refinement: bool = True
     preferred_narrative_provider: Optional[str] = None
+
+
+class SectorCalibrationRequest(BaseModel):
+    company_metrics: Dict[str, Any]
+    peer_metrics: List[Dict[str, Any]]
+    sector_key: Optional[str] = None
 
 
 def _number(value: Any) -> Optional[float]:
@@ -120,6 +132,46 @@ def _normalize_snapshot(live: Dict[str, Any], symbol: str) -> Dict[str, Any]:
     }
 
 
+def _apply_depth_calibration(normalized: Dict[str, Any], live: Dict[str, Any], depth: Dict[str, Any]) -> Dict[str, Any]:
+    calibrated = depth.get("calibrated_financial_resilience") or {}
+    calibrated_score = _number(calibrated.get("financial_resilience_risk_score"))
+    calibrated_confidence = _number(calibrated.get("confidence_score")) or 0.0
+    if calibrated_score is None:
+        normalized["financial_depth"] = depth
+        normalized["score_policy"] = "base_financial_resilience_insufficient_depth_evidence"
+        return normalized
+
+    upstream_overall = ((live.get("data") or {}).get("overall") or {})
+    factors = dict(upstream_overall.get("dimensions") or {})
+    confidence = dict(upstream_overall.get("dimension_confidence") or {})
+    base_financial_score = _number(factors.get("financial_resilience"))
+    factors["financial_resilience"] = calibrated_score
+    confidence["financial_resilience"] = calibrated_confidence
+
+    rescored = risk_engine.score(factors, confidence)
+    rescored["dimension_confidence"] = confidence
+    normalized["overall"] = {
+        "risk_score": _number(rescored.get("overall_risk_score")),
+        "risk_level": rescored.get("risk_level", "Unknown"),
+        "confidence_score": _number(rescored.get("confidence_score")) or 0.0,
+        "assessment_status": rescored.get("assessment_status", "unknown"),
+    }
+    normalized["dimensions"] = _normalize_dimensions(rescored)
+    normalized["top_drivers"] = rescored.get("top_drivers") or []
+    normalized["financial_depth"] = depth
+    normalized["financial_resilience_calibration"] = {
+        "base_score": base_financial_score,
+        "calibrated_score": calibrated_score,
+        "delta": None if base_financial_score is None else round(calibrated_score - base_financial_score, 2),
+        "confidence_score": calibrated_confidence,
+        "methodology": calibrated.get("methodology"),
+        "guardrails": calibrated.get("guardrails"),
+    }
+    normalized["methodology"] = "financial_risk_command_v2_calibrated_resilience"
+    normalized["score_policy"] = "canonical_score_uses_guarded_calibrated_financial_resilience"
+    return normalized
+
+
 @router.get("/status")
 def financial_command_status():
     upstream = integrated_status()
@@ -128,7 +180,7 @@ def financial_command_status():
         "module": "Financial Risk Command",
         "api_version": "v2",
         "canonical": True,
-        "authoritative_score": "deterministic",
+        "authoritative_score": "deterministic_guarded_calibration",
         "ai_generated_score": False,
         "risk_dimensions": [
             {"key": dimension.key, "label": DIMENSION_LABELS[dimension.key], "weight": dimension.weight}
@@ -136,12 +188,15 @@ def financial_command_status():
         ],
         "financial_depth": {
             "status": "enabled",
-            "score_policy": "evidence_only_pending_calibration_into_financial_resilience",
+            "score_policy": "guarded_calibration_into_financial_resilience",
             "capabilities": [
                 "debt_maturity_and_refinancing",
+                "company_specific_credit_vulnerability",
                 "rates_sensitivity",
                 "fx_sensitivity_when_disclosed",
                 "multi_period_revenue_earnings_cash_flow_debt_trends",
+                "sector_relative_peer_calibration_when_supplied",
+                "directional_30_90_180_day_forecasts",
             ],
         },
         "risk_thresholds": {"critical": 85, "high": 70, "elevated": 55, "guarded": 35, "low": 0},
@@ -155,10 +210,14 @@ def financial_command_snapshot(symbol: str):
     if not normalized_symbol:
         raise HTTPException(status_code=400, detail="Ticker symbol is required")
     live = live_integrated_snapshot(normalized_symbol)
-    return {
-        "status": live.get("status", "success"),
-        "data": _normalize_snapshot(live, normalized_symbol),
-    }
+    normalized = _normalize_snapshot(live, normalized_symbol)
+    try:
+        depth = financial_depth.collect(normalized_symbol)
+        normalized = _apply_depth_calibration(normalized, live, depth)
+    except Exception as exc:
+        normalized["financial_depth_error"] = str(exc)
+        normalized["score_policy"] = "base_financial_resilience_depth_collection_failed"
+    return {"status": live.get("status", "success"), "data": normalized}
 
 
 @router.get("/depth/{symbol}")
@@ -176,12 +235,46 @@ def financial_command_depth(symbol: str):
     }
 
 
+@router.post("/calibrate/sector")
+def financial_sector_calibration(payload: SectorCalibrationRequest):
+    return {
+        "status": "success",
+        "data": sector_calibration.calibrate(
+            company_metrics=payload.company_metrics,
+            peer_metrics=payload.peer_metrics,
+            sector_key=payload.sector_key,
+        ),
+    }
+
+
+@router.get("/forecast/{symbol}")
+def financial_command_forecast(symbol: str):
+    normalized_symbol = symbol.strip().upper()
+    if not normalized_symbol:
+        raise HTTPException(status_code=400, detail="Ticker symbol is required")
+    snapshot_response = financial_command_snapshot(normalized_symbol)
+    snapshot = snapshot_response.get("data") or {}
+    depth = snapshot.get("financial_depth") or {}
+    external = snapshot.get("external_risk") or {}
+    market_credit = snapshot.get("market_credit") or {}
+    result = forecast_engine.forecast(
+        current_risk_score=(snapshot.get("overall") or {}).get("risk_score"),
+        confidence_score=(snapshot.get("overall") or {}).get("confidence_score"),
+        market_stress_score=market_credit.get("market_credit_stress_score"),
+        refinancing_risk_score=(depth.get("debt_refinancing") or {}).get("refinancing_risk_score"),
+        credit_vulnerability_score=(depth.get("credit_vulnerability") or {}).get("credit_vulnerability_score"),
+        trend_risk_score=(depth.get("financial_trends") or {}).get("trend_risk_score"),
+        supply_chain_risk=external.get("supply_chain"),
+        geopolitical_risk=external.get("geopolitical"),
+    )
+    return {"status": "success", "data": {"symbol": normalized_symbol, **result}}
+
+
 @router.post("/scenario/supply-chain")
 def financial_supply_chain_scenario(payload: SupplyChainShockRequest):
     normalized_symbol = payload.symbol.strip().upper()
-    live = live_integrated_snapshot(normalized_symbol)
-    snapshot = _normalize_snapshot(live, normalized_symbol)
-    base_score = snapshot["overall"].get("risk_score")
+    snapshot = (financial_command_snapshot(normalized_symbol).get("data") or {})
+    base_score = (snapshot.get("overall") or {}).get("risk_score")
     if base_score is None:
         raise HTTPException(status_code=422, detail="Insufficient evidence for an authoritative base risk score")
 
@@ -197,8 +290,8 @@ def financial_supply_chain_scenario(payload: SupplyChainShockRequest):
         "data": {
             "symbol": normalized_symbol,
             "scenario_type": "supply_chain_disruption",
-            "base_confidence_score": snapshot["overall"].get("confidence_score"),
-            "base_coverage": snapshot["coverage"],
+            "base_confidence_score": (snapshot.get("overall") or {}).get("confidence_score"),
+            "base_coverage": snapshot.get("coverage"),
             **propagation,
             "ai_generated_score": False,
         },
