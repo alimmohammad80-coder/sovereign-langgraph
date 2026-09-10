@@ -52,6 +52,7 @@ from routes.financial_corporate_distress_portfolio import router as financial_co
 from routes.financial_corporate_cross_module import router as financial_corporate_cross_module_router
 from routes.financial_corporate_integrated import router as financial_corporate_integrated_router
 from routes.financial_corporate_reports import router as financial_corporate_reports_router
+from routes.financial_command import router as financial_command_router
 from app.routes.early_warning import router as early_warning_router
 from app.routes.early_warning_agents import router as early_warning_agents_router
 from app.routes.simulation_lab import router as simulation_lab_router
@@ -73,10 +74,6 @@ app = FastAPI(
     description="Sovereign Intelligence backend for geopolitical, security, energy, dashboard, signals, ingestion, supply chain, and financial/corporate risk intelligence."
 )
 
-# Production origins are always allowed so a missing/stale Render environment
-# variable cannot take the entire browser platform offline. Additional origins
-# (for example temporary staging hosts) can still be supplied through
-# CORS_ALLOWED_ORIGINS without replacing these stable defaults.
 DEFAULT_ALLOWED_ORIGINS = {
     "https://sovereignintel.ai",
     "https://www.sovereignintel.ai",
@@ -93,12 +90,9 @@ configured_origins = {
 allowed_origins = sorted(DEFAULT_ALLOWED_ORIGINS | configured_origins)
 
 app.add_middleware(PlatformSecurityMiddleware)
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
-    # Lovable preview hosts change over time. Permit only HTTPS subdomains of
-    # Lovable's preview zones; production remains explicitly allow-listed above.
     allow_origin_regex=r"^https://([a-z0-9-]+\.)*(lovable\.app|lovableproject\.com|lovableproject-dev\.com|gpt-eng\.com|gptengineer\.run)$",
     allow_credentials=False,
     allow_methods=["*"],
@@ -127,12 +121,12 @@ app.include_router(supply_chain_geo_router)
 app.include_router(supply_chain_ingestion_router)
 app.include_router(cyber_information_router)
 
-# Supply Chain / legacy financial routers
+# Supply Chain / legacy financial routers retained for compatibility.
 app.include_router(supply_chain_router)
 app.include_router(financial_risk_router)
 app.include_router(corporate_exposure_router)
 
-# Financial & Corporate Risk Intelligence
+# Financial & Corporate intelligence internals.
 app.include_router(financial_corporate_intelligence_router)
 app.include_router(financial_corporate_universe_router)
 app.include_router(financial_corporate_market_credit_router)
@@ -140,6 +134,9 @@ app.include_router(financial_corporate_distress_portfolio_router)
 app.include_router(financial_corporate_cross_module_router)
 app.include_router(financial_corporate_integrated_router)
 app.include_router(financial_corporate_reports_router)
+
+# Canonical Financial Risk Command v2 public contract.
+app.include_router(financial_command_router)
 
 app.include_router(early_warning_router)
 app.include_router(early_warning_agents_router)
@@ -150,14 +147,14 @@ def root():
     return {
         "status": "ok",
         "message": "Sovereign Intelligence API running",
-        "version": "financial-corporate-routes-enabled",
+        "version": "financial-risk-command-v2",
         "modules": [
             "ingest",
             "signals",
             "dashboard",
             "supply_chain_risk",
-            "financial_corporate_risk"
-        ]
+            "financial_risk_command",
+        ],
     }
 
 @app.get("/health")
@@ -165,16 +162,13 @@ def health():
     return {
         "health": "healthy",
         "status": "ok",
-        "service": "sovereign-intelligence-api"
+        "service": "sovereign-intelligence-api",
     }
 
 @app.get("/routes")
 def list_routes():
     return [
-        {
-            "path": route.path,
-            "methods": sorted(list(route.methods or []))
-        }
+        {"path": route.path, "methods": sorted(list(route.methods or []))}
         for route in app.routes
     ]
 
@@ -207,12 +201,6 @@ app.include_router(sews_operational_intelligence_router)
 app.include_router(sews_executive_brief_router)
 app.include_router(sews_operations_router)
 
-
-# ---------------------------------------------------------------------------
-# Canonical platform route guard
-# Prevent partial deployments where critical module families disappear.
-# ---------------------------------------------------------------------------
-
 REQUIRED_ROUTE_PREFIXES = [
     "/api/country-intelligence",
     "/api/conflict",
@@ -226,29 +214,19 @@ REQUIRED_ROUTE_PREFIXES = [
 ]
 
 def validate_canonical_routes() -> set[str]:
-    # Rebuild OpenAPI after all application routes have been registered.
     app.openapi_schema = None
-    paths = set(
-        app.openapi().get("paths", {}).keys()
-    )
-
+    paths = set(app.openapi().get("paths", {}).keys())
     missing_route_prefixes = [
         prefix
         for prefix in REQUIRED_ROUTE_PREFIXES
-        if not any(
-            path.startswith(prefix)
-            for path in paths
-        )
+        if not any(path.startswith(prefix) for path in paths)
     ]
-
     if missing_route_prefixes:
         raise RuntimeError(
             "Canonical Sovereign Intelligence API is missing critical route families: "
             + ", ".join(missing_route_prefixes)
         )
-
     return paths
-
 
 @app.get("/api/platform/health", tags=["Platform"])
 def platform_health():
@@ -259,31 +237,19 @@ def platform_health():
         "cyber_information": "/api/cyber-information",
         "strategic_early_warning": "/api/sews",
         "supply_chain": "/api/supply-chain",
-        "financial_corporate": "/api/financial",
+        "financial_risk_command": "/api/financial",
         "scenario": "/api/scenario",
         "simulation": "/api/simulation",
         "global_risk": "/api/global",
         "personal_agent": "/api/agent",
     }
-
     app.openapi_schema = None
-    paths = set(
-        app.openapi().get("paths", {}).keys()
-    )
-
+    paths = set(app.openapi().get("paths", {}).keys())
     modules = {
-        name: {
-            "registered": any(path.startswith(prefix) for path in paths),
-            "prefix": prefix,
-        }
+        name: {"registered": any(path.startswith(prefix) for path in paths), "prefix": prefix}
         for name, prefix in checks.items()
     }
-
-    healthy = all(
-        module["registered"]
-        for module in modules.values()
-    )
-
+    healthy = all(module["registered"] for module in modules.values())
     return {
         "status": "healthy" if healthy else "degraded",
         "service": "Sovereign Intelligence API",
@@ -297,11 +263,7 @@ from app.services.strategic_agents.scheduled_runner import strategic_agent_sched
 @app.on_event("startup")
 async def start_strategic_agent_scheduler() -> None:
     paths = validate_canonical_routes()
-    print(
-        "[Platform] Canonical route validation passed:",
-        len(paths),
-        "OpenAPI paths",
-    )
+    print("[Platform] Canonical route validation passed:", len(paths), "OpenAPI paths")
     await strategic_agent_scheduled_runner.start()
 
 @app.on_event("shutdown")
