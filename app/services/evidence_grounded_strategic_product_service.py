@@ -3,44 +3,21 @@ from __future__ import annotations
 from typing import Any
 
 from app.services.sews_evidence_context_service import SEWSEvidenceContextService
-from app.services.strategic_intelligence_product_service import (
-    StrategicIntelligenceProductService,
-)
+from app.services.strategic_intelligence_product_service import StrategicIntelligenceProductService
 
 
-class EvidenceGroundedStrategicIntelligenceProductService(
-    StrategicIntelligenceProductService
-):
-    """Strategic product service with canonical source evidence in model context.
-
-    Deterministic assessment values remain authoritative in the base service.
-    This subclass only enriches the narrative context with evidence that is
-    explicitly linked to the warning problem in the SEWS data model.
-    """
+class EvidenceGroundedStrategicIntelligenceProductService(StrategicIntelligenceProductService):
+    """Official SEWS product generation grounded in canonical source evidence."""
 
     @staticmethod
     def _qualitative_ai_review(ai_review: dict[str, Any] | None) -> dict[str, Any] | None:
         if not ai_review:
             return None
-        # Official SEWS products have one numerical authority: the deterministic
-        # assessment. AI review can challenge assumptions qualitatively but its
-        # alternative probability/confidence must never become a competing
-        # official forecast in the report narrative.
         allowed = {
-            "id",
-            "reviewed_at",
-            "model_provider",
-            "model_name",
-            "agreement_score",
-            "disposition",
-            "recommended_state",
-            "maintain_official_state",
-            "key_drivers",
-            "contrary_evidence",
-            "confidence_rationale",
-            "monitoring_priorities",
-            "historical_analogs",
-            "narrative",
+            "id", "reviewed_at", "model_provider", "model_name", "agreement_score",
+            "disposition", "recommended_state", "maintain_official_state", "key_drivers",
+            "contrary_evidence", "confidence_rationale", "monitoring_priorities",
+            "historical_analogs", "narrative",
         }
         return {key: value for key, value in ai_review.items() if key in allowed}
 
@@ -89,24 +66,15 @@ class EvidenceGroundedStrategicIntelligenceProductService(
         request: Any,
     ) -> dict[str, Any]:
         context = super()._context_payload(
-            problem,
-            assessment,
-            self._qualitative_ai_review(ai_review),
-            deterministic_drivers,
-            deterministic_contra,
-            request,
+            problem, assessment, self._qualitative_ai_review(ai_review),
+            deterministic_drivers, deterministic_contra, request,
         )
-
-        evidence_context = SEWSEvidenceContextService(self.db).build(
-            str(problem["problem_key"]),
-            limit=40,
-        )
+        evidence_context = SEWSEvidenceContextService(self.db).build(str(problem["problem_key"]), limit=40)
         documents = evidence_context.get("documents") or []
 
-        # Keep the model context compact and source-verifiable. Full raw rows
-        # remain available through the evidence-context endpoint/UI.
         context["canonical_evidence"] = [
             {
+                "note_number": index + 1,
                 "evidence_object_id": row.get("evidence_object_id"),
                 "source_name": row.get("source_name"),
                 "source_key": row.get("source_key"),
@@ -121,42 +89,42 @@ class EvidenceGroundedStrategicIntelligenceProductService(
                 "indicator_keys": row.get("indicator_keys") or [],
                 "observation_statements": row.get("observation_statements") or [],
             }
-            for row in documents[:24]
+            for index, row in enumerate(documents[:24])
         ]
         context["evidence_quality"] = evidence_context.get("quality") or {}
         context["reporting_standard"] = {
-            "single_probability_authority": (
-                "The official deterministic probability and confidence are the only "
-                "numerical probability/confidence judgments permitted in the official "
-                "product. Never mention an AI-adjusted, suggested, alternative, or "
-                "recalculated probability/confidence."
-            ),
-            "grounding": (
-                "Use only the official deterministic assessment, deterministic "
-                "indicator snapshot, qualitative AI review when supplied, and "
-                "canonical_evidence. Do not introduce events, dates, actors, statistics, "
-                "or causal claims that are absent from those inputs."
-            ),
-            "source_attribution": (
-                "When discussing a concrete observed development, identify the source "
-                "in prose when useful. Do not fabricate citations or URLs."
-            ),
-            "forecast_format": {
-                "near_term_0-30_days": "qualitative trajectory, triggers, and observable conditions",
-                "medium_term_31-90_days": "qualitative trajectory, triggers, and observable conditions",
-                "longer_term_91-180_days": "qualitative trajectory, triggers, and observable conditions",
-            },
+            "audience": "Write for an intelligent executive or policy reader who may not know SEWS terminology. Teach the reader what the judgment means without requiring technical training.",
+            "style": "Use clear explanatory prose, short paragraphs, concrete causal language, and ordinary English. Sound like a senior intelligence analyst briefing a decision-maker, not a model describing its internals.",
+            "plain_language": "Never print raw indicator keys such as IND_* in BLUF, executive_summary, full_analysis, forecast, or monitoring priorities. Translate them into human-readable concepts. Define any necessary technical term in plain English on first use.",
+            "single_probability_authority": "The official deterministic probability and confidence are the only numerical probability/confidence judgments permitted. Never mention an AI-adjusted, suggested, alternative, or recalculated probability/confidence, and never conclude that the AI review should replace the official state.",
+            "probability_explanation": "When giving the official probability, immediately explain what it means for the stated time horizon. Make clear that probability is likelihood, confidence is strength of evidence, and severity is consequence if the event occurs.",
+            "confidence_explanation": "Explain confidence using source freshness, corroboration, coverage, and contradictory evidence. Do not quote internal evidence-balance ratios, formula diagnostics, weights, or logits; translate them into practical meaning.",
+            "grounding": "Use only the official deterministic assessment, deterministic indicator snapshot, qualitative AI review when supplied, and canonical_evidence. Do not introduce events, dates, actors, statistics, or causal claims absent from those inputs.",
+            "chicago_citations": "For every material factual claim based on canonical_evidence, append a bracketed note marker using that document's note_number, for example [1]. Use only note numbers present in canonical_evidence. Do not invent citations. The frontend renders those records as Chicago Notes and Bibliography style references.",
+            "source_attribution": "Attribute important observed developments naturally in prose and cite them with the matching note number. Do not paste raw URLs into the narrative.",
             "analytic_structure": [
-                "BLUF: official judgment, direction, probability/state, and most important implication",
-                "Current evidence: observed developments and corroboration",
-                "Assessment: causal drivers, contrary evidence, and why the official score is where it is",
-                "Outlook: near-, medium-, and longer-horizon conditions and triggers",
-                "Implications: decision-relevant consequences",
-                "Collection gaps: what evidence would materially change the judgment",
+                "Opening judgment: what is likely, over what horizon, and why the reader should care",
+                "What is happening: the most important observed developments in normal language with evidence notes",
+                "Why the estimate is where it is: strongest drivers and the evidence holding the probability down",
+                "How escalation could happen: the causal sequence in concrete steps, not abstract model terminology",
+                "What the forecast means: 0-30, 31-90, and 91-180 day outlooks and conditions that would move the judgment",
+                "Implications: practical consequences for governments, companies, markets, infrastructure, or operations as applicable",
+                "Uncertainty and gaps: what is unknown, stale, weakly corroborated, or missing and why that matters",
+                "What to watch next: observable developments that would increase or decrease concern",
             ],
-            "uncertainty": (
-                "Explicitly distinguish observed facts from analytic inference and state "
-                "when evidence coverage or source diversity is weak."
-            ),
+            "forecast_format": {
+                "near_term_0-30_days": "Explain the expected trajectory, what would make risk rise or fall, and what the reader should watch.",
+                "medium_term_31-90_days": "Explain the expected trajectory, escalation pathways, and decision-relevant triggers.",
+                "longer_term_91-180_days": "Explain the broader outlook and structural conditions without pretending to have precision the evidence cannot support.",
+            },
+            "forbidden_report_habits": [
+                "Do not use pseudo-headings such as Drivers Explanation:, Contrary Evidence Analysis:, Escalation Pathways:, Implications:, Monitoring Priorities Rationale:, or Forecast Outlook: inside full_analysis.",
+                "Do not dump raw indicator identifiers into prose.",
+                "Do not narrate internal formulas, evidence-balance ratios, logits, weights, or model plumbing.",
+                "Do not repeat the same probability in every paragraph.",
+                "Do not end by saying the AI review recommends a different official state.",
+                "Do not use generic filler such as continuous vigilant monitoring will be key.",
+            ],
+            "uncertainty": "Separate observed facts from analytic inference. Explain uncertainty as a practical limitation: what is not known, why it is not known, and how new evidence could change the judgment.",
         }
         return context
