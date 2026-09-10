@@ -28,6 +28,11 @@ create index if not exists financial_risk_reports_symbol_generated_idx
 alter table public.financial_risk_snapshots enable row level security;
 alter table public.financial_risk_reports enable row level security;
 
--- Backend service/secret-key requests bypass RLS. No public policies are
--- created here deliberately; user-facing access should remain mediated by the
--- authenticated Sovereign Intelligence API.
+-- Supabase 2026 Data API defaults no longer guarantee new public tables are
+-- reachable through PostgREST. Explicitly grant only the backend service role.
+-- No anon/authenticated grants or policies are created: browser access remains
+-- mediated through the Sovereign Intelligence FastAPI service.
+grant select, insert on table public.financial_risk_snapshots to service_role;
+grant select, insert on table public.financial_risk_reports to service_role;
+revoke all on table public.financial_risk_snapshots from anon, authenticated;
+revoke all on table public.financial_risk_reports from anon, authenticated;
