@@ -8,11 +8,13 @@ from pydantic import BaseModel, Field
 
 from routes.financial_corporate_integrated import integrated_status, live_integrated_snapshot
 from routes.financial_corporate_reports import FinancialCorporateReportRequest, generate_report
+from services.financial_corporate.financial_depth import FinancialDepthService
 from services.financial_corporate.risk_engine import CorporateRiskEngine
 
 
 router = APIRouter(prefix="/api/financial", tags=["Financial Risk Command"])
 risk_engine = CorporateRiskEngine()
+financial_depth = FinancialDepthService()
 
 
 DIMENSION_LABELS = {
@@ -132,6 +134,16 @@ def financial_command_status():
             {"key": dimension.key, "label": DIMENSION_LABELS[dimension.key], "weight": dimension.weight}
             for dimension in risk_engine.DIMENSIONS
         ],
+        "financial_depth": {
+            "status": "enabled",
+            "score_policy": "evidence_only_pending_calibration_into_financial_resilience",
+            "capabilities": [
+                "debt_maturity_and_refinancing",
+                "rates_sensitivity",
+                "fx_sensitivity_when_disclosed",
+                "multi_period_revenue_earnings_cash_flow_debt_trends",
+            ],
+        },
         "risk_thresholds": {"critical": 85, "high": 70, "elevated": 55, "guarded": 35, "low": 0},
         "upstream": upstream,
     }
@@ -146,6 +158,21 @@ def financial_command_snapshot(symbol: str):
     return {
         "status": live.get("status", "success"),
         "data": _normalize_snapshot(live, normalized_symbol),
+    }
+
+
+@router.get("/depth/{symbol}")
+def financial_command_depth(symbol: str):
+    normalized_symbol = symbol.strip().upper()
+    if not normalized_symbol:
+        raise HTTPException(status_code=400, detail="Ticker symbol is required")
+    try:
+        result = financial_depth.collect(normalized_symbol)
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Financial depth collection failed: {exc}") from exc
+    return {
+        "status": "success" if result.get("assessment_status") == "complete" else "partial",
+        "data": result,
     }
 
 
