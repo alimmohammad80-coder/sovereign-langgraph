@@ -4,11 +4,13 @@ from typing import Any, Dict, Optional
 
 
 class CorporateFundamentalsAnalyzer:
-    """Convert normalized financial observations into transparent ratios and risk.
+    """Convert reported financial observations into transparent resilience risk.
 
-    This is an intentionally conservative v1 scoring layer. Missing observations
-    reduce evidence coverage rather than being silently treated as healthy.
+    Scores are deterministic. Missing observations reduce evidence coverage and
+    never become synthetic neutral/healthy values.
     """
+
+    EXPECTED_COMPONENTS = 6
 
     @staticmethod
     def _value(observations: Dict[str, Any], key: str) -> Optional[float]:
@@ -51,7 +53,10 @@ class CorporateFundamentalsAnalyzer:
             "cash_to_liabilities": self._ratio(cash, liabilities),
             "net_margin": self._ratio(net_income, revenue),
             "operating_margin": self._ratio(operating_income, revenue),
-            "interest_coverage": self._ratio(operating_income, abs(interest_expense) if interest_expense is not None else None),
+            "interest_coverage": self._ratio(
+                operating_income,
+                abs(interest_expense) if interest_expense is not None else None,
+            ),
             "operating_cash_flow_to_debt": self._ratio(operating_cash_flow, debt),
         }
 
@@ -81,23 +86,52 @@ class CorporateFundamentalsAnalyzer:
             x = ratios["operating_cash_flow_to_debt"]
             components["cash_flow_debt_coverage"] = self._clamp((0.50 - x) / 0.50 * 100)
 
+        financial_risk: Optional[float]
         if components:
             financial_risk = self._clamp(sum(components.values()) / len(components))
         else:
-            financial_risk = 50.0
+            financial_risk = None
 
-        expected = 6
-        coverage = self._clamp(len(components) / expected * 100)
+        coverage = self._clamp(len(components) / self.EXPECTED_COMPONENTS * 100)
+        missing_components = [
+            key
+            for key in (
+                "balance_sheet_leverage",
+                "debt_burden",
+                "liquidity",
+                "interest_service",
+                "profitability",
+                "cash_flow_debt_coverage",
+            )
+            if key not in components
+        ]
+
+        assessment_status = (
+            "complete"
+            if len(components) == self.EXPECTED_COMPONENTS
+            else "partial"
+            if components
+            else "insufficient_evidence"
+        )
 
         return {
             "financial_resilience_risk_score": financial_risk,
             "risk_direction": "higher_is_worse",
+            "assessment_status": assessment_status,
             "evidence_coverage": coverage,
-            "ratios": {key: round(value, 4) if value is not None else None for key, value in ratios.items()},
+            "observed_component_count": len(components),
+            "total_component_count": self.EXPECTED_COMPONENTS,
+            "missing_components": missing_components,
+            "ratios": {
+                key: round(value, 4) if value is not None else None
+                for key, value in ratios.items()
+            },
             "components": components,
-            "methodology": "fundamental_ratio_risk_v1",
+            "methodology": "fundamental_ratio_risk_v2_missing_aware",
             "notes": [
                 "Scores are deterministic and derived only from available reported observations.",
-                "Cross-period normalization and sector-relative calibration will be added in later model versions.",
+                "No-data conditions return an unknown score rather than a synthetic neutral score.",
+                "Evidence coverage is reported independently from risk severity.",
+                "Sector-relative and cross-period calibration remain separate future model layers and are not fabricated here.",
             ],
         }
