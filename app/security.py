@@ -12,7 +12,15 @@ from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoin
 from services.control_plane_auth import build_user_context, verify_supabase_token
 
 
-PUBLIC_PATHS = frozenset({"/", "/health", "/api/platform/health"})
+# Non-sensitive bootstrap/health routes that must load before a user can make an
+# intelligence decision. Intelligence reports, scores, forecasts and live runs
+# remain protected below.
+PUBLIC_PATHS = frozenset({
+    "/",
+    "/health",
+    "/api/platform/health",
+    "/api/country-intelligence/countries",
+})
 
 
 @dataclass(frozen=True)
