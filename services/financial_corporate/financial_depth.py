@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
+from .corporate_credit import CorporateCreditVulnerabilityAnalyzer
 from .debt_refinancing import DebtRefinancingAnalyzer
 from .market_credit import MarketCreditIntelligenceService
 from .sec_edgar import SECEdgarCollector
@@ -20,6 +21,7 @@ class FinancialDepthService:
         self.debt_refinancing = DebtRefinancingAnalyzer()
         self.sensitivity = FinancialSensitivityAnalyzer()
         self.trends = FinancialTrendAnalyzer()
+        self.corporate_credit = CorporateCreditVulnerabilityAnalyzer()
 
     def collect(self, symbol: str) -> Dict[str, Any]:
         normalized_symbol = symbol.strip().upper()
@@ -59,6 +61,7 @@ class FinancialDepthService:
         )
         sensitivity = self.sensitivity.analyze(observations)
         trends = self.trends.analyze(depth_raw.get("financial_history") or {})
+        company_credit = self.corporate_credit.analyze(observations, debt, credit_analysis)
 
         observed_sections = sum(
             1
@@ -66,6 +69,7 @@ class FinancialDepthService:
                 debt.get("assessment_status"),
                 sensitivity.get("rate_sensitivity", {}).get("status"),
                 trends.get("assessment_status"),
+                company_credit.get("assessment_status"),
             )
             if status not in {None, "insufficient_evidence"}
         )
@@ -77,8 +81,9 @@ class FinancialDepthService:
                 "cik": resolved.get("cik"),
                 "legal_name": resolved.get("title"),
             },
-            "assessment_status": "complete" if observed_sections == 3 and not errors else ("partial" if observed_sections else "insufficient_evidence"),
+            "assessment_status": "complete" if observed_sections == 4 and not errors else ("partial" if observed_sections else "insufficient_evidence"),
             "debt_refinancing": debt,
+            "credit_vulnerability": company_credit,
             "sensitivity": sensitivity,
             "financial_trends": trends,
             "source_evidence": {
