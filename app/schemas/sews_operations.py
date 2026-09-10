@@ -7,6 +7,7 @@ class WarningSupervisorRunRequest(BaseModel):
     problem_key: str
     dry_run: bool = False
     limit_per_query: int = Field(default=10, ge=1, le=100)
+    collect_sources: bool = True
 
 class PortfolioSupervisorRunRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -14,6 +15,7 @@ class PortfolioSupervisorRunRequest(BaseModel):
     dry_run: bool = False
     concurrency: int = Field(default=3, ge=1, le=10)
     limit_per_query: int = Field(default=10, ge=1, le=100)
+    collect_sources: bool = True
 
 class IndicatorPipelineSummary(BaseModel):
     indicator_key: str
