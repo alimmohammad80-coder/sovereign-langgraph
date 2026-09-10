@@ -15,6 +15,9 @@ from app.services.strategic_intelligence_product_service import (
     StrategicIntelligenceProductError,
     StrategicIntelligenceProductService,
 )
+from app.services.evidence_grounded_strategic_product_service import (
+    EvidenceGroundedStrategicIntelligenceProductService,
+)
 
 
 router = APIRouter(
@@ -37,7 +40,7 @@ def generate_product(
     db: Client = Depends(get_db),
 ):
     try:
-        return StrategicIntelligenceProductService(db).generate(
+        return EvidenceGroundedStrategicIntelligenceProductService(db).generate(
             problem_key,
             payload,
         )
