@@ -122,7 +122,7 @@ def list_evidence(
     response_model=ObservationResponse,
     status_code=status.HTTP_201_CREATED,
 )
-def create_observation(payload: EvidenceNormalizeRequest, db: DB):
+def create_observation(payload: ObservationCreateRequest, db: DB):
     try:
         return SEWSObservationService(db).create(payload)
     except SEWSObservationError as exc:
