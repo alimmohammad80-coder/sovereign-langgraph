@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from typing import Any
 
 from app.ai_gateway import AIGatewayRequest, AIResponseFormat, AITaskType
@@ -84,6 +85,9 @@ CITATION STANDARD
 - canonical_evidence documents include a note_number.
 - For each material factual claim drawn from a document, place its note marker at the
   end of the sentence: [1], [2], etc.
+- If canonical_evidence is non-empty, the report MUST contain at least one note marker
+  and what_is_happening should normally contain multiple markers when multiple sources
+  support the assessment.
 - Use only note numbers supplied in canonical_evidence. Never invent a citation.
 - Do not put raw URLs in narrative text.
 - If the evidence does not support a factual detail, omit the detail.
@@ -203,7 +207,7 @@ class EvidenceGroundedStrategicIntelligenceProductService(StrategicIntelligenceP
             "probability_explanation": "When giving the official probability, immediately explain what it means for the stated time horizon. Make clear that probability is likelihood, confidence is strength of evidence, and severity is consequence if the event occurs.",
             "confidence_explanation": "Explain confidence using source freshness, corroboration, coverage, and contradictory evidence. Do not quote internal evidence-balance ratios, formula diagnostics, weights, or logits; translate them into practical meaning.",
             "grounding": "Use only the official deterministic assessment, deterministic indicator snapshot, qualitative AI review when supplied, and canonical_evidence. Do not introduce events, dates, actors, statistics, or causal claims absent from those inputs.",
-            "chicago_citations": "For every material factual claim based on canonical_evidence, append a bracketed note marker using that document's note_number, for example [1]. Use only note numbers present in canonical_evidence. Do not invent citations. The frontend renders those records as Chicago Notes and Bibliography style references.",
+            "chicago_citations": "For every material factual claim based on canonical_evidence, append a bracketed note marker using that document's note_number, for example [1]. Use only note numbers present in canonical_evidence. Do not invent citations. The product snapshots these citation records so note numbers remain stable after publication.",
             "uncertainty": "Separate observed facts from analytic inference. Explain uncertainty as a practical limitation: what is not known, why it is not known, and how new evidence could change the judgment.",
         }
         return context
@@ -226,7 +230,7 @@ class EvidenceGroundedStrategicIntelligenceProductService(StrategicIntelligenceP
         problem_key: str,
         legacy_product: StrategicIntelligenceProduct,
         request: ProductGenerationRequest,
-    ) -> tuple[str, OfficialAssessmentSections, dict[str, Any]]:
+    ) -> tuple[str, OfficialAssessmentSections, dict[str, Any], list[dict[str, Any]]]:
         evidence_context = self._evidence_context(problem_key)
         canonical_evidence = self._evidence_documents(evidence_context)
         official = legacy_product.official_assessment
@@ -267,11 +271,7 @@ class EvidenceGroundedStrategicIntelligenceProductService(StrategicIntelligenceP
                 },
             )
         )
-        raw = (
-            response.parsed_json
-            if isinstance(response.parsed_json, dict)
-            else json.loads(response.content)
-        )
+        raw = response.parsed_json if isinstance(response.parsed_json, dict) else json.loads(response.content)
         if raw.get("report_format_version") != SEWS_OFFICIAL_ASSESSMENT_FORMAT:
             raise StrategicIntelligenceProductError("Official Assessment output did not declare SEWS-OA/2.0.")
         if not isinstance(raw.get("report_sections"), dict):
@@ -285,18 +285,11 @@ class EvidenceGroundedStrategicIntelligenceProductService(StrategicIntelligenceP
             ) from exc
 
         public_text = "\n".join([
-            sections.key_judgment,
-            sections.why_it_matters,
-            sections.what_is_happening,
-            sections.why_we_assess_this,
-            sections.countervailing_evidence,
-            sections.escalation_pathway,
-            sections.implications,
-            sections.uncertainty_and_gaps,
-            *sections.what_to_watch_next,
-            sections.forecast.near_term_0_30_days,
-            sections.forecast.medium_term_31_90_days,
-            sections.forecast.longer_term_91_180_days,
+            sections.key_judgment, sections.why_it_matters, sections.what_is_happening,
+            sections.why_we_assess_this, sections.countervailing_evidence,
+            sections.escalation_pathway, sections.implications, sections.uncertainty_and_gaps,
+            *sections.what_to_watch_next, sections.forecast.near_term_0_30_days,
+            sections.forecast.medium_term_31_90_days, sections.forecast.longer_term_91_180_days,
         ])
         if "IND_" in public_text.upper():
             raise StrategicIntelligenceProductError("Official Assessment contains raw indicator identifiers.")
@@ -305,6 +298,18 @@ class EvidenceGroundedStrategicIntelligenceProductService(StrategicIntelligenceP
         if len(sections.what_to_watch_next) < 3:
             raise StrategicIntelligenceProductError("Official Assessment requires at least three observable watch items.")
 
+        note_numbers = {int(row["note_number"]) for row in canonical_evidence if row.get("note_number")}
+        used_note_numbers = {int(n) for n in re.findall(r"\[(\d+)\]", public_text)}
+        invalid_notes = used_note_numbers - note_numbers
+        if invalid_notes:
+            raise StrategicIntelligenceProductError(
+                f"Official Assessment contains citation numbers absent from canonical evidence: {sorted(invalid_notes)}"
+            )
+        if canonical_evidence and not used_note_numbers:
+            raise StrategicIntelligenceProductError(
+                "Official Assessment has canonical evidence but contains no citation note markers."
+            )
+
         title = str(raw.get("title") or legacy_product.title).strip()
         generation_meta = {
             "ai_provider": response.provider,
@@ -312,21 +317,14 @@ class EvidenceGroundedStrategicIntelligenceProductService(StrategicIntelligenceP
             "ai_latency_ms": response.latency_ms,
             "ai_usage": response.usage,
             "canonical_evidence_count": len(canonical_evidence),
+            "citation_note_count": len(used_note_numbers),
         }
-        return title, sections, generation_meta
+        return title, sections, generation_meta, canonical_evidence
 
-    def generate(
-        self,
-        problem_key: str,
-        request: ProductGenerationRequest,
-    ) -> StrategicIntelligenceProduct:
-        # Preserve the proven deterministic + persistence pipeline, then issue the
-        # reader-facing OA/2.0 document from exactly that authoritative product.
+    def generate(self, problem_key: str, request: ProductGenerationRequest) -> StrategicIntelligenceProduct:
         legacy_product = super().generate(problem_key, request)
-        title, sections, v2_meta = self._generate_official_assessment_v2(
-            problem_key=problem_key,
-            legacy_product=legacy_product,
-            request=request,
+        title, sections, v2_meta, citation_sources = self._generate_official_assessment_v2(
+            problem_key=problem_key, legacy_product=legacy_product, request=request,
         )
 
         section_payload = sections.model_dump(mode="json")
@@ -334,6 +332,8 @@ class EvidenceGroundedStrategicIntelligenceProductService(StrategicIntelligenceP
         publication.update({
             "report_format_version": SEWS_OFFICIAL_ASSESSMENT_FORMAT,
             "report_sections": section_payload,
+            "citation_style": "Chicago Notes and Bibliography",
+            "citation_sources": citation_sources,
         })
 
         forecast = {
@@ -349,6 +349,8 @@ class EvidenceGroundedStrategicIntelligenceProductService(StrategicIntelligenceP
             "structured_sections_present": True,
             "raw_indicator_ids_absent_from_public_report": True,
             "reader_watch_items_present": len(sections.what_to_watch_next) >= 3,
+            "canonical_evidence_present": len(citation_sources) > 0,
+            "citation_notes_present": int(v2_meta.get("citation_note_count") or 0) > 0,
         })
         qa["checks"] = checks
         qa["report_format_version"] = SEWS_OFFICIAL_ASSESSMENT_FORMAT
@@ -368,37 +370,32 @@ class EvidenceGroundedStrategicIntelligenceProductService(StrategicIntelligenceP
             "publication": publication,
             "confidence_and_provenance": provenance,
         }
-        result = (
-            self.db.table("strategic_intelligence_products")
-            .update(update_row)
-            .eq("product_key", legacy_product.product_key)
-            .execute()
-        )
+        result = self.db.table("strategic_intelligence_products").update(update_row).eq(
+            "product_key", legacy_product.product_key
+        ).execute()
         if not result.data:
             raise StrategicIntelligenceProductError("SEWS-OA/2.0 persistence returned no product row.")
 
         if request.publish_to_ledger:
-            existing_ledger = (
-                self.db.table("sews_warning_ledger")
-                .select("id,narrative_body")
-                .eq("assessment_id", str(request.assessment_id))
-                .limit(1)
-                .execute()
-            )
+            existing_ledger = self.db.table("sews_warning_ledger").select("id,narrative_body").eq(
+                "assessment_id", str(request.assessment_id)
+            ).limit(1).execute()
             if existing_ledger.data:
                 ledger_body = dict(existing_ledger.data[0].get("narrative_body") or {})
                 ledger_body.update({
                     "report_format_version": SEWS_OFFICIAL_ASSESSMENT_FORMAT,
                     "report_sections": section_payload,
+                    "citation_style": "Chicago Notes and Bibliography",
+                    "citation_sources": citation_sources,
                     "bluf": sections.key_judgment,
                     "executive_summary": sections.why_it_matters,
                     "monitoring_priorities": sections.what_to_watch_next,
                     "forecast": forecast,
                     "full_analysis": full_analysis,
                 })
-                self.db.table("sews_warning_ledger").update({
-                    "narrative_body": ledger_body,
-                }).eq("id", existing_ledger.data[0]["id"]).execute()
+                self.db.table("sews_warning_ledger").update({"narrative_body": ledger_body}).eq(
+                    "id", existing_ledger.data[0]["id"]
+                ).execute()
 
         return StrategicIntelligenceProduct(
             product_id=legacy_product.product_id,
