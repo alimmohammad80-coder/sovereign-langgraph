@@ -22,6 +22,7 @@ class SEWSPortfolioSupervisor:
                         problem_key=key,
                         dry_run=request.dry_run,
                         limit_per_query=request.limit_per_query,
+                        collect_sources=request.collect_sources,
                     )
                 )
 
