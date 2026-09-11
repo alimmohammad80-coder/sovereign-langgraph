@@ -221,21 +221,25 @@ def _registered_paths() -> set[str]:
     }
 
 
-def validate_canonical_routes() -> set[str]:
-    # Validate registered FastAPI routes directly. Rebuilding the entire OpenAPI
-    # schema during startup is unnecessary and can be expensive on a large app.
+def validate_canonical_routes(*, strict: bool = True) -> tuple[set[str], list[str]]:
+    """Inspect canonical route families without making production boot depend on the diagnostic.
+
+    Strict mode is intended for CI/tests. Production startup uses non-strict mode so a
+    transient/introspection mismatch cannot take down every API route at once; platform
+    health still reports the actual registration state after boot.
+    """
     paths = _registered_paths()
     missing_route_prefixes = [
         prefix
         for prefix in REQUIRED_ROUTE_PREFIXES
         if not any(path.startswith(prefix) for path in paths)
     ]
-    if missing_route_prefixes:
+    if strict and missing_route_prefixes:
         raise RuntimeError(
             "Canonical Sovereign Intelligence API is missing critical route families: "
             + ", ".join(missing_route_prefixes)
         )
-    return paths
+    return paths, missing_route_prefixes
 
 @app.get("/api/platform/health", tags=["Platform"])
 async def platform_health():
@@ -270,8 +274,16 @@ from app.services.strategic_agents.scheduled_runner import strategic_agent_sched
 
 @app.on_event("startup")
 async def start_strategic_agent_scheduler() -> None:
-    paths = validate_canonical_routes()
-    print("[Platform] Canonical route validation passed:", len(paths), "registered paths")
+    paths, missing = validate_canonical_routes(strict=False)
+    if missing:
+        print(
+            "[Platform] WARNING: canonical route validation reported missing prefixes at startup:",
+            ", ".join(missing),
+            "| registered paths:",
+            len(paths),
+        )
+    else:
+        print("[Platform] Canonical route validation passed:", len(paths), "registered paths")
     await strategic_agent_scheduled_runner.start()
 
 @app.on_event("shutdown")
