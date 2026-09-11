@@ -87,7 +87,7 @@ class FinancialHistoryStore:
                 headers={**self._headers(), "Prefer": ""},
                 params={
                     "symbol": f"eq.{symbol.upper()}",
-                    "select": "id,symbol,captured_at,risk_score,risk_level,confidence_score,methodology",
+                    "select": "id,symbol,captured_at,risk_score,risk_level,confidence_score,methodology,snapshot_json",
                     "order": "captured_at.desc",
                     "limit": max(1, min(200, int(limit))),
                 },
