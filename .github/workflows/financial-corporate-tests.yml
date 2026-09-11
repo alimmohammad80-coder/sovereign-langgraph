@@ -8,6 +8,7 @@ on:
     paths:
       - 'services/financial_corporate/**'
       - 'routes/financial_corporate_*.py'
+      - 'routes/financial_command.py'
       - 'tests/test_financial_corporate_*.py'
       - 'main.py'
       - 'app/main.py'
@@ -16,6 +17,7 @@ on:
     paths:
       - 'services/financial_corporate/**'
       - 'routes/financial_corporate_*.py'
+      - 'routes/financial_command.py'
       - 'tests/test_financial_corporate_*.py'
       - 'main.py'
       - 'app/main.py'
@@ -42,7 +44,8 @@ jobs:
         run: |
           python -m py_compile \
             services/financial_corporate/*.py \
-            routes/financial_corporate_*.py
+            routes/financial_corporate_*.py \
+            routes/financial_command.py
 
       - name: Run report pipeline tests
         run: |
