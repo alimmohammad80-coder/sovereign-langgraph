@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import os
 import statistics
 import time
 import urllib.error
@@ -17,6 +18,7 @@ DEFAULT_PATHS = (
     "/",
     "/health",
     "/api/platform/health",
+    "/api/country-intelligence/countries",
     "/api/global/risk",
 )
 FRESHNESS_KEYS = (
@@ -79,21 +81,20 @@ def collect_freshness(payload: Any, prefix: str = "") -> list[tuple[str, datetim
             if isinstance(value, (dict, list)):
                 found.extend(collect_freshness(value, path))
     elif isinstance(payload, list):
-        # Sample only a small prefix so a very large response does not make the
-        # diagnostic itself expensive.
         for index, value in enumerate(payload[:25]):
             found.extend(collect_freshness(value, f"{prefix}[{index}]"))
     return found
 
 
-def fetch(url: str, timeout: float) -> Sample:
-    request = urllib.request.Request(
-        url,
-        headers={
-            "Accept": "application/json",
-            "User-Agent": "sovereign-phase1-performance-audit/1.0",
-        },
-    )
+def fetch(url: str, timeout: float, bearer_token: str | None) -> Sample:
+    headers = {
+        "Accept": "application/json",
+        "User-Agent": "sovereign-phase1-performance-audit/1.1",
+    }
+    if bearer_token:
+        headers["Authorization"] = f"Bearer {bearer_token}"
+
+    request = urllib.request.Request(url, headers=headers)
     started = time.perf_counter()
     try:
         with urllib.request.urlopen(request, timeout=timeout) as response:
@@ -117,14 +118,20 @@ def fetch(url: str, timeout: float) -> Sample:
         elapsed_ms = (time.perf_counter() - started) * 1000
         body = exc.read()
         return Sample(exc.code, elapsed_ms, len(body), f"HTTP {exc.code}")
-    except Exception as exc:  # diagnostic script: preserve the concrete failure
+    except Exception as exc:
         elapsed_ms = (time.perf_counter() - started) * 1000
         return Sample(None, elapsed_ms, 0, str(exc))
 
 
-def audit_path(base_url: str, path: str, runs: int, timeout: float) -> dict[str, Any]:
+def audit_path(
+    base_url: str,
+    path: str,
+    runs: int,
+    timeout: float,
+    bearer_token: str | None,
+) -> dict[str, Any]:
     url = base_url.rstrip("/") + "/" + path.lstrip("/")
-    samples = [fetch(url, timeout) for _ in range(runs)]
+    samples = [fetch(url, timeout, bearer_token) for _ in range(runs)]
     successful = [sample for sample in samples if sample.status and 200 <= sample.status < 400]
     timings = [sample.elapsed_ms for sample in successful]
     sizes = [sample.size_bytes for sample in successful]
@@ -175,6 +182,11 @@ def main() -> None:
     parser.add_argument("--runs", type=int, default=5)
     parser.add_argument("--timeout", type=float, default=30.0)
     parser.add_argument(
+        "--token",
+        default=os.getenv("SOVEREIGN_BEARER_TOKEN"),
+        help="Bearer token for protected routes. Prefer SOVEREIGN_BEARER_TOKEN so the token is not stored in shell history.",
+    )
+    parser.add_argument(
         "--path",
         action="append",
         dest="paths",
@@ -187,8 +199,9 @@ def main() -> None:
         "base_url": args.base_url,
         "measured_at": datetime.now(timezone.utc).isoformat(),
         "runs_per_path": args.runs,
+        "authenticated": bool(args.token),
         "results": [
-            audit_path(args.base_url, path, args.runs, args.timeout)
+            audit_path(args.base_url, path, args.runs, args.timeout, args.token)
             for path in paths
         ],
     }
