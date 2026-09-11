@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 
 from routes.financial_corporate_integrated import integrated_status, live_integrated_snapshot
 from routes.financial_corporate_reports import FinancialCorporateReportRequest, generate_report
+from routes.financial_history import router as financial_history_router
 from services.financial_corporate.financial_depth import FinancialDepthService
 from services.financial_corporate.financial_forecast import FinancialRiskForecastEngine
 from services.financial_corporate.risk_engine import CorporateRiskEngine
@@ -274,6 +275,7 @@ def financial_command_status():
                 "directional_30_90_180_day_forecasts",
                 "deterministic_score_explanation",
                 "source_freshness_metadata",
+                "historical_risk_evolution",
             ],
         },
         "risk_thresholds": {"critical": 85, "high": 70, "elevated": 55, "guarded": 35, "low": 0},
@@ -384,3 +386,6 @@ def financial_command_report(payload: CommandReportRequest):
             preferred_narrative_provider=provider,
         )
     )
+
+
+router.include_router(financial_history_router)
