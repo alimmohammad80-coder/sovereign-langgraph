@@ -7,6 +7,7 @@ from typing import Iterable
 
 from fastapi import Request
 from fastapi.responses import JSONResponse
+from starlette.concurrency import run_in_threadpool
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 
 from services.control_plane_auth import build_user_context, verify_supabase_token
@@ -88,7 +89,10 @@ class PlatformSecurityMiddleware(BaseHTTPMiddleware):
             return JSONResponse({"detail": "Missing or malformed bearer token"}, status_code=401)
 
         try:
-            token_user = verify_supabase_token(token)
+            # Token verification and account-context reads use synchronous HTTP
+            # clients. Run them in Starlette's worker pool so a slow control-plane
+            # request can never block the FastAPI event loop or public /health.
+            token_user = await run_in_threadpool(verify_supabase_token, token)
             user_id = token_user.get("id") or token_user.get("sub")
             if not user_id:
                 raise ValueError("token has no user identity")
@@ -99,7 +103,7 @@ class PlatformSecurityMiddleware(BaseHTTPMiddleware):
         try:
             # Authorization/account context must be read from the same application
             # control plane that issued the session, under the caller's RLS identity.
-            context = build_user_context(str(user_id), token)
+            context = await run_in_threadpool(build_user_context, str(user_id), token)
         except Exception:
             # A verified identity without a usable account context has no access.
             return JSONResponse({"detail": "Account context unavailable"}, status_code=403)
