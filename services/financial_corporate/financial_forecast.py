@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, Mapping, Optional
+from typing import Any, Dict, Optional
 
 
 class FinancialRiskForecastEngine:
@@ -27,6 +27,30 @@ class FinancialRiskForecastEngine:
         if score is None:
             return None
         return (score - neutral) / 50.0
+
+    @staticmethod
+    def _risk_level(score: float) -> str:
+        if score >= 85:
+            return "Critical"
+        if score >= 70:
+            return "High"
+        if score >= 55:
+            return "Elevated"
+        if score >= 35:
+            return "Guarded"
+        return "Low"
+
+    @classmethod
+    def _horizon_payload(cls, projected: float, delta: float, direction: str) -> Dict[str, Any]:
+        # Keep delta for analytical consumers and expose change_from_current as
+        # the canonical presentation contract used by Financial Risk Command.
+        return {
+            "risk_score": projected,
+            "risk_level": cls._risk_level(projected),
+            "delta": delta,
+            "change_from_current": delta,
+            "direction": direction,
+        }
 
     def forecast(
         self,
@@ -79,11 +103,17 @@ class FinancialRiskForecastEngine:
             weight_sum += w
 
         if not pressures:
+            horizons = {
+                h: self._horizon_payload(base, 0.0, "stable")
+                for h in self.HORIZONS
+            }
             return {
                 "assessment_status": "base_only",
                 "base_risk_score": base,
+                "current_risk_score": base,
+                "current_risk_level": self._risk_level(base),
                 "confidence_score": confidence,
-                "horizons": {h: {"risk_score": base, "direction": "stable", "delta": 0.0} for h in self.HORIZONS},
+                "horizons": horizons,
                 "drivers": [],
                 "methodology": "financial_risk_directional_forecast_v1",
                 "probability_forecast": False,
@@ -91,7 +121,6 @@ class FinancialRiskForecastEngine:
             }
 
         composite_pressure = sum(p * w for _, p, w in pressures) / weight_sum
-        # Confidence dampens trajectory magnitude. Maximum 180d movement is 18 points.
         confidence_scalar = 0.35 + 0.65 * (confidence / 100.0)
         max_delta = 18.0 * composite_pressure * confidence_scalar
 
@@ -100,11 +129,7 @@ class FinancialRiskForecastEngine:
             delta = round(max_delta * scalar, 2)
             projected = round(max(0.0, min(100.0, base + delta)), 2)
             direction = "deteriorating" if delta >= 2.0 else "improving" if delta <= -2.0 else "stable"
-            horizons[horizon] = {
-                "risk_score": projected,
-                "delta": delta,
-                "direction": direction,
-            }
+            horizons[horizon] = self._horizon_payload(projected, delta, direction)
 
         drivers = sorted(
             [
@@ -118,6 +143,8 @@ class FinancialRiskForecastEngine:
         return {
             "assessment_status": "complete" if weight_sum >= 0.8 else "partial",
             "base_risk_score": base,
+            "current_risk_score": base,
+            "current_risk_level": self._risk_level(base),
             "confidence_score": confidence,
             "input_weight_coverage": round(weight_sum * 100.0, 2),
             "composite_pressure": round(composite_pressure, 4),

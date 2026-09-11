@@ -27,6 +27,16 @@ class FinancialResilienceCalibrationEngine:
         except (TypeError, ValueError):
             return None
 
+    @staticmethod
+    def _result(score: Optional[float], **payload: Any) -> Dict[str, Any]:
+        # calibrated_risk_score is a presentation compatibility alias. The
+        # authoritative field remains financial_resilience_risk_score.
+        return {
+            "financial_resilience_risk_score": score,
+            "calibrated_risk_score": score,
+            **payload,
+        }
+
     def calibrate(
         self,
         *,
@@ -72,30 +82,27 @@ class FinancialResilienceCalibrationEngine:
 
         fundamentals_score = candidates["fundamentals"][0]
         if fundamentals_score is None:
-            return {
-                "financial_resilience_risk_score": None,
-                "confidence_score": 0.0,
-                "assessment_status": "insufficient_evidence",
-                "components": observed,
-                "methodology": "financial_resilience_calibrated_v1",
-                "ai_generated_score": False,
-            }
+            return self._result(
+                None,
+                confidence_score=0.0,
+                assessment_status="insufficient_evidence",
+                components=observed,
+                methodology="financial_resilience_calibrated_v1",
+                ai_generated_score=False,
+            )
 
         denominator = sum(item["effective_weight"] for item in observed.values())
         if denominator <= 0:
-            return {
-                "financial_resilience_risk_score": fundamentals_score,
-                "confidence_score": candidates["fundamentals"][1],
-                "assessment_status": "base_only",
-                "components": observed,
-                "methodology": "financial_resilience_calibrated_v1",
-                "ai_generated_score": False,
-            }
+            return self._result(
+                fundamentals_score,
+                confidence_score=candidates["fundamentals"][1],
+                assessment_status="base_only",
+                components=observed,
+                methodology="financial_resilience_calibrated_v1",
+                ai_generated_score=False,
+            )
 
         score = sum(item["score"] * item["effective_weight"] for item in observed.values()) / denominator
-
-        # Keep depth evidence from moving the anchored fundamentals result by
-        # more than 15 points until calibration/backtesting matures.
         lower = fundamentals_score - 15.0
         upper = fundamentals_score + 15.0
         score = max(lower, min(upper, score))
@@ -106,15 +113,15 @@ class FinancialResilienceCalibrationEngine:
             item["confidence"] * item["base_weight"] for item in observed.values()
         )
 
-        return {
-            "financial_resilience_risk_score": score,
-            "base_fundamentals_score": fundamentals_score,
-            "score_delta": round(score - fundamentals_score, 2),
-            "confidence_score": round(max(0.0, min(100.0, confidence)), 2),
-            "evidence_coverage": round(intended_weight_coverage * 100.0, 2),
-            "assessment_status": "complete" if intended_weight_coverage >= 0.95 else "partial",
-            "components": observed,
-            "guardrails": {"max_delta_from_fundamentals": 15.0},
-            "methodology": "financial_resilience_calibrated_v1",
-            "ai_generated_score": False,
-        }
+        return self._result(
+            score,
+            base_fundamentals_score=fundamentals_score,
+            score_delta=round(score - fundamentals_score, 2),
+            confidence_score=round(max(0.0, min(100.0, confidence)), 2),
+            evidence_coverage=round(intended_weight_coverage * 100.0, 2),
+            assessment_status="complete" if intended_weight_coverage >= 0.95 else "partial",
+            components=observed,
+            guardrails={"max_delta_from_fundamentals": 15.0},
+            methodology="financial_resilience_calibrated_v1",
+            ai_generated_score=False,
+        )
