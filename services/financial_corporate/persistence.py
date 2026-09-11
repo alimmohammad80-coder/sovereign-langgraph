@@ -78,35 +78,6 @@ class FinancialHistoryStore:
             },
         )
 
-    @staticmethod
-    def _history_item(row: Dict[str, Any]) -> Dict[str, Any]:
-        snapshot = row.get("snapshot_json") if isinstance(row.get("snapshot_json"), dict) else {}
-        dimensions = snapshot.get("dimensions") if isinstance(snapshot.get("dimensions"), list) else []
-        dimension_scores = {
-            str(item.get("key")): item.get("score")
-            for item in dimensions
-            if isinstance(item, dict) and item.get("key")
-        }
-        explanation = snapshot.get("explanation") if isinstance(snapshot.get("explanation"), dict) else {}
-        largest_pressure = explanation.get("largest_pressure") if isinstance(explanation.get("largest_pressure"), dict) else {}
-        freshness = snapshot.get("freshness") if isinstance(snapshot.get("freshness"), dict) else {}
-        return {
-            "id": row.get("id"),
-            "symbol": row.get("symbol"),
-            "captured_at": row.get("captured_at"),
-            "risk_score": row.get("risk_score"),
-            "risk_level": row.get("risk_level"),
-            "confidence_score": row.get("confidence_score"),
-            "methodology": row.get("methodology"),
-            "dimensions": dimension_scores,
-            "largest_pressure": {
-                "key": largest_pressure.get("key"),
-                "label": largest_pressure.get("label"),
-                "score": largest_pressure.get("score"),
-            } if largest_pressure else None,
-            "freshness_status": freshness.get("overall_status"),
-        }
-
     def list_snapshots(self, symbol: str, limit: int = 30) -> Dict[str, Any]:
         if not self.configured:
             return {"status": "disabled", "items": []}
@@ -124,8 +95,7 @@ class FinancialHistoryStore:
             )
             response.raise_for_status()
             data = response.json()
-            rows = data if isinstance(data, list) else []
-            return {"status": "success", "items": [self._history_item(row) for row in rows]}
+            return {"status": "success", "items": data if isinstance(data, list) else []}
         except Exception as exc:
             return {"status": "error", "items": [], "error": str(exc)}
 
